@@ -3,18 +3,54 @@
 Generates machine-readable reports for MTMCS-Bench, CoSafe, and MTID.
 Run from the project root:
     python -m causal_mllm.adapters.inspect_datasets outputs/schema
+
+MTMCS dialogue semantics (verified against upstream inference code):
+  All r*/safe_*/unsafe_* fields are USER turns, not assistant responses.
+
+  TYPE A:
+    unsafe: user(r1) → user(r2) → user(unsafe_r3)
+    safe:   user(r1) → user(r2) → user(safe_r3)
+    Divergence at the terminal turn.
+
+  TYPE B:
+    unsafe: user(unsafe_r1) → user(r2) → user(r3)
+    safe:   user(safe_r1)   → user(r2) → user(r3)
+    Divergence at the opening turn. Terminal query r3 is shared.
 """
 
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
 
+def _sanitize_field_value(val: Any, max_len: int = 40) -> str:
+    """Produce a structural descriptor instead of raw content.
+
+    For strings: "<string:length=N>" or truncated preview for short metadata.
+    For images: "<PIL.Image:size=WxH>"
+    For lists: "<list[N]>"
+    For dicts: "<dict[N keys]>"
+    """
+    if val is None:
+        return "<null>"
+    if isinstance(val, str):
+        if not val.strip():
+            return "<empty>"
+        return f"<string:length={len(val)}>"
+    if isinstance(val, list):
+        return f"<list[{len(val)}]>"
+    if isinstance(val, dict):
+        return f"<dict[{len(val)} keys]>"
+    # PIL Images
+    if hasattr(val, "size") and hasattr(val, "mode"):
+        return f"<PIL.Image:size={val.size[0]}x{val.size[1]},mode={val.mode}>"
+    return f"<{type(val).__name__}:{str(val)[:max_len]}>"
+
+
 def inspect_mtmcs(cache_dir: str | None = None, n: int = 20) -> dict[str, Any]:
-    """Inspect ND-25/MCS-bench (MTMCS-Bench) schema."""
+    """Inspect ND-25/MCS-bench (MTMCS-Bench) schema for both splits."""
     from datasets import load_dataset, load_dataset_builder
 
     builder = load_dataset_builder("ND-25/MCS-bench")
@@ -33,93 +69,127 @@ def inspect_mtmcs(cache_dir: str | None = None, n: int = 20) -> dict[str, Any]:
         "schema_analysis": {
             "description": (
                 "Multi-turn multimodal contextual safety benchmark with "
-                "escalation-based risk. Each scenario has a main image, "
-                "3 variant images, an unsafe_intent description, and "
-                "paired safe/unsafe dialogues in both multimodal and "
-                "unimodal (text-only) conditions."
+                "escalation-based risk. Each scenario provides paired "
+                "safe/unsafe user trajectories in both multimodal and "
+                "unimodal conditions."
             ),
-            "total_rows": "752 per split",
-            "dialogue_structure": {
-                "r1": "Round 1 user query (benign, image-referencing for multimodal)",
-                "unsafe_r1": "Unsafe assistant response for r1 (often empty)",
-                "safe_r1": "Safe assistant response for r1 (often empty)",
-                "r2": "Round 2 user query (escalation, more targeted)",
-                "r3": "Round 3 user query (usually empty; terminal query is in safe/unsafe_r3)",
-                "unsafe_r3": "Unsafe variant response to terminal query",
-                "safe_r3": "Safe variant response to terminal query",
+            "critical_semantics": (
+                "ALL r1/unsafe_r1/safe_r1/r2/r3/unsafe_r3/safe_r3 are USER turns. "
+                "The upstream evaluation generates assistant responses DYNAMICALLY "
+                "after each user turn. They are NOT pre-written assistant responses."
+            ),
+            "type_a_trajectories": {
+                "description": "Divergence at the TERMINAL turn",
+                "unsafe": "user(r1) → user(r2) → user(unsafe_r3)",
+                "safe":   "user(r1) → user(r2) → user(safe_r3)",
+                "shared_fields": ["r1", "r2"],
+                "divergent_fields": ["unsafe_r3", "safe_r3"],
+                "terminal_query_varies": True,
+                "causal_note": (
+                    "The final query changes between safe/unsafe. "
+                    "Useful for escalation studies but NOT a fixed-terminal-query pair."
+                ),
+            },
+            "type_b_trajectories": {
+                "description": "Divergence at the OPENING turn",
+                "unsafe": "user(unsafe_r1) → user(r2) → user(r3)",
+                "safe":   "user(safe_r1)   → user(r2) → user(r3)",
+                "shared_fields": ["r2", "r3"],
+                "divergent_fields": ["unsafe_r1", "safe_r1"],
+                "terminal_query_varies": False,
+                "causal_note": (
+                    "Terminal query r3 is IDENTICAL across safe/unsafe. "
+                    "Only the opening history differs. "
+                    "This is almost exactly (H_safe, q*) vs (H_unsafe, q*)."
+                ),
             },
             "key_observations": [
-                "type_a and type_b splits with 752 rows each",
+                "type_a and type_b splits, 752 rows each",
                 "Each row has multimodal AND unimodal dialogue variants",
-                "Main image is a real photograph; variant_images are 3 derived images",
-                "unsafe_intent field describes the harmful goal abstractly",
-                "Escalation: r1 (benign) -> r2 (narrowing) -> r3 (unsafe/safe diverge)",
+                "main image is a real photograph; variant_images are 3 derived images",
+                "unsafe_intent describes the harmful goal abstractly",
                 "MCQ and T/F questions provide structured evaluation signals",
-                "r1/r2 are user queries; safe_r3/unsafe_r3 encode terminal query variants",
+                "safe_r1/unsafe_r1 and safe_r3/unsafe_r3 are USER turns, not assistant responses",
+                "type_b is the most valuable subset for fixed-terminal-query causal experiments",
             ],
             "causal_family_suitability": {
                 "strengths": [
-                    "Built-in safe/unsafe pairing per scenario",
+                    "Built-in safe/unsafe paired trajectories per scenario",
                     "Both multimodal and unimodal conditions exist",
-                    "Clear escalation structure suitable for history manipulation",
+                    "type_b provides fixed-terminal-query causal pairs",
                     "Real images with diverse safety categories",
                 ],
                 "limitations": [
-                    "Terminal query is not byte-identical between safe/unsafe conditions",
-                    "Only 2-3 dialogue rounds per scenario",
+                    "type_a terminal query differs between safe/unsafe (not a fixed-q* pair)",
+                    "Only 3 user turns per trajectory (short dialogues)",
                     "variant_images purpose needs further investigation",
-                    "safe_r3/unsafe_r3 encode both query and response in one field",
                 ],
                 "recommended_path": (
-                    "Path B: supports history experiments but strict 2x2 "
-                    "modality intervention requires careful terminal query extraction"
+                    "PRIMARY: Use type_b rows for fixed-terminal-query causal families. "
+                    "SECONDARY: Use type_a rows for escalation-based history studies."
                 ),
             },
         },
     }
 
-    # Load actual rows
-    ds = load_dataset("ND-25/MCS-bench", split=splits[0] if splits else "type_a",
-                      cache_dir=cache_dir)
+    # Load and inspect BOTH splits
     report["total_rows_by_split"] = {}
-    for s in splits:
-        ds_s = load_dataset("ND-25/MCS-bench", split=s, cache_dir=cache_dir)
-        report["total_rows_by_split"][s] = len(ds_s)
+    split_field_stats: dict[str, dict] = {}
 
-    sample_size = min(n, len(ds))
-    for i in range(sample_size):
-        row = ds[i]
-        example: dict[str, Any] = {}
-        for key, val in row.items():
-            if key == "image":
-                example[key] = f"PIL.Image(size={val.size}, mode={val.mode})" if val else None
-            elif key == "variant_images":
-                example[key] = [
-                    f"PIL.Image(size={v.size}, mode={v.mode})" if v else None
-                    for v in (val or [])
-                ]
-            elif isinstance(val, dict):
-                example[key] = {k: str(v)[:150] for k, v in val.items()}
-            elif isinstance(val, list):
-                example[key] = f"list[{len(val)} items]"
-                if val and len(val) > 0:
-                    example[f"{key}_sample"] = json.dumps(val[0], default=str)[:200]
-            else:
-                example[key] = str(val)[:200]
+    for split_name in splits:
+        ds = load_dataset("ND-25/MCS-bench", split=split_name, cache_dir=cache_dir)
+        report["total_rows_by_split"][split_name] = len(ds)
 
-            if key not in report["fields"]:
-                report["fields"][key] = {
-                    "type": type(val).__name__,
-                    "sample_values": [],
-                    "null_count": 0,
-                }
-            if val is None or (isinstance(val, str) and val.strip() == ""):
-                report["fields"][key]["null_count"] += 1
-            elif len(report["fields"][key]["sample_values"]) < 3:
-                sv = str(val)[:200] if not isinstance(val, (list, dict)) else val
-                report["fields"][key]["sample_values"].append(sv)
+        # Field population analysis for this split
+        fields = ["r1", "unsafe_r1", "safe_r1", "r2", "r3", "unsafe_r3", "safe_r3"]
+        field_counts = {f: {"nonempty_mm": 0, "empty_mm": 0,
+                            "nonempty_uni": 0, "empty_uni": 0}
+                        for f in fields}
 
-        report["example_values"].append(example)
+        for row in ds:
+            for modality, dlg_key in [("mm", "multimodal_dialogue"),
+                                       ("uni", "unimodal_dialogue")]:
+                dlg = row[dlg_key]
+                for f in fields:
+                    v = dlg.get(f, "")
+                    suffix = f"nonempty_{modality}" if (v and v.strip()) else f"empty_{modality}"
+                    field_counts[f][suffix] += 1
+
+        split_field_stats[split_name] = field_counts
+
+    report["field_population_by_split"] = split_field_stats
+
+    # Sanitized example values from BOTH splits
+    for split_name in splits:
+        ds = load_dataset("ND-25/MCS-bench", split=split_name, cache_dir=cache_dir)
+        sample_size = min(n, len(ds))
+        for i in range(sample_size):
+            row = ds[i]
+            example: dict[str, Any] = {
+                "split": split_name,
+                "id": row["id"],
+            }
+            for key, val in row.items():
+                if key in ("image", "variant_images"):
+                    example[key] = _sanitize_field_value(val)
+                elif isinstance(val, dict):
+                    # Sanitize dialogue fields
+                    example[key] = {
+                        k: _sanitize_field_value(v) for k, v in val.items()
+                    }
+                elif isinstance(val, list):
+                    example[key] = _sanitize_field_value(val)
+                else:
+                    example[key] = _sanitize_field_value(val)
+
+                # Top-level field analysis
+                if key not in report["fields"]:
+                    report["fields"][key] = {
+                        "type": type(val).__name__,
+                        "description": "",
+                    }
+
+            report["example_values"].append(example)
 
     return report
 
@@ -143,8 +213,7 @@ def inspect_cosafe(data_dir: str | None = None, n: int = 20) -> dict[str, Any]:
                 "Text-only multi-turn dialogue safety dataset. Conversations "
                 "are organized by safety category. Each record is a conversation "
                 "trajectory (list of user/assistant messages). The last user "
-                "message is the terminal query. Risk often depends on references "
-                "to earlier dialogue (coreference)."
+                "message is the terminal query."
             ),
             "dialogue_structure": {
                 "format": "List of {role: user|assistant, content: str}",
@@ -156,24 +225,19 @@ def inspect_cosafe(data_dir: str | None = None, n: int = 20) -> dict[str, Any]:
                 "Categories encoded in filename (comma-separated safety topics)",
                 "14 category files, ~100 records each",
                 "Alternating user/assistant role structure",
-                "Useful as construction template for coreference-based risk",
-                "Not suitable as primary multimodal data source",
+                "Useful as structural template for coreference-based risk",
             ],
             "causal_family_suitability": {
                 "strengths": [
                     "Clear multi-turn escalation with coreference",
                     "Diverse safety categories",
-                    "Clean JSONL format, easy to parse",
+                    "Clean JSONL format",
                 ],
                 "limitations": [
-                    "No images - cannot directly support cross-modal experiments",
-                    "Text-only limits modality ablation possibilities",
-                    "Useful as structural template only",
+                    "No images — cannot support cross-modal experiments",
+                    "Text-only limits modality ablation",
                 ],
-                "recommended_path": (
-                    "Use as structural template for coreference patterns. "
-                    "Not suitable as primary data source for cross-modal families."
-                ),
+                "recommended_path": "Structural template for coreference patterns only.",
             },
         },
     }
@@ -182,7 +246,6 @@ def inspect_cosafe(data_dir: str | None = None, n: int = 20) -> dict[str, Any]:
         report["error"] = f"CoSafe directory not found: {cosafe_dir}"
         return report
 
-    # Inspect each category file
     json_files = sorted(cosafe_dir.glob("*.json"))
     total_records = 0
     categories = []
@@ -201,7 +264,7 @@ def inspect_cosafe(data_dir: str | None = None, n: int = 20) -> dict[str, Any]:
     report["total_records"] = total_records
     report["categories"] = categories
 
-    # Inspect sample records from the first file
+    # Sanitized sample records
     if json_files:
         with json_files[0].open("r", encoding="utf-8") as f:
             lines = f.readlines()
@@ -215,21 +278,17 @@ def inspect_cosafe(data_dir: str | None = None, n: int = 20) -> dict[str, Any]:
                 "messages": [],
             }
             for j, msg in enumerate(rec):
-                msg_summary = {
+                example["messages"].append({
                     "index": j,
                     "role": msg.get("role", "unknown"),
-                    "content_preview": str(msg.get("content", ""))[:150],
-                }
-                example["messages"].append(msg_summary)
-
+                    "content": f"<string:length={len(msg.get('content', ''))}>",
+                })
                 if j == 0:
                     report["fields"] = {
                         "record_type": {"type": "list", "description": "List of message dicts"},
                         "message_keys": {"type": "list", "values": list(msg.keys())},
                         "role_values": {"type": "str", "values": ["user", "assistant"]},
-                        "content": {"type": "str", "description": "Message text content"},
                     }
-
             report["example_values"].append(example)
 
     return report
@@ -243,7 +302,7 @@ def inspect_mtid(cache_dir: str | None = None, n: int = 20) -> dict[str, Any]:
         "source": "mtid",
         "huggingface_id": "Graph-COM/MTID",
         "repository": "https://github.com/Graph-COM/TurnGate",
-        "format": "JSONL (direct download; HuggingFace datasets has Json feature incompatibility)",
+        "format": "JSONL (direct download; HF datasets has Json feature incompatibility)",
         "available_files": [
             "harmful_test.jsonl", "harmful_train.jsonl", "harmful_valid.jsonl",
             "benign_test.jsonl", "benign_train.jsonl", "benign_valid.jsonl",
@@ -254,54 +313,32 @@ def inspect_mtid(cache_dir: str | None = None, n: int = 20) -> dict[str, Any]:
             "description": (
                 "Multi-turn intervention dataset with 800 unique samples, "
                 "20 rollouts per sample, 16000 trajectories. Includes both "
-                "harmful and benign conversations with response-aware safety "
-                "labels and closure-turn annotations."
+                "harmful and benign conversations with closure-turn annotations."
             ),
-            "dialogue_structure": {
-                "format": "List of {turn_id, role, content, hidden_rationale}",
-                "roles": ["user", "assistant"],
-                "hidden_rationale": "Decomposed subgoal description for each turn",
-            },
             "key_fields": {
-                "sample_index": "Unique identifier for the source scenario",
+                "sample_index": "Unique scenario identifier",
                 "rollout_id": "Rollout variant (1-20 per scenario)",
-                "dataset_key": "Source generator identifier",
                 "target_turn": "Turn where safety failure occurs (closure turn)",
-                "target_confidence": "Confidence score for the target turn label",
-                "target_reasoning": "Explanation for why this is the target turn",
+                "target_confidence": "Confidence for target turn label",
                 "meta_intent": "The underlying harmful/benign intent",
-                "conversation": "List of conversation turns",
-                "asr_classification": "Attack success rate classification (C/D/etc.)",
+                "conversation": "List of {turn_id, role, content, hidden_rationale}",
+                "asr_classification": "Attack success rate classification",
             },
-            "key_observations": [
-                "harmful splits: 5600 train + 1200 test records",
-                "benign splits: 5600 train + 1200 test records",
-                "Each conversation has turn_id, role, content, hidden_rationale",
-                "target_turn serves as closure-turn annotation",
-                "meta_intent describes the underlying goal",
-                "20 rollouts per unique sample",
-            ],
             "causal_family_suitability": {
                 "strengths": [
-                    "Explicit closure-turn labels (target_turn)",
+                    "Explicit closure-turn labels",
                     "Multiple rollouts per scenario",
                     "hidden_rationale provides semantic decomposition",
-                    "Both harmful and benign trajectories available",
                 ],
                 "limitations": [
                     "Text-only (no images)",
-                    "Generated dialogues (not organic conversations)",
-                    "Json feature type incompatibility with HF datasets library",
+                    "Generated dialogues",
                 ],
-                "recommended_path": (
-                    "Use for trajectory metadata patterns and closure-turn "
-                    "annotation design. Not suitable as primary multimodal source."
-                ),
+                "recommended_path": "Reference for trajectory metadata and closure-turn design.",
             },
         },
     }
 
-    # Download and inspect files
     file_counts = {}
     for fname in ["harmful_test.jsonl", "benign_test.jsonl"]:
         try:
@@ -311,7 +348,6 @@ def inspect_mtid(cache_dir: str | None = None, n: int = 20) -> dict[str, Any]:
             records = [json.loads(l) for l in lines if l.strip()]
             file_counts[fname] = len(records)
 
-            # Inspect first n records from harmful_test
             if "harmful_test" in fname:
                 sample_size = min(n, len(records))
                 for i in range(sample_size):
@@ -319,20 +355,17 @@ def inspect_mtid(cache_dir: str | None = None, n: int = 20) -> dict[str, Any]:
                     example: dict[str, Any] = {}
                     for k, v in rec.items():
                         if k == "conversation":
-                            example[k] = f"list[{len(v)} turns]"
+                            example[k] = f"<list[{len(v)} turns]>"
                             if v:
-                                example["conversation_sample"] = json.dumps(v[0], default=str)[:200]
+                                example["conversation_turn_keys"] = list(v[0].keys())
                         else:
-                            example[k] = str(v)[:200]
+                            example[k] = _sanitize_field_value(v)
                         if k not in report["fields"]:
                             report["fields"][k] = {
                                 "type": type(v).__name__,
-                                "sample_values": [],
+                                "description": "",
                             }
-                        if len(report["fields"][k]["sample_values"]) < 3:
-                            report["fields"][k]["sample_values"].append(str(v)[:100])
                     report["example_values"].append(example)
-
         except Exception as e:
             file_counts[fname] = f"error: {e}"
 
@@ -361,7 +394,6 @@ def save_report(report: dict, output_dir: str | Path) -> Path:
     with path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False, default=str)
 
-    # Also save examples separately
     examples_dir = output_dir / "examples"
     examples_dir.mkdir(parents=True, exist_ok=True)
     examples_path = examples_dir / f"{report['source']}_examples.json"
@@ -375,7 +407,7 @@ if __name__ == "__main__":
     import sys
     output_dir = sys.argv[1] if len(sys.argv) > 1 else "outputs/schema"
 
-    print("Inspecting MTMCS-Bench...")
+    print("Inspecting MTMCS-Bench (both splits)...")
     mtmcs_report = inspect_mtmcs(n=20)
     path = save_report(mtmcs_report, output_dir)
     print(f"  Report saved to {path}")

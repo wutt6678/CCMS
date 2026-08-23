@@ -1,4 +1,4 @@
-"""Data subpackage: schemas, I/O, validation, and logging."""
+"""Data subpackage: schemas, I/O, validation, logging, and media."""
 
 from causal_mllm.data.io import (
     append_jsonl,
@@ -9,6 +9,7 @@ from causal_mllm.data.io import (
     write_jsonl,
 )
 from causal_mllm.data.logging import get_logger, setup_logging
+from causal_mllm.data.media import MediaLoadError
 from causal_mllm.data.schemas import (
     ALL_VARIANTS,
     CanonicalSourceExample,
@@ -39,6 +40,7 @@ __all__ = [
     "CausalFamily",
     "GeneratorProvenance",
     "InferenceOutput",
+    "MediaLoadError",
     "Message",
     "SafetyJudgeLabel",
     "SafetyLabel",
