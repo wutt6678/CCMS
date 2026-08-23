@@ -138,3 +138,105 @@ def validate_family_strict(record: dict) -> CausalFamily:
     if errors:
         raise SchemaValidationError(errors)
     return CausalFamily.from_dict(record)
+
+
+# ---------------------------------------------------------------------------
+# Enhanced canonical validation (Iteration 2)
+# ---------------------------------------------------------------------------
+
+def validate_canonical_example(example: CanonicalSourceExample) -> list[str]:
+    """Structural validation of a CanonicalSourceExample beyond basic schema.
+
+    Checks:
+      - Number of turns >= 2
+      - Role sequence is valid (depends on source dataset)
+      - Terminal turn is the last user message
+      - Terminal query matches the terminal message text
+      - Label is a valid value
+      - Source ID is non-empty
+      - Source dataset is known
+      - Media references are consistent
+    """
+    errors: list[str] = []
+    sid = f"{example.source_dataset}:{example.source_id}"
+
+    # 1. Source ID
+    if not example.source_id or not example.source_id.strip():
+        errors.append(f"{sid}: source_id is empty")
+
+    # 2. Source dataset
+    known_datasets = {"mtmcs", "cosafe", "mtid", "synthetic"}
+    if example.source_dataset not in known_datasets:
+        errors.append(f"{sid}: unknown source_dataset '{example.source_dataset}'")
+
+    # 3. Label
+    valid_labels = {"safe", "unsafe", "unknown"}
+    if example.label not in valid_labels:
+        errors.append(f"{sid}: invalid label '{example.label}', expected one of {valid_labels}")
+
+    # 4. Number of turns
+    if example.num_turns < 2:
+        errors.append(f"{sid}: only {example.num_turns} turns, expected >= 2")
+
+    # 5. Role sequence
+    roles = [m.role for m in example.messages]
+    valid_roles = {"user", "assistant", "system"}
+    invalid_roles = set(roles) - valid_roles
+    if invalid_roles:
+        errors.append(f"{sid}: invalid roles: {invalid_roles}")
+
+    # MTMCS: all messages must be user turns
+    if example.source_dataset == "mtmcs":
+        non_user = [m for m in example.messages if m.role != "user"]
+        if non_user:
+            errors.append(
+                f"{sid}: MTMCS messages must all be user turns, "
+                f"found {len(non_user)} non-user turns"
+            )
+
+    # CoSafe / MTID: must have at least one user and alternate roles
+    elif example.source_dataset in ("cosafe", "mtid"):
+        if "user" not in roles:
+            errors.append(f"{sid}: no user turns found")
+        if "assistant" not in roles:
+            errors.append(f"{sid}: no assistant turns found")
+
+    # 6. Terminal turn
+    user_turns = [m for m in example.messages if m.role == "user"]
+    if not user_turns:
+        errors.append(f"{sid}: no user turns — cannot determine terminal query")
+    else:
+        last_user = user_turns[-1]
+        if last_user.turn_index != example.terminal_turn_index:
+            errors.append(
+                f"{sid}: terminal_turn_index={example.terminal_turn_index} "
+                f"but last user turn is at index {last_user.turn_index}"
+            )
+        if last_user.text != example.terminal_query:
+            errors.append(
+                f"{sid}: terminal_query does not match last user message text"
+            )
+
+    # 7. Turn indices are non-decreasing (MTID allows paired user/assistant
+    #    turns with the same turn_id)
+    indices = [m.turn_index for m in example.messages]
+    if indices != sorted(indices):
+        errors.append(f"{sid}: turn indices not sorted: {indices}")
+
+    # 8. Media consistency
+    for i, msg in enumerate(example.messages):
+        if not isinstance(msg.images, list):
+            errors.append(f"{sid}: messages[{i}].images is not a list")
+        for j, img_path in enumerate(msg.images):
+            if not isinstance(img_path, str) or not img_path.strip():
+                errors.append(f"{sid}: messages[{i}].images[{j}] is not a valid path")
+
+    # 9. Setting
+    valid_settings = {"escalation", "context_switch", "coreference", "other",
+                      "type_a", "type_b"}
+    if example.source_setting not in valid_settings:
+        errors.append(
+            f"{sid}: unexpected source_setting '{example.source_setting}'"
+        )
+
+    return errors

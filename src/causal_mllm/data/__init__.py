@@ -1,6 +1,5 @@
 """Data subpackage: schemas, I/O, validation, logging, and media."""
 
-from causal_mllm.adapters.base import NormalizationRejection
 from causal_mllm.data.io import (
     append_jsonl,
     load_config,
@@ -18,6 +17,7 @@ from causal_mllm.data.schemas import (
     GeneratorProvenance,
     InferenceOutput,
     Message,
+    NormalizationRejection,
     SafetyJudgeLabel,
     SafetyLabel,
     SemanticAtom,

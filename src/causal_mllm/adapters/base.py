@@ -6,28 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Iterator, Literal
 
-from causal_mllm.data.schemas import CanonicalSourceExample
-
-
-@dataclass
-class NormalizationRejection:
-    """Record of a rejected source row during normalization.
-
-    No row should ever disappear from the dataset without an
-    explicit rejection record.
-    """
-    source_id: str
-    stage: str  # "normalization" | "media" | "schema"
-    error_type: str  # e.g. "MediaLoadError", "ValueError", "KeyError"
-    reason: str
-
-    def to_dict(self) -> dict:
-        return {
-            "source_id": self.source_id,
-            "stage": self.stage,
-            "error_type": self.error_type,
-            "reason": self.reason,
-        }
+from causal_mllm.data.schemas import CanonicalSourceExample, NormalizationRejection
 
 
 # Valid on_error modes
