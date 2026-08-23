@@ -23,14 +23,14 @@ class TestMTMCSAdapter:
     def test_load_and_normalize_produces_4_per_row(self):
         from causal_mllm.adapters.mtmcs import MTMCSAdapter
         adapter = MTMCSAdapter()
-        examples = adapter.load_and_normalize(split="type_a", max_examples=8)
+        examples = adapter.load_and_normalize(split="type_a", max_rows=2)
         # 2 rows × 4 records = 8
         assert len(examples) == 8
 
     def test_source_id_format(self):
         from causal_mllm.adapters.mtmcs import MTMCSAdapter
         adapter = MTMCSAdapter()
-        examples = adapter.load_and_normalize(split="type_b", max_examples=4)
+        examples = adapter.load_and_normalize(split="type_b", max_rows=1)
         for ex in examples:
             assert ex.source_id.startswith("mtmcs:type_b:")
             assert ex.source_id.endswith((":safe", ":unsafe"))
@@ -39,17 +39,37 @@ class TestMTMCSAdapter:
         from causal_mllm.adapters.mtmcs import MTMCSAdapter
         adapter = MTMCSAdapter()
         for split in ("type_a", "type_b"):
-            examples = adapter.load_and_normalize(split=split, max_examples=4)
+            examples = adapter.load_and_normalize(split=split, max_rows=1)
             for ex in examples:
                 assert len(ex.terminal_query.strip()) > 0
 
     def test_schema_validation(self):
         from causal_mllm.adapters.mtmcs import MTMCSAdapter
         adapter = MTMCSAdapter()
-        examples = adapter.load_and_normalize(split="type_b", max_examples=4)
+        examples = adapter.load_and_normalize(split="type_b", max_rows=1)
         for ex in examples:
             errors = validate_source_example(ex.to_dict())
             assert errors == [], f"Schema errors for {ex.source_id}: {errors}"
+
+    def test_result_count_is_multiple_of_4(self):
+        """Every call must return a count that is a multiple of 4."""
+        from causal_mllm.adapters.mtmcs import MTMCSAdapter
+        adapter = MTMCSAdapter()
+        examples = adapter.load_and_normalize(split="type_b", max_rows=3)
+        assert len(examples) == 12
+        assert len(examples) % 4 == 0
+
+    def test_default_on_error_is_raise(self):
+        """Default on_error='raise' must propagate errors."""
+        from causal_mllm.adapters.mtmcs import MTMCSAdapter
+        from causal_mllm.data.media import MediaLoadError
+        adapter = MTMCSAdapter()
+        # Load one raw row and corrupt its image
+        raws = list(adapter.load(split="type_a"))
+        raw = raws[0]
+        raw["image"] = None  # This will trigger MediaLoadError
+        with pytest.raises(MediaLoadError):
+            adapter.normalize_row(raw)
 
 
 # ---------------------------------------------------------------------------

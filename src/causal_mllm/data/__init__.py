@@ -1,5 +1,6 @@
 """Data subpackage: schemas, I/O, validation, logging, and media."""
 
+from causal_mllm.adapters.base import NormalizationRejection
 from causal_mllm.data.io import (
     append_jsonl,
     load_config,
@@ -42,6 +43,7 @@ __all__ = [
     "InferenceOutput",
     "MediaLoadError",
     "Message",
+    "NormalizationRejection",
     "SafetyJudgeLabel",
     "SafetyLabel",
     "SchemaValidationError",

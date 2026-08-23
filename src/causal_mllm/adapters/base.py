@@ -3,9 +3,35 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Iterator
+from dataclasses import dataclass, field
+from typing import Any, Iterator, Literal
 
 from causal_mllm.data.schemas import CanonicalSourceExample
+
+
+@dataclass
+class NormalizationRejection:
+    """Record of a rejected source row during normalization.
+
+    No row should ever disappear from the dataset without an
+    explicit rejection record.
+    """
+    source_id: str
+    stage: str  # "normalization" | "media" | "schema"
+    error_type: str  # e.g. "MediaLoadError", "ValueError", "KeyError"
+    reason: str
+
+    def to_dict(self) -> dict:
+        return {
+            "source_id": self.source_id,
+            "stage": self.stage,
+            "error_type": self.error_type,
+            "reason": self.reason,
+        }
+
+
+# Valid on_error modes
+OnErrorMode = Literal["raise", "record", "skip"]
 
 
 class DatasetAdapter(ABC):
@@ -65,28 +91,68 @@ class DatasetAdapter(ABC):
         ...
 
     def load_and_normalize(
-        self, split: str | None = None, max_examples: int | None = None
+        self,
+        split: str | None = None,
+        *,
+        max_examples: int | None = None,
+        on_error: OnErrorMode = "raise",
+        rejections: list[NormalizationRejection] | None = None,
     ) -> list[CanonicalSourceExample]:
-        """Convenience: load and normalize examples.
+        """Load and normalize examples.
 
         Args:
             split: Dataset split.
             max_examples: Maximum number of examples to return.
+            on_error: Error handling mode:
+                "raise" (default): re-raise immediately. Fail-closed.
+                    Use for dataset construction.
+                "record": append a NormalizationRejection to ``rejections``
+                    and continue. Every rejected row is accounted for.
+                    Use for candidate selection with rejection manifests.
+                "skip": log a warning and continue. Only for one-off
+                    inspection. Not suitable for research data.
+            rejections: Output list for rejected rows (only used when
+                on_error="record"). Must be provided by the caller.
 
         Returns:
             List of normalized CanonicalSourceExample instances.
+
+        Raises:
+            ValueError: If on_error="record" but rejections list not provided.
+            Exception: If on_error="raise" and a row fails normalization.
         """
+        if on_error == "record" and rejections is None:
+            raise ValueError(
+                "on_error='record' requires a rejections list to be provided"
+            )
+
         results: list[CanonicalSourceExample] = []
         for raw in self.load(split):
             try:
                 example = self.normalize(raw)
                 results.append(example)
-            except (ValueError, KeyError) as e:
-                # Log and skip malformed examples
-                from causal_mllm.data.logging import get_logger
-                get_logger("causal_mllm.adapters").warning(
-                    "Skipping malformed example from %s: %s", self.source_name, e
-                )
+            except Exception as e:
+                source_id = str(raw.get("source_id", raw.get("id", "unknown")))
+                error_type = type(e).__name__
+
+                if on_error == "raise":
+                    raise
+
+                if on_error == "record":
+                    rejections.append(NormalizationRejection(
+                        source_id=source_id,
+                        stage="normalization",
+                        error_type=error_type,
+                        reason=str(e),
+                    ))
+                else:  # skip
+                    from causal_mllm.data.logging import get_logger
+                    get_logger("causal_mllm.adapters").warning(
+                        "Skipping malformed example from %s (id=%s): [%s] %s",
+                        self.source_name, source_id, error_type, e,
+                    )
+
             if max_examples and len(results) >= max_examples:
                 break
+
         return results

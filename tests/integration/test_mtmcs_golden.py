@@ -390,3 +390,113 @@ class TestMTMCSMediaFailure:
 
         with pytest.raises(MediaLoadError):
             adapter.normalize_row(raw)
+
+
+# ---------------------------------------------------------------------------
+# Atomic grouping and error-handling tests
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.slow
+class TestMTMCSAtomicGrouping:
+    """Verify that load_and_normalize never truncates within a 4-record group."""
+
+    @pytest.fixture(autouse=True)
+    def setup(self):
+        self.adapter = MTMCSAdapter()
+
+    def test_max_rows_returns_exact_multiples(self):
+        """max_rows=N must return exactly N*4 records."""
+        for n in (1, 2, 3):
+            examples = self.adapter.load_and_normalize(
+                split="type_b", max_rows=n
+            )
+            assert len(examples) == n * 4, (
+                f"max_rows={n}: expected {n*4}, got {len(examples)}"
+            )
+
+    def test_grouped_returns_list_of_4_tuples(self):
+        """load_and_normalize_grouped must return list[list[4]]."""
+        groups = self.adapter.load_and_normalize_grouped(
+            split="type_b", max_rows=2
+        )
+        assert len(groups) == 2
+        for group in groups:
+            assert len(group) == 4
+
+    def test_grouped_conditions_complete(self):
+        """Each group must have all 4 conditions."""
+        groups = self.adapter.load_and_normalize_grouped(
+            split="type_b", max_rows=2
+        )
+        for i, group in enumerate(groups):
+            conditions = {
+                f"{r.metadata['modality']}:{r.metadata['safety']}"
+                for r in group
+            }
+            assert conditions == {"multimodal:safe", "multimodal:unsafe", "unimodal:safe", "unimodal:unsafe"}, (
+                f"group {i}: incomplete conditions: {conditions}"
+            )
+
+    def test_grouped_pair_ids_unique(self):
+        """Each group must have a unique pair_id."""
+        groups = self.adapter.load_and_normalize_grouped(
+            split="type_a", max_rows=3
+        )
+        pair_ids = [g[0].metadata["pair_id"] for g in groups]
+        assert len(pair_ids) == len(set(pair_ids)), "Duplicate pair_ids found"
+
+    def test_on_error_raise_propagates(self):
+        """Default on_error='raise' must not silently skip bad rows."""
+        import unittest.mock as mock
+
+        # Make normalize_row raise MediaLoadError for any input
+        with mock.patch.object(
+            MTMCSAdapter, "normalize_row",
+            side_effect=MediaLoadError("mock_path", "mock image failure"),
+        ):
+            with pytest.raises(MediaLoadError):
+                self.adapter.load_and_normalize(split="type_a", max_rows=1)
+
+    def test_on_error_record_accounts_for_rejections(self):
+        """on_error='record' must produce rejection entries for bad rows."""
+        from causal_mllm.adapters.base import NormalizationRejection
+
+        rejections: list[NormalizationRejection] = []
+        examples = self.adapter.load_and_normalize(
+            split="type_b",
+            max_rows=3,
+            on_error="record",
+            rejections=rejections,
+        )
+        # All rows should succeed for real data (no rejections expected)
+        assert len(rejections) == 0
+        assert len(examples) == 3 * 4
+
+    def test_on_error_record_requires_rejections_list(self):
+        """on_error='record' without rejections list must raise ValueError."""
+        with pytest.raises(ValueError, match="rejections list"):
+            self.adapter.load_and_normalize(
+                split="type_b", max_rows=1, on_error="record"
+            )
+
+    def test_no_silent_disappearance(self):
+        """Every source row must produce either 4 records or 1 rejection.
+
+        (processed_rows * 4) == len(results) + (len(rejections) * 4)
+        """
+        from causal_mllm.adapters.base import NormalizationRejection
+
+        rejections: list[NormalizationRejection] = []
+        examples = self.adapter.load_and_normalize(
+            split="type_b",
+            max_rows=5,
+            on_error="record",
+            rejections=rejections,
+        )
+        # For clean data: 5 rows * 4 = 20 records, 0 rejections
+        n_rows = 5
+        assert len(examples) + len(rejections) * 4 == n_rows * 4, (
+            f"Accounting error: {len(examples)} records + "
+            f"{len(rejections)} rejections × 4 ≠ {n_rows} × 4"
+        )

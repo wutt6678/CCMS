@@ -53,9 +53,26 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Iterator
 
-from causal_mllm.adapters.base import DatasetAdapter
+from causal_mllm.adapters.base import (
+    DatasetAdapter,
+    NormalizationRejection,
+    OnErrorMode,
+)
 from causal_mllm.data.media import MediaLoadError
 from causal_mllm.data.schemas import CanonicalSourceExample, Message
+
+# Each MTMCS HF row always produces exactly this many canonical records.
+RECORDS_PER_ROW = 4
+
+# The four conditions that must be present in every complete group.
+# These match the metadata values: modality is "multimodal"/"unimodal",
+# safety is "safe"/"unsafe".
+_REQUIRED_CONDITIONS = frozenset({
+    "multimodal:safe",
+    "multimodal:unsafe",
+    "unimodal:safe",
+    "unimodal:unsafe",
+})
 
 
 class MTMCSAdapter(DatasetAdapter):
@@ -333,34 +350,149 @@ class MTMCSAdapter(DatasetAdapter):
         return text
 
     # ------------------------------------------------------------------
-    # Convenience: load and normalize all 4 records per row
+    # Atomic grouped loading — never truncate within a 4-record group
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _verify_group(records: list[CanonicalSourceExample], pair_id: str) -> None:
+        """Verify that a group contains exactly 4 records with all conditions.
+
+        Raises AssertionError if the group is incomplete.
+        """
+        assert len(records) == RECORDS_PER_ROW, (
+            f"pair_id={pair_id}: expected {RECORDS_PER_ROW} records, got {len(records)}"
+        )
+        conditions = {
+            r.metadata.get("modality", "?") + ":" + r.metadata.get("safety", "?")
+            for r in records
+        }
+        assert conditions == _REQUIRED_CONDITIONS, (
+            f"pair_id={pair_id}: incomplete conditions.\n"
+            f"  got:      {sorted(conditions)}\n"
+            f"  expected: {sorted(_REQUIRED_CONDITIONS)}"
+        )
+        pair_ids = {r.metadata.get("pair_id") for r in records}
+        assert len(pair_ids) == 1 and pair_ids.pop() == pair_id, (
+            f"pair_id={pair_id}: mixed pair_ids in group: {pair_ids}"
+        )
+
     def load_and_normalize(
-        self, split: str | None = None, max_examples: int | None = None
+        self,
+        split: str | None = None,
+        *,
+        max_rows: int | None = None,
+        on_error: OnErrorMode = "raise",
+        rejections: list[NormalizationRejection] | None = None,
     ) -> list[CanonicalSourceExample]:
-        """Load and explode each row into 4 canonical records.
+        """Load and explode each row into exactly 4 canonical records.
+
+        The atomic unit is one source row → 4 records. This method never
+        truncates within a group. ``max_rows`` limits source rows, not
+        individual records.
 
         Args:
             split: 'type_a' or 'type_b' (default: 'type_a').
-            max_examples: Stop after this many TOTAL records (not rows).
+            max_rows: Maximum number of source rows to process.
+                Returns exactly ``max_rows * 4`` records (minus any
+                rejected rows if on_error != 'raise').
+            on_error: Error handling mode:
+                "raise" (default): re-raise immediately. Fail-closed.
+                    Use for dataset construction.
+                "record": append a NormalizationRejection to ``rejections``
+                    and continue. Every rejected row is accounted for.
+                    Use for candidate selection with rejection manifests.
+                "skip": log a warning and continue. Only for one-off
+                    inspection. Not suitable for research data.
+            rejections: Output list for rejected rows (only used when
+                on_error="record").
 
         Returns:
-            List of CanonicalSourceExample (4 per source row).
+            List of CanonicalSourceExample. Length is always a multiple
+            of RECORDS_PER_ROW (4) minus any rejected groups.
+
+        Raises:
+            ValueError: If on_error="record" but rejections list not provided.
+            Exception: If on_error="raise" and a row fails.
         """
+        if on_error == "record" and rejections is None:
+            raise ValueError(
+                "on_error='record' requires a rejections list to be provided"
+            )
+
         results: list[CanonicalSourceExample] = []
+        rows_processed = 0
+
         for raw in self.load(split):
-            try:
-                records = self.normalize_row(raw)
-                results.extend(records)
-            except (ValueError, MediaLoadError) as e:
-                from causal_mllm.data.logging import get_logger
-                get_logger("causal_mllm.adapters").warning(
-                    "Skipping MTMCS row %s: %s", raw.get("id", "?"), e
-                )
-            if max_examples and len(results) >= max_examples:
+            if max_rows is not None and rows_processed >= max_rows:
                 break
-        return results[:max_examples] if max_examples else results
+            rows_processed += 1
+
+            try:
+                group = self.normalize_row(raw)
+                pair_id = f"mtmcs:{raw.get('_split', '?')}:{raw['id']:06d}"
+                self._verify_group(group, pair_id)
+                results.extend(group)
+            except Exception as e:
+                row_id = raw.get("id", "unknown")
+                error_type = type(e).__name__
+
+                if on_error == "raise":
+                    raise
+
+                if on_error == "record":
+                    rejections.append(NormalizationRejection(
+                        source_id=f"mtmcs:{raw.get('_split', '?')}:{row_id}",
+                        stage="normalization",
+                        error_type=error_type,
+                        reason=str(e),
+                    ))
+                else:  # skip
+                    from causal_mllm.data.logging import get_logger
+                    get_logger("causal_mllm.adapters").warning(
+                        "Skipping MTMCS row %s: [%s] %s",
+                        row_id, error_type, e,
+                    )
+
+        # Post-condition: result count must be a multiple of RECORDS_PER_ROW
+        if len(results) % RECORDS_PER_ROW != 0:
+            raise AssertionError(
+                f"Internal error: {len(results)} results is not a multiple "
+                f"of {RECORDS_PER_ROW}. This indicates a group was split."
+            )
+
+        return results
+
+    def load_and_normalize_grouped(
+        self,
+        split: str | None = None,
+        *,
+        max_rows: int | None = None,
+        on_error: OnErrorMode = "raise",
+        rejections: list[NormalizationRejection] | None = None,
+    ) -> list[list[CanonicalSourceExample]]:
+        """Load and return groups of 4 records per source row.
+
+        Each inner list contains exactly the 4 conditions for one pair:
+        [mm_safe, mm_unsafe, text_safe, text_unsafe].
+
+        Args:
+            split: 'type_a' or 'type_b'.
+            max_rows: Maximum source rows.
+            on_error: "raise" | "record" | "skip".
+            rejections: Output list for rejections.
+
+        Returns:
+            List of groups, each group being a list of 4 records.
+        """
+        flat = self.load_and_normalize(
+            split, max_rows=max_rows, on_error=on_error, rejections=rejections,
+        )
+        groups = []
+        for i in range(0, len(flat), RECORDS_PER_ROW):
+            group = flat[i : i + RECORDS_PER_ROW]
+            assert len(group) == RECORDS_PER_ROW
+            groups.append(group)
+        return groups
 
     # ------------------------------------------------------------------
     # Schema inspection
