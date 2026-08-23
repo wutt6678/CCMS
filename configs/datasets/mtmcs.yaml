@@ -1,0 +1,8 @@
+source_name: mtmcs
+huggingface_id: ND-25/MCS-bench
+repository: https://github.com/franciscoliu/MTMCS-Bench
+paper: https://aclanthology.org/2026.findings-acl.96/
+preferred_split: test
+notes: >
+  Multi-turn multimodal contextual safety benchmark.
+  Schema must be inspected programmatically before writing adapters.

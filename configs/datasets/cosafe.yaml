@@ -1,0 +1,8 @@
+source_name: cosafe
+repository: https://github.com/ErxinYu/CoSafe-Dataset
+paper: https://aclanthology.org/2024.emnlp-main.968/
+preferred_split: null
+notes: >
+  Text-only multi-turn dialogue safety dataset.
+  Used primarily as a structural template for coreference-based risk.
+  Not the primary data source for multimodal families.

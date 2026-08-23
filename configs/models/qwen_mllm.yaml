@@ -1,0 +1,18 @@
+# Model configuration for a ~9B-class open MLLM
+# Adapt to available model on the server (RTX 6000 48GB)
+backend: hf
+model_name_or_path: null  # set at runtime
+model_revision: null
+trust_remote_code: false
+torch_dtype: float16
+device_map: auto
+
+generation:
+  temperature: 0.0
+  top_p: 1.0
+  max_new_tokens: 256
+  do_sample: false
+
+# Resource limits for RTX 6000 48GB
+max_batch_size: 1
+context_length_limit: 8192

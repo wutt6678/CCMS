@@ -1,0 +1,56 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "causal-mllm"
+version = "0.1.0"
+description = "Causal Cross-Modal Safety-State Dataset and Evaluation Pipeline"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml>=6.0",
+    "datasets>=2.14",
+    "Pillow>=10.0",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "tqdm>=4.65",
+]
+
+[project.optional-dependencies]
+inference = [
+    "torch>=2.1",
+    "transformers>=4.36",
+    "accelerate>=0.25",
+    "bitsandbytes>=0.41",
+]
+dev = [
+    "pytest>=7.4",
+    "ruff>=0.4",
+]
+
+[project.scripts]
+causal-mllm-inspect = "causal_mllm.cli.inspect_source:main"
+causal-mllm-build = "causal_mllm.cli.build_families:main"
+causal-mllm-validate = "causal_mllm.cli.validate_families:main"
+causal-mllm-infer = "causal_mllm.cli.run_inference:main"
+causal-mllm-evaluate = "causal_mllm.cli.evaluate:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "slow: marks tests that require network or large downloads",
+    "integration: marks integration tests requiring real datasets",
+]
+
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]

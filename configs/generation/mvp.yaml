@@ -1,0 +1,40 @@
+experiment_name: mvp_smoke
+seed: 42
+
+source:
+  dataset: mtmcs
+  split: test
+  max_families: 5
+
+family:
+  variants:
+    - neutral
+    - text_only
+    - vision_only
+    - cross_modal
+    - shuffle
+    - history_reset
+
+generation:
+  backend: rule
+  model: null
+  temperature: 0.0
+  max_retries: 2
+  prompt_version: v1
+
+validation:
+  exact_terminal_query: true
+  require_all_media: true
+  max_length_ratio: 1.25
+  reject_duplicate_variants: true
+
+inference:
+  model_backend: hf
+  model_name_or_path: null
+  temperature: 0.0
+  max_new_tokens: 256
+  top_p: 1.0
+
+output:
+  families_dir: data/families/draft
+  media_dir: data/media

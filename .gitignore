@@ -1,0 +1,74 @@
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ---------------------------------------------------------------------------
+# Data — source data, media, and generated artifacts are NOT tracked
+# ---------------------------------------------------------------------------
+# Raw downloaded datasets (too large for GitHub)
+data/raw/*
+!data/raw/*/.gitkeep
+
+# Downloaded / generated images
+data/media/*
+!data/media/*/.gitkeep
+
+# Generated family data
+data/families/*
+!data/families/*/.gitkeep
+data/splits/*
+!data/splits/.gitkeep
+data/manifests/*
+!data/manifests/.gitkeep
+
+# Normalized data (may contain references to local paths)
+data/normalized/*.jsonl
+!data/normalized/.gitkeep
+
+# ---------------------------------------------------------------------------
+# Outputs
+# ---------------------------------------------------------------------------
+outputs/inference/*
+!outputs/inference/.gitkeep
+outputs/evaluation/*
+!outputs/evaluation/.gitkeep
+
+# Keep schema reports (small, useful for reference)
+# outputs/schema/ is tracked
+
+# ---------------------------------------------------------------------------
+# Misc
+# ---------------------------------------------------------------------------
+*.log
+.DS_Store
+Thumbs.db
+.pytest_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+
+# Hugging Face cache
+.cache/
+
+# Conda
+.conda/

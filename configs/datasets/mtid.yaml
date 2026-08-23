@@ -1,0 +1,9 @@
+source_name: mtid
+huggingface_id: Graph-COM/MTID
+repository: https://github.com/Graph-COM/TurnGate
+paper: null
+preferred_split: test
+notes: >
+  Multi-turn intervention dataset with 800 unique samples,
+  20 rollouts per sample, 16000 trajectories.
+  Used to inform trajectory metadata and transition-point labels.
