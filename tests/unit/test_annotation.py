@@ -86,6 +86,20 @@ class TestManualFileAnnotator:
         assert all(a.semantic_validation == "pending"
                    for a in annotated.semantic_atoms)
 
+    def test_manual_annotation_records_human_backend(self, tmp_path):
+        skeleton = _skeleton(tmp_path)
+        aid = _causal_atom_id(skeleton)
+        annotations = {"mtmcs:type_b:000001": {aid: {
+            "semantic_type": "constraint",
+            "semantic_description": "explicit constraint",
+        }}}
+        ann_path = tmp_path / "annotations.json"
+        ann_path.write_text(json.dumps(annotations))
+        annotated = apply_annotations(
+            skeleton, ManualFileAnnotator(ann_path))
+        atom = next(a for a in annotated.semantic_atoms if a.atom_id == aid)
+        assert atom.annotation_provenance == {"backend": "human"}
+
     def test_input_skeleton_not_mutated(self, tmp_path):
         skeleton = _skeleton(tmp_path)
         aid = _causal_atom_id(skeleton)
@@ -128,10 +142,20 @@ class TestCallableAnnotator:
         # P0-2: image supplies information required for the risky reading
         assert vision.risk_relevance == "relevant"
         assert vision.required_for_joint_interpretation is True
+        # Provenance must identify the exact producing pipeline
+        prov = vision.annotation_provenance
+        assert prov["backend"] == "llm"
+        assert prov["model"] == "fake-vlm"
+        assert "prompt_version" in prov and "temperature" in prov
         # Non-vision atoms untouched
         causal = next(a for a in annotated.semantic_atoms
                       if a.divergence == "causal")
         assert causal.semantic_validation == "pending"
+        assert causal.annotation_provenance is None
+
+    def test_callable_annotator_requires_model_name(self):
+        with pytest.raises(AnnotationError, match="model_name"):
+            CallableAnnotator(lambda fk, ad: None, model_name="")
 
 
 class TestAnnotationValidation:
@@ -139,7 +163,8 @@ class TestAnnotationValidation:
         skeleton = _skeleton(tmp_path)
         aid = _causal_atom_id(skeleton)
         fn = lambda fk, ad: payload if ad["atom_id"] == aid else None  # noqa: E731
-        return apply_annotations(skeleton, CallableAnnotator(fn))
+        return apply_annotations(
+            skeleton, CallableAnnotator(fn, model_name="test-model"))
 
     def test_rejects_unknown_semantic_type(self, tmp_path):
         with pytest.raises(AnnotationError, match="semantic_type"):
@@ -151,6 +176,21 @@ class TestAnnotationValidation:
                 "semantic_type": "intent",
                 "semantic_validation": "pending",
             })
+
+    def test_rejects_llm_payload_without_provenance(self, tmp_path):
+        """'An LLM did it' is not provenance."""
+        skeleton = _skeleton(tmp_path)
+        aid = _causal_atom_id(skeleton)
+        # Payload explicitly claims llm validation but strips provenance
+        fn = lambda fk, ad: ({  # noqa: E731
+            "semantic_type": "intent",
+            "semantic_validation": "llm",
+            "annotation_provenance": {"backend": "llm"},
+        } if ad["atom_id"] == aid else None)
+        with pytest.raises(AnnotationError, match="annotation_provenance"):
+            apply_annotations(
+                skeleton,
+                CallableAnnotator(fn, model_name="test-model"))
 
     def test_rejects_bad_equivalence_state(self, tmp_path):
         with pytest.raises(AnnotationError, match="Equivalence state"):
@@ -177,4 +217,5 @@ class TestAnnotationValidation:
             if ad["atom_id"] == vid else None
         )
         with pytest.raises(AnnotationError, match="risk_relevance"):
-            apply_annotations(skeleton, CallableAnnotator(fn))
+            apply_annotations(
+                skeleton, CallableAnnotator(fn, model_name="test-model"))

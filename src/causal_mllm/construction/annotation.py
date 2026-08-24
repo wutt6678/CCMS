@@ -50,19 +50,35 @@ class AnnotationError(ValueError):
     """Raised when an annotation payload is invalid."""
 
 
-def _validate_annotation_payload(payload: dict) -> None:
-    """Fail loudly on malformed annotations — no silent bad labels."""
+def _validate_annotation_payload(payload: dict,
+                                 default_validation: str = "llm") -> None:
+    """Fail loudly on malformed annotations — no silent bad labels.
+
+    ``default_validation`` is the annotator backend's label, used when
+    the payload does not state one (manual payloads default to 'human',
+    callable backends to 'llm').
+    """
     sem_type = payload.get("semantic_type")
     valid_types = {v.value for v in AtomType}
     if sem_type not in valid_types:
         raise AnnotationError(
             f"semantic_type '{sem_type}' not in {sorted(valid_types)}"
         )
-    validation = payload.get("semantic_validation", "llm")
+    validation = payload.get("semantic_validation", default_validation)
     if validation not in SEMANTIC_VALIDATION_STATES or validation == "pending":
         raise AnnotationError(
             f"semantic_validation must be a resolved state, got '{validation}'"
         )
+    # P0 for real LLM-generated annotations: 'an LLM did it' is not
+    # provenance. The exact pipeline must be recoverable later.
+    if validation == "llm":
+        prov = payload.get("annotation_provenance")
+        if not isinstance(prov, dict) or not prov.get("backend") \
+                or not prov.get("model"):
+            raise AnnotationError(
+                "llm-backed annotations require annotation_provenance "
+                "with at least backend and model"
+            )
     equivalence = payload.get("semantic_equivalence", {})
     for axis, value in equivalence.items():
         if axis not in EQUIVALENCE_AXES:
@@ -104,7 +120,7 @@ class AtomAnnotator(ABC):
             payload = self.annotate_atom(family_key, atom)
             if payload is None:
                 continue
-            _validate_annotation_payload(payload)
+            _validate_annotation_payload(payload, self.validation_label)
             atom.set_semantic_annotation(
                 semantic_type=payload["semantic_type"],
                 semantic_description=payload.get("semantic_description"),
@@ -115,8 +131,14 @@ class AtomAnnotator(ABC):
                 risk_relevance=payload.get("risk_relevance"),
                 required_for_joint_interpretation=payload.get(
                     "required_for_joint_interpretation"),
+                annotation_provenance=payload.get("annotation_provenance",
+                                                  self.default_provenance()),
             )
         return annotated
+
+    def default_provenance(self) -> dict:
+        """Provenance recorded when the payload does not supply one."""
+        return {"backend": self.validation_label}
 
 
 def _normalized_equivalence(raw: Optional[dict]) -> Optional[dict]:
@@ -161,17 +183,41 @@ class CallableAnnotator(AtomAnnotator):
     an annotation payload dict (or None). This keeps the pipeline
     model-agnostic: any client — local VLM, hosted API — can be plugged
     in without changing the construction code.
+
+    Provenance is mandatory for llm annotations: model identity,
+    revision, prompt version, temperature, and seed are recorded on
+    every annotated atom so the producing pipeline is recoverable.
     """
 
     validation_label = "llm"
 
     def __init__(self, fn: Callable[[str, dict], Optional[dict]],
-                 *, model_name: Optional[str] = None):
+                 *, model_name: str, model_revision: Optional[str] = None,
+                 prompt_version: Optional[str] = None,
+                 temperature: float = 0.0, seed: Optional[int] = None):
+        if not model_name:
+            raise AnnotationError(
+                "CallableAnnotator requires model_name for provenance"
+            )
         self._fn = fn
         self.model_name = model_name
+        self._provenance = {
+            "backend": "llm",
+            "model": model_name,
+            "model_revision": model_revision,
+            "prompt_version": prompt_version,
+            "temperature": temperature,
+            "seed": seed,
+        }
+
+    def default_provenance(self) -> dict:
+        return dict(self._provenance)
 
     def annotate_atom(self, family_key: str, atom: SemanticAtom) -> Optional[dict]:
-        return self._fn(family_key, atom.to_dict())
+        payload = self._fn(family_key, atom.to_dict())
+        if payload is not None and "annotation_provenance" not in payload:
+            payload = {**payload, "annotation_provenance": self.default_provenance()}
+        return payload
 
 
 def apply_annotations(

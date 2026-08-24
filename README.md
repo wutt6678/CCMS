@@ -162,10 +162,23 @@ Schema reports are written to `outputs/schema/`.
 ### Build Causal Families
 
 ```bash
+# Selection + comparative atom extraction
 python -m causal_mllm.cli.build_families \
     --config configs/generation/mvp.yaml \
-    --max-families 5
+    --stage atoms --max-families 5
+
+# Full chain: annotate -> harmonize -> six variants
+python -m causal_mllm.cli.build_families \
+    --config configs/generation/mvp.yaml \
+    --stage variants --max-families 5 \
+    --annotations data/families/annotations.json \
+    --harmonization data/families/harmonization.json
 ```
+
+The annotation and harmonization JSONs are human/LLM-produced inputs
+(`{family_key: {atom_id: payload}}` and `{family_key: canonical_q}`);
+LLM/VLM backends are wired via the `CallableAnnotator` /
+`CallableHarmonizer` APIs, which record mandatory provenance.
 
 ### Validate Families
 
@@ -204,14 +217,26 @@ python -m causal_mllm.cli.evaluate \
 
 ## Six Required Variants per Family
 
-| Variant | Description |
-|---------|-------------|
-| `neutral` | Topic-matched neutral history |
-| `text_only` | All relevant semantics in text |
-| `vision_only` | Relevant evidence in images |
-| `cross_modal` | Complementary text + vision (main treatment) |
-| `shuffle` | Same content, permuted order |
-| `history_reset` | Terminal query with minimal context |
+All six variants share one canonical terminal query q\* (exact
+string/hash invariant), constructed by explicit harmonization because
+0/752 Type-B source rows have matching multimodal/text terminals.
+
+| Variant | Description | Factorial cell |
+|---------|-------------|----------------|
+| `neutral` | Safe history, text only, + q\* | \(H_{00}\) |
+| `text_only` | Unsafe history, text only, + q\* | \(H_{10}\) |
+| `vision_only` | Safe history + shared image, + q\* | \(H_{01}\) |
+| `cross_modal` | Unsafe history + shared image, + q\* (candidate) | \(H_{11}\) |
+| `shuffle` | Cross-modal content, deterministically permuted order | H3 |
+| `history_reset` | q\* alone (minimal context) | H4 |
+
+Variant generation is **gated by evidence**: each generator asserts its
+readiness (`L0_structural` → `L1_semantic` → `L2_variant_ready`) and
+raises `VariantPrerequisiteError` with explicit reasons instead of
+guessing. `cross_modal` demands resolved cross-modal equivalence AND
+resolved visual risk relevance; structural variants demand less. A
+generated `cross_modal` is a **candidate**, not a causal claim — the
+strict subset needs behavioral validation (Iteration 6+).
 
 ## Implementation Roadmap
 
@@ -220,7 +245,7 @@ python -m causal_mllm.cli.evaluate \
 - [x] **Iteration 2** — Full canonical adapters with golden fixture tests
 - [x] **Iteration 3** — Candidate selection with rejection reasons
 - [x] **Iteration 4** — Family-level comparative semantic atom extraction
-- [ ] **Iteration 5** — Six independent variant generators
+- [x] **Iteration 5** — Annotation → harmonization → six gated variant generators
 - [ ] **Iteration 6** — Automatic validation layer
 - [ ] **Iteration 7** — 20-family research smoke dataset
 - [ ] **Iteration 8** — Frozen replay model runner

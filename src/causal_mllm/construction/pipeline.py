@@ -24,7 +24,13 @@ from pathlib import Path
 from typing import Any
 
 from causal_mllm.adapters import get_adapter
+from causal_mllm.construction.annotation import AtomAnnotator
 from causal_mllm.construction.families import build_family_skeletons
+from causal_mllm.construction.harmonize import (
+    TerminalHarmonizer,
+    apply_terminal_harmonization,
+)
+from causal_mllm.construction.readiness import family_readiness
 from causal_mllm.construction.select import (
     SelectionConfig,
     SelectionResult,
@@ -32,11 +38,13 @@ from causal_mllm.construction.select import (
     group_into_family_units,
     run_selection,
 )
-from causal_mllm.data.io import write_jsonl
+from causal_mllm.construction.variants import build_family_variants
+from causal_mllm.data.io import read_jsonl, write_jsonl
 from causal_mllm.data.logging import get_logger
-from causal_mllm.data.schemas import NormalizationRejection
+from causal_mllm.data.schemas import CausalFamily, NormalizationRejection
 from causal_mllm.data.validate_schema import (
     SchemaValidationError,
+    validate_causal_family,
     validate_family_skeleton,
 )
 
@@ -52,6 +60,13 @@ FAMILY_REVIEW_FLAGS_FILE = "family_review_flags.jsonl"
 # Output file names produced by run_atoms_stage()
 FAMILY_SKELETONS_FILE = "family_skeletons.jsonl"
 ATOMS_REPORT_FILE = "atoms_report.json"
+
+# Output file names produced by the Iteration-5 stages
+ANNOTATED_SKELETONS_FILE = "annotated_skeletons.jsonl"
+ANNOTATION_REPORT_FILE = "annotation_report.json"
+HARMONIZED_FAMILIES_FILE = "harmonized_families.jsonl"
+FAMILIES_FILE = "families.jsonl"
+VARIANTS_REPORT_FILE = "variants_report.json"
 
 
 def _load_normalized(config: dict, *, max_rows: int | None,
@@ -213,3 +228,146 @@ def run_atoms_stage(
     log.info("Built %d family skeletons (%d atoms, %d causal) -> %s",
              len(skeletons), n_atoms, n_causal, output_dir)
     return skeletons
+
+
+def _read_families(path: Path) -> list[CausalFamily]:
+    return [CausalFamily.from_dict(rec) for rec in read_jsonl(path)]
+
+
+def run_annotation_stage(
+    annotator: AtomAnnotator,
+    output_dir: str | Path,
+) -> list:
+    """Iteration 5A: apply semantic annotations to family skeletons.
+
+    Reads family_skeletons.jsonl, applies the annotator (copy-only —
+    skeletons on disk are regenerated from the annotated copies), and
+    reports per-family readiness so unresolved semantics are visible
+    BEFORE variant generation.
+
+    Returns:
+        List of annotated CausalFamily skeletons.
+    """
+    import datetime
+
+    output_dir = Path(output_dir)
+    skeletons_path = output_dir / FAMILY_SKELETONS_FILE
+    if not skeletons_path.exists():
+        raise FileNotFoundError(
+            f"{skeletons_path} not found — run the atoms stage first"
+        )
+    skeletons = _read_families(skeletons_path)
+
+    annotated = [annotator.annotate_family(s) for s in skeletons]
+
+    readiness = {
+        s.family_id: family_readiness(a)
+        for s, a in zip(skeletons, annotated)
+    }
+    write_jsonl(output_dir / ANNOTATED_SKELETONS_FILE,
+                [a.to_dict() for a in annotated])
+    report = {
+        "iteration": "5A",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "annotator": type(annotator).__name__,
+        "n_families": len(annotated),
+        "n_l1_semantic": sum(
+            1 for r in readiness.values()
+            if r["level"] in ("L1_semantic", "L2_variant_ready")
+        ),
+        "readiness": {
+            fid: {"level": r["level"],
+                  "L1_semantic_gaps": r["L1_semantic"]}
+            for fid, r in readiness.items()
+        },
+    }
+    with (output_dir / ANNOTATION_REPORT_FILE).open(
+            "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+
+    log.info("Annotated %d skeletons (%d at L1+) -> %s",
+             len(annotated), report["n_l1_semantic"], output_dir)
+    return annotated
+
+
+def run_harmonization_stage(
+    harmonizer: TerminalHarmonizer,
+    output_dir: str | Path,
+) -> list:
+    """Iteration 5B: construct one canonical q* per family.
+
+    Reads annotated_skeletons.jsonl (falling back to family_skeletons),
+    applies the harmonizer, and persists harmonized_families.jsonl.
+    Original skeleton terminal queries are preserved untouched; the
+    canonical query lives in validation.terminal_harmonization.
+    Missing required harmonizations fail loudly.
+    """
+    output_dir = Path(output_dir)
+    source_path = output_dir / ANNOTATED_SKELETONS_FILE
+    if not source_path.exists():
+        source_path = output_dir / FAMILY_SKELETONS_FILE
+    if not source_path.exists():
+        raise FileNotFoundError(
+            f"No skeletons found in {output_dir} — run earlier stages first"
+        )
+    families = _read_families(source_path)
+
+    harmonized = [apply_terminal_harmonization(f, harmonizer)
+                  for f in families]
+    write_jsonl(output_dir / HARMONIZED_FAMILIES_FILE,
+                [h.to_dict() for h in harmonized])
+    log.info("Harmonized %d families (backend=%s) -> %s",
+             len(harmonized), harmonizer.method, output_dir)
+    return harmonized
+
+
+def run_variants_stage(
+    output_dir: str | Path,
+    *,
+    seed: int = 42,
+) -> list:
+    """Iteration 5C: generate all six variants per family, gated.
+
+    Reads harmonized_families.jsonl, builds variants (each generator
+    asserts its own prerequisites — unresolved semantics raise
+    VariantPrerequisiteError), validates the full family schema, and
+    persists families.jsonl + variants_report.json.
+    """
+    import datetime
+
+    output_dir = Path(output_dir)
+    source_path = output_dir / HARMONIZED_FAMILIES_FILE
+    if not source_path.exists():
+        raise FileNotFoundError(
+            f"{source_path} not found — run the harmonize stage first"
+        )
+    harmonized = _read_families(source_path)
+
+    complete = [build_family_variants(f, seed=seed) for f in harmonized]
+    for family in complete:
+        errors = validate_causal_family(family.to_dict())
+        if errors:
+            raise SchemaValidationError(
+                [f"{family.family_id}: {e}" for e in errors]
+            )
+
+    write_jsonl(output_dir / FAMILIES_FILE,
+                [f.to_dict() for f in complete])
+    report = {
+        "iteration": "5C",
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "seed": seed,
+        "n_families": len(complete),
+        "n_trajectories": sum(len(f.variants) for f in complete),
+        "variant_names": sorted(
+            {name for f in complete for name in f.variants}),
+        "family_ids": [f.family_id for f in complete],
+        "cross_modal_status": "candidate",  # causality = Iteration 6+
+    }
+    with (output_dir / VARIANTS_REPORT_FILE).open(
+            "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+
+    log.info("Generated %d families x 6 variants (%d trajectories) -> %s",
+             len(complete), report["n_trajectories"], output_dir)
+    return complete

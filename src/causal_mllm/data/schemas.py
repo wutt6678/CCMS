@@ -244,6 +244,9 @@ class SemanticAtom:
     })
     risk_relevance: str = "pending"  # pending|relevant|irrelevant|uncertain
     required_for_joint_interpretation: Optional[bool] = None
+    # Which pipeline produced the semantic annotation. Mandatory for
+    # llm-backed annotations: 'an LLM did it' is not provenance.
+    annotation_provenance: Optional[dict] = None
     safe_text: Optional[str] = None  # multimodal safe form (convenience)
     unsafe_text: Optional[str] = None  # multimodal unsafe form (convenience)
     surface_forms: dict[str, dict] = field(default_factory=dict)
@@ -265,6 +268,7 @@ class SemanticAtom:
             "risk_relevance": self.risk_relevance,
             "required_for_joint_interpretation":
                 self.required_for_joint_interpretation,
+            "annotation_provenance": self.annotation_provenance,
         }
         if self.safe_text is not None:
             result["safe_text"] = self.safe_text
@@ -295,6 +299,7 @@ class SemanticAtom:
             risk_relevance=d.get("risk_relevance", "pending"),
             required_for_joint_interpretation=d.get(
                 "required_for_joint_interpretation"),
+            annotation_provenance=d.get("annotation_provenance"),
             safe_text=d.get("safe_text"),
             unsafe_text=d.get("unsafe_text"),
             surface_forms=d.get("surface_forms", {}),
@@ -310,6 +315,7 @@ class SemanticAtom:
         semantic_equivalence: Optional[dict] = None,
         risk_relevance: Optional[str] = None,
         required_for_joint_interpretation: Optional[bool] = None,
+        annotation_provenance: Optional[dict] = None,
     ) -> None:
         """Apply a semantic annotation, keeping atom_type in sync.
 
@@ -327,6 +333,8 @@ class SemanticAtom:
         if required_for_joint_interpretation is not None:
             self.required_for_joint_interpretation = \
                 required_for_joint_interpretation
+        if annotation_provenance is not None:
+            self.annotation_provenance = annotation_provenance
 
 
 @dataclass

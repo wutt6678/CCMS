@@ -1,8 +1,16 @@
 """CLI: Build causal families from source datasets.
 
+Stage chain (each stage runs all predecessors):
+    select -> atoms -> annotate -> harmonize -> variants
+
 Usage:
     python -m causal_mllm.cli.build_families \
         --config configs/generation/mvp.yaml --max-families 5
+
+    python -m causal_mllm.cli.build_families \
+        --config configs/generation/mvp.yaml --stage variants \
+        --annotations data/families/annotations.json \
+        --harmonization data/families/harmonization.json
 """
 
 from __future__ import annotations
@@ -40,8 +48,23 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--stage",
         type=str,
         default=None,
-        choices=["select", "atoms", "variants", "all"],
-        help="Run only a specific stage (default: all).",
+        choices=["select", "atoms", "annotate", "harmonize", "variants",
+                 "all"],
+        help="Run the pipeline up to this stage (default: all).",
+    )
+    parser.add_argument(
+        "--annotations",
+        type=str,
+        default=None,
+        help="Manual annotation JSON ({family_key: {atom_id: payload}}) "
+             "for the annotate stage.",
+    )
+    parser.add_argument(
+        "--harmonization",
+        type=str,
+        default=None,
+        help="Manual harmonization JSON ({family_key: canonical_q}) "
+             "for the harmonize stage.",
     )
     parser.add_argument(
         "--output-dir",
@@ -68,9 +91,16 @@ def main(argv: list[str] | None = None) -> None:
 
     output_dir = args.output_dir or config.get("output", {}).get(
         "families_dir", "data/families/draft")
+    seed = int(config.get("seed", 42))
+
+    # The stage chain: every stage runs all of its predecessors.
+    chain = ["select", "atoms", "annotate", "harmonize", "variants"]
+    target = chain.index("variants" if stage == "all" else stage)
+    run_through = chain[:target + 1]
+
     selection_result = None
 
-    if stage in ("select", "atoms", "all"):
+    if "select" in run_through:
         from causal_mllm.construction.pipeline import run_selection_stage
 
         if max_families is not None:
@@ -93,21 +123,50 @@ def main(argv: list[str] | None = None) -> None:
         for warning in report["balance_warnings"]:
             log.warning("Balance check: %s", warning)
 
-    if stage in ("atoms", "all"):
+    if "atoms" in run_through:
         from causal_mllm.construction.pipeline import run_atoms_stage
 
-        skeletons = run_atoms_stage(
-            selection_result, output_dir,
-            seed=int(config.get("seed", 42)),
-        )
+        skeletons = run_atoms_stage(selection_result, output_dir, seed=seed)
         log.info("Atoms stage done: %d family skeletons "
                  "(comparative H_safe-vs-H_unsafe decomposition)",
                  len(skeletons))
 
-    if stage in ("variants",) or stage == "all":
-        # TODO: Implement remaining stages (Iteration 5+)
-        log.warning("Stages beyond 'atoms' are stubs. "
-                    "Variant generation begins at Iteration 5.")
+    if "annotate" in run_through:
+        from causal_mllm.construction.annotation import ManualFileAnnotator
+        from causal_mllm.construction.pipeline import run_annotation_stage
+
+        if not args.annotations:
+            raise SystemExit(
+                "The annotate stage requires --annotations "
+                "(manual annotation JSON; LLM backends are wired via the "
+                "CallableAnnotator API)."
+            )
+        annotator = ManualFileAnnotator(args.annotations)
+        annotated = run_annotation_stage(annotator, output_dir)
+        log.info("Annotation stage done: %d families", len(annotated))
+
+    if "harmonize" in run_through:
+        from causal_mllm.construction.harmonize import ManualHarmonizer
+        from causal_mllm.construction.pipeline import run_harmonization_stage
+
+        if not args.harmonization:
+            raise SystemExit(
+                "The harmonize stage requires --harmonization "
+                "(manual canonical-q JSON; LLM backends are wired via the "
+                "CallableHarmonizer API)."
+            )
+        harmonizer = ManualHarmonizer(args.harmonization)
+        harmonized = run_harmonization_stage(harmonizer, output_dir)
+        log.info("Harmonization stage done: %d families", len(harmonized))
+
+    if "variants" in run_through:
+        from causal_mllm.construction.pipeline import run_variants_stage
+
+        complete = run_variants_stage(output_dir, seed=seed)
+        log.info("Variant stage done: %d families x 6 variants "
+                 "(%d trajectories; cross_modal = CANDIDATE until "
+                 "behavioral validation in Iteration 6+)",
+                 len(complete), 6 * len(complete))
 
     log.info("Done.")
 

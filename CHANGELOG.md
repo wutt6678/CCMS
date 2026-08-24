@@ -4,6 +4,66 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.0] — 2026-08-25
+
+### Added — Iteration 5: annotate → harmonize → construct variants
+
+Iteration 4 measured 0/752 Type-B rows with cross-modality terminal
+equality, so Iteration 5 does NOT map multimodal→cross_modal and
+unimodal→text_only directly (that would confound modality with
+wording). Instead the pipeline now runs three internal stages:
+
+**5A — annotation resolution**
+- `run_annotation_stage()` integrates annotators into the pipeline
+  (CLI `--stage annotate` with `--annotations` JSON for manual
+  review; `CallableAnnotator` for LLM/VLM backends).
+- Minimum-required annotation gate: only what variant generators
+  actually consume must be resolved (causal atom semantic_type,
+  vision risk_relevance + required_for_joint_interpretation,
+  mm/text equivalence) — no exhaustive annotation mandate.
+- Mandatory `annotation_provenance` on llm-backed annotations
+  (backend, model, model_revision, prompt_version, temperature,
+  seed); validator rejects llm payloads without it. 'An LLM did it'
+  is not provenance.
+
+**5B — terminal-query harmonization**
+- `construction/harmonize.py`: `ManualHarmonizer` (JSON) and
+  `CallableHarmonizer` (LLM, mandatory model provenance) construct
+  one canonical q* per family.
+- `validation.terminal_harmonization = {required, canonical_q,
+  canonical_sha256, source_mm_q, source_text_q, method, validation,
+  provenance}` — additive; original skeleton terminal queries are
+  never overwritten. Missing required harmonizations fail loudly.
+
+**5C — six gated variant generators**
+- `construction/variants.py`: neutral (H00), text_only (H10),
+  vision_only (H01), cross_modal (H11), shuffle (deterministic
+  permutation), history_reset — each builds from resolved atom
+  surface forms, never raw MTMCS field names; each carries
+  rule-generator provenance with transformation lists.
+- Readiness levels L0_structural / L1_semantic / L2_variant_ready
+  (`construction/readiness.py`) and `assert_variant_ready()` raising
+  `VariantPrerequisiteError` with explicit reasons. Gates are
+  per-variant: cross_modal requires resolved equivalence AND risk
+  relevance; history_reset is mostly structural.
+- Exact canonical-q hash invariant: all six variants end with the
+  identical q* string/sha256, enforced by
+  `validate_variant_trajectory()`.
+- `cross_modal_candidate = true` is recorded; strict cross-modal
+  causality (Risk(T)<θ, Risk(V)<θ, Risk(T,V)>=θ) remains a behavioral
+  question for Iteration 6+.
+
+### Evidence
+
+- Scale-A smoke build on 5 real MTMCS Type-B families: 5 families ×
+  6 variants = 30 trajectories, all passing structural checks with
+  exact canonical-q hash invariance; every family correctly flagged
+  `requires_terminal_harmonization: true`.
+- Unresolved semantics fail loudly on real data: text_only /
+  vision_only / cross_modal raise VariantPrerequisiteError while
+  structural variants remain constructible.
+- 47 new tests (203 unit + 99 integration = 302 total).
+
 ## [0.4.2] — 2026-08-24
 
 ### Added — Semantic annotation scaffolding (Iteration-4 review, round 2)
