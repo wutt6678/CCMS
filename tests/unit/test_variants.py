@@ -7,6 +7,8 @@ canonical-q hash invariant, and skeleton immutability.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from causal_mllm.construction.annotation import CallableAnnotator
@@ -121,19 +123,39 @@ class TestReadinessGates:
             assert_variant_ready(annotated, "history_reset")
         assert any("L2" in r for r in exc.value.reasons)
 
-    def test_pending_equivalence_blocks_text_variants_only(self, tmp_path):
+    def test_pending_equivalence_blocks_image_bearing_variants(self, tmp_path):
         family = _ready_family(tmp_path)
         for atom in family.semantic_atoms:
             if atom.divergence == "causal":
                 atom.semantic_equivalence["multimodal_vs_unimodal"] = \
                     {"state": "pending"}
-        # Stronger-evidence variants are blocked...
-        for name in ("text_only", "cross_modal"):
+        # Image-bearing variants cross modalities and are blocked...
+        for name in ("vision_only", "cross_modal", "shuffle"):
             with pytest.raises(
                     VariantPrerequisiteError, match="equivalence"):
                 assert_variant_ready(family, name)
-        # ...structural variants are not
-        for name in ("neutral", "history_reset", "shuffle"):
+        # ...text-only conditions never cross modalities
+        for name in ("neutral", "text_only", "history_reset"):
+            assert_variant_ready(family, name)
+
+    def test_not_equivalent_blocks_modality_counterfactuals(self, tmp_path):
+        """P0 regression: an explicit S(T_mm)!~S(T_text) decision must
+        NOT be treated as eligibility for modality comparisons."""
+        family = _ready_family(tmp_path)
+        for atom in family.semantic_atoms:
+            if atom.divergence == "causal":
+                atom.semantic_equivalence["multimodal_vs_unimodal"] = \
+                    {"state": "not_equivalent", "confidence": 0.9}
+        # The annotation is COMPLETE: L1 readiness still holds
+        assert family_readiness(family)["level"] == L2_VARIANT_READY \
+            or family_readiness(family)["L1_semantic"] == []
+        # But factorial eligibility is lost for modality crossings
+        for name in ("vision_only", "cross_modal", "shuffle"):
+            with pytest.raises(VariantPrerequisiteError,
+                               match="NOT equivalent"):
+                assert_variant_ready(family, name)
+        # Non-crossing conditions remain constructible
+        for name in ("neutral", "text_only", "history_reset"):
             assert_variant_ready(family, name)
 
     def test_pending_risk_relevance_blocks_vision_variants(self, tmp_path):
@@ -141,11 +163,48 @@ class TestReadinessGates:
         for atom in family.semantic_atoms:
             if atom.structural_role == "shared_image":
                 atom.risk_relevance = "pending"
-        for name in ("vision_only", "cross_modal"):
+        for name in ("vision_only", "cross_modal", "shuffle"):
             with pytest.raises(
                     VariantPrerequisiteError, match="risk_relevance"):
                 assert_variant_ready(family, name)
         assert_variant_ready(family, "text_only")
+
+    def test_irrelevant_image_blocks_visual_variants(self, tmp_path):
+        """P0 regression: an explicitly irrelevant image cannot ground
+        a causal visual condition — the family is a negative control."""
+        family = _ready_family(tmp_path)
+        for atom in family.semantic_atoms:
+            if atom.structural_role == "shared_image":
+                atom.risk_relevance = "irrelevant"
+        for name in ("vision_only", "cross_modal", "shuffle"):
+            with pytest.raises(VariantPrerequisiteError,
+                               match="annotated irrelevant"):
+                assert_variant_ready(family, name)
+        assert_variant_ready(family, "neutral")
+        assert_variant_ready(family, "text_only")
+
+    def test_joint_interpretation_false_blocks_cross_modal(self, tmp_path):
+        """P0 regression: required_for_joint_interpretation=False means
+        cross_modal is not a causal candidate."""
+        family = _ready_family(tmp_path)
+        for atom in family.semantic_atoms:
+            if atom.structural_role == "shared_image":
+                atom.required_for_joint_interpretation = False
+        for name in ("cross_modal", "shuffle"):
+            with pytest.raises(VariantPrerequisiteError,
+                               match="joint_interpretation=False"):
+                assert_variant_ready(family, name)
+        # vision_only does not claim joint text+vision interpretation
+        assert_variant_ready(family, "vision_only")
+
+    def test_build_family_variants_fails_on_negative_annotation(self, tmp_path):
+        """Decided-but-negative families are rejected, not built."""
+        family = _ready_family(tmp_path)
+        for atom in family.semantic_atoms:
+            if atom.structural_role == "shared_image":
+                atom.risk_relevance = "irrelevant"
+        with pytest.raises(VariantPrerequisiteError):
+            build_family_variants(family)
 
     def test_unknown_variant_name_rejected(self, tmp_path):
         with pytest.raises(ValueError, match="Unknown variant"):
@@ -171,6 +230,14 @@ class TestHarmonization:
         assert block["method"] == "llm"
         assert block["validation"] == "llm"
         assert block["provenance"]["model"] == "test-llm"
+        # Grounding validation targets present, unresolved (null)
+        for target in (
+            "canonical_q_grounding_valid",
+            "canonical_q_no_unintended_modality_dependency",
+            "canonical_q_semantically_preserves_mm_source",
+            "canonical_q_semantically_preserves_text_source",
+        ):
+            assert target in block and block[target] is None
 
     def test_original_terminal_not_overwritten(self, tmp_path):
         annotated = _full_annotator().annotate_family(_skeleton(tmp_path))
@@ -216,6 +283,27 @@ class TestHarmonization:
     def test_callable_harmonizer_requires_model_name(self):
         with pytest.raises(TerminalHarmonizationError, match="model_name"):
             CallableHarmonizer(lambda fk, mm, tx: "q", model_name="")
+
+    def test_manual_harmonizer_dict_form_fills_grounding_targets(self, tmp_path):
+        """Human reviewers may attach grounding judgments to the entry."""
+        skeleton = _skeleton(tmp_path)
+        key = skeleton.source["source_id"]
+        path = tmp_path / "harmonize.json"
+        path.write_text(json.dumps({key: {
+            "canonical_q": CANONICAL_Q,
+            "canonical_q_grounding_valid": True,
+            "canonical_q_no_unintended_modality_dependency": True,
+            "canonical_q_semantically_preserves_mm_source": True,
+            "canonical_q_semantically_preserves_text_source": True,
+        }}))
+        annotated = _full_annotator().annotate_family(skeleton)
+        harmonized = apply_terminal_harmonization(
+            annotated, ManualHarmonizer(path))
+        block = harmonized.validation["terminal_harmonization"]
+        assert block["canonical_q_grounding_valid"] is True
+        assert block["canonical_q_no_unintended_modality_dependency"] is True
+        assert block["canonical_q_semantically_preserves_mm_source"] is True
+        assert block["canonical_q_semantically_preserves_text_source"] is True
 
 
 # ---------------------------------------------------------------------------

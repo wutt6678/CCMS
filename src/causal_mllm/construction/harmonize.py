@@ -21,6 +21,18 @@ terminal query is NEVER overwritten:
 
 Every variant condition must then reference exactly this string/hash:
 q*_00 = q*_10 = q*_01 = q*_11 = q*_shuffle = q*_reset.
+
+Exact-string invariance is NECESSARY but NOT SUFFICIENT: the same q*
+string can receive different interpretations across conditions (e.g.
+a q* referring to "these helmets" is under-specified in history_reset,
+which has no image — an image-treatment -> reference-resolvability ->
+Y confound). The harmonization block therefore carries four grounding
+VALIDATION TARGETS, null until human/Iteration-6 review resolves them:
+
+    canonical_q_grounding_valid
+    canonical_q_no_unintended_modality_dependency
+    canonical_q_semantically_preserves_mm_source
+    canonical_q_semantically_preserves_text_source
 """
 
 from __future__ import annotations
@@ -37,6 +49,17 @@ from causal_mllm.seeds import sha256_text
 
 class TerminalHarmonizationError(ValueError):
     """Raised when a required harmonization cannot be produced."""
+
+
+# Grounding checks that a canonical q* must pass before the family can
+# be treated as research data (Iteration-6 validation targets; human
+# review fills them for the smoke sets). null == unresolved.
+GROUNDING_VALIDATION_TARGETS = (
+    "canonical_q_grounding_valid",
+    "canonical_q_no_unintended_modality_dependency",
+    "canonical_q_semantically_preserves_mm_source",
+    "canonical_q_semantically_preserves_text_source",
+)
 
 
 def _source_text_q(family: CausalFamily) -> Optional[str]:
@@ -66,7 +89,16 @@ class TerminalHarmonizer(ABC):
 
 
 class ManualHarmonizer(TerminalHarmonizer):
-    """Canonical queries from a JSON file: {family_key: canonical_q}.
+    """Canonical queries from a JSON file: {family_key: entry}.
+
+    Each entry is either a plain string (the canonical q*) or an
+    object carrying the human reviewer's grounding judgments:
+
+        {"canonical_q": "...",
+         "canonical_q_grounding_valid": true,
+         "canonical_q_no_unintended_modality_dependency": true,
+         "canonical_q_semantically_preserves_mm_source": true,
+         "canonical_q_semantically_preserves_text_source": true}
 
     The intended route for the smoke sets: a human reads the mm/text
     terminal pair and writes one canonical query per family.
@@ -85,8 +117,13 @@ class ManualHarmonizer(TerminalHarmonizer):
             self._data: dict = json.load(f)
 
     def harmonize(self, family_key: str, source_mm_q: str,
-                  source_text_q: Optional[str]) -> Optional[str]:
-        return self._data.get(family_key)
+                  source_text_q: Optional[str]) -> Optional[dict]:
+        entry = self._data.get(family_key)
+        if entry is None:
+            return None
+        if isinstance(entry, str):
+            return {"canonical_q": entry}
+        return entry
 
     def provenance(self) -> dict:
         return {"backend": "manual", "file": str(self._path)}
@@ -122,8 +159,11 @@ class CallableHarmonizer(TerminalHarmonizer):
         }
 
     def harmonize(self, family_key: str, source_mm_q: str,
-                  source_text_q: Optional[str]) -> Optional[str]:
-        return self._fn(family_key, source_mm_q, source_text_q)
+                  source_text_q: Optional[str]) -> Optional[dict]:
+        result = self._fn(family_key, source_mm_q, source_text_q)
+        if result is None:
+            return None
+        return {"canonical_q": result} if isinstance(result, str) else result
 
     def provenance(self) -> dict:
         return dict(self._provenance)
@@ -150,7 +190,8 @@ def apply_terminal_harmonization(
     source_mm_q = harmonized.terminal_query.text
     source_text_q = _source_text_q(harmonized)
 
-    canonical = harmonizer.harmonize(family_key, source_mm_q, source_text_q)
+    entry = harmonizer.harmonize(family_key, source_mm_q, source_text_q)
+    canonical = entry.get("canonical_q") if isinstance(entry, dict) else None
     if canonical is not None and not str(canonical).strip():
         canonical = None
     if canonical is None and required:
@@ -168,6 +209,15 @@ def apply_terminal_harmonization(
         "method": harmonizer.method,
         "validation": harmonizer.validation_label,
         "provenance": harmonizer.provenance(),
+        # Grounding validation targets — exact-string equality across
+        # variants does not imply identical interpretation across
+        # conditions. Human reviewers may fill them via the dict form
+        # of ManualHarmonizer; otherwise they stay null until the
+        # Iteration-6 validation layer.
+        **{
+            target: (entry or {}).get(target)
+            for target in GROUNDING_VALIDATION_TARGETS
+        },
     }
     if harmonized.validation is None:
         harmonized.validation = {}

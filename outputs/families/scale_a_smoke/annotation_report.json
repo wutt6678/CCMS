@@ -1,9 +1,9 @@
 {
   "iteration": "5A",
-  "timestamp": "2026-08-24T22:54:41.430361+00:00",
-  "annotator": "CallableAnnotator",
-  "n_families": 5,
-  "n_l1_semantic": 5,
+  "timestamp": "2026-08-24T23:29:34.270705+00:00",
+  "annotator": "ManualFileAnnotator",
+  "n_families": 10,
+  "n_l1_semantic": 10,
   "readiness": {
     "CMST_762906": {
       "level": "L1_semantic",
@@ -22,6 +22,26 @@
       "L1_semantic_gaps": []
     },
     "CMST_477538": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_671059": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_679504": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_448420": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_837079": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_669237": {
       "level": "L1_semantic",
       "L1_semantic_gaps": []
     }

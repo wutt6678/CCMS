@@ -1,36 +1,29 @@
 # Scale-A smoke build (5 families × 6 variants = 30 trajectories)
 
-Generated 2026-08-25 with commit `152956c` (Iteration 5) as evidence
-for the acceptance gate: 5 real MTMCS Type-B families, all six gated
-variants, exact canonical-q hash invariant across every trajectory.
+Rebuilt 2026-08-25 (Iteration-5 repair) from HUMAN review inputs in
+[`review/`](review/REVIEW_NOTES.md): `annotations.json` and
+`harmonization.json` were written by a reviewer who read all four
+condition dialogues and inspected the image for each of the first 10
+Type-B rows. The variants stage built the 5 factorially eligible
+families (000000, 000003, 000004, 000006, 000008) and routed the 5
+ineligible rows (000001, 000002, 000005, 000007, 000009) to
+`negative_controls.jsonl` with explicit reasons.
 
-## Status: PLACEHOLDER annotations and harmonizations
+Evidence status:
 
-The `annotation_provenance` entries record
-`model: placeholder-vlm` / `placeholder-llm`: the annotations and
-canonical q* here were produced by deterministic test backends so the
-full stage chain could be exercised end-to-end. They are NOT human
-review.
-
-Before this build counts toward the acceptance gate item
-*"human inspection of the five families finds no obvious semantic
-leakage"*, the following must be redone with human (or real LLM/VLM)
-judgment:
-
-1. `annotated_skeletons.jsonl` — re-annotate via
-   `ManualFileAnnotator` / a real `CallableAnnotator`
-   (causal atom semantic types, vision risk relevance,
-   multimodal_vs_unimodal equivalence).
-2. `harmonized_families.jsonl` — re-harmonize via
-   `ManualHarmonizer` / a real `CallableHarmonizer`: the placeholder
-   simply adopts the multimodal terminal query as canonical q*.
-3. Re-run the variants stage and inspect the 30 trajectories.
+- pipeline smoke evidence: PASS (30 trajectories, exact canonical-q
+  hash invariant, per-variant structural checks)
+- research-data smoke evidence: PASS for the five built families,
+  subject to the residual caveats in the review notes (terminal-atom
+  equivalence confidences 0.80–0.85; cross_modal remains a candidate
+  until Iteration-6 behavioral validation)
 
 ## Files
 
 | File | Content |
 |------|---------|
-| `families.jsonl` | Complete families with all six variants |
-| `variants_report.json` | Stage-5C report (30 trajectories) |
-| `annotation_report.json` | Per-family readiness after annotation |
-| `selection_report.json`, `atoms_report.json` | Earlier stages |
+| `families.jsonl` | 5 complete families, six variants each |
+| `negative_controls.jsonl` | 5 ineligible families + gate reasons |
+| `variants_report.json` | Stage-5C report (30 trajectories, 5 controls) |
+| `annotation_report.json` | Per-family readiness after human annotation |
+| `review/` | Human review inputs + notes (committed evidence) |

@@ -1,17 +1,22 @@
 {
   "iteration": 4,
-  "timestamp": "2026-08-24T22:54:41.424168+00:00",
-  "git_commit": "152956c59c3ee09957be58fb0ed3f14ca9020523",
+  "timestamp": "2026-08-24T23:29:34.178000+00:00",
+  "git_commit": "e7f2c1f29ee36bf8d42a99d57dfede814fb4d2b0",
   "seed": 42,
   "extraction_backend": "rule",
-  "n_families": 5,
-  "n_atoms": 20,
-  "n_causal_atoms": 5,
+  "n_families": 10,
+  "n_atoms": 40,
+  "n_causal_atoms": 10,
   "family_ids": [
     "CMST_762906",
     "CMST_266940",
     "CMST_187874",
     "CMST_167801",
-    "CMST_477538"
+    "CMST_477538",
+    "CMST_671059",
+    "CMST_679504",
+    "CMST_448420",
+    "CMST_837079",
+    "CMST_669237"
   ]
 }

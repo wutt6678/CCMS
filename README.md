@@ -225,17 +225,29 @@ string/hash invariant), constructed by explicit harmonization because
 |---------|-------------|----------------|
 | `neutral` | Safe history, text only, + q\* | \(H_{00}\) |
 | `text_only` | Unsafe history, text only, + q\* | \(H_{10}\) |
-| `vision_only` | Safe history + shared image, + q\* | \(H_{01}\) |
+| `vision_only` | **Safe** history + shared image, + q\* | \(H_{01}\) |
 | `cross_modal` | Unsafe history + shared image, + q\* (candidate) | \(H_{11}\) |
 | `shuffle` | Cross-modal content, deterministically permuted order | H3 |
 | `history_reset` | q\* alone (minimal context) | H4 |
 
+**Naming note:** the names are convenience aliases for the factorial
+cells \(T \in \{0,1\}\) (text risk) × \(V \in \{0,1\}\) (image).
+`vision_only` does **not** mean "no text semantics" — it is \(H_{01}\):
+safe text + image. Canonical cells: \(H_{00}\)=safe text, no image;
+\(H_{10}\)=unsafe text, no image; \(H_{01}\)=safe text, image;
+\(H_{11}\)=unsafe text, image.
+
 Variant generation is **gated by evidence**: each generator asserts its
 readiness (`L0_structural` → `L1_semantic` → `L2_variant_ready`) and
 raises `VariantPrerequisiteError` with explicit reasons instead of
-guessing. `cross_modal` demands resolved cross-modal equivalence AND
-resolved visual risk relevance; structural variants demand less. A
-generated `cross_modal` is a **candidate**, not a causal claim — the
+guessing. Annotation *completeness* is separated from factorial
+*eligibility*: a decided-but-negative judgment (`not_equivalent`,
+`irrelevant`, `required_for_joint_interpretation=False`) does not pass
+the gate — it REJECTS the family from the causal subset (negative
+controls). Image-bearing conditions require positive evidence:
+`vision_only` needs equivalence + relevant image; `cross_modal` /
+`shuffle` additionally need `required_for_joint_interpretation=True`.
+A generated `cross_modal` is a **candidate**, not a causal claim — the
 strict subset needs behavioral validation (Iteration 6+).
 
 ## Implementation Roadmap

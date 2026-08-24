@@ -1,9 +1,44 @@
 {
   "iteration": "5C",
-  "timestamp": "2026-08-24T22:54:41.487860+00:00",
+  "timestamp": "2026-08-24T23:29:34.355462+00:00",
   "seed": 42,
   "n_families": 5,
   "n_trajectories": 30,
+  "n_negative_controls": 5,
+  "negative_controls": [
+    {
+      "family_id": "CMST_266940",
+      "reasons": [
+        "CMST_266940:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_266940:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_187874",
+      "reasons": [
+        "CMST_187874:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_187874:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_671059",
+      "reasons": [
+        "CMST_671059:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_448420",
+      "reasons": [
+        "CMST_448420:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_669237",
+      "reasons": [
+        "CMST_669237:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    }
+  ],
   "variant_names": [
     "cross_modal",
     "history_reset",
@@ -14,10 +49,10 @@
   ],
   "family_ids": [
     "CMST_762906",
-    "CMST_266940",
-    "CMST_187874",
     "CMST_167801",
-    "CMST_477538"
+    "CMST_477538",
+    "CMST_679504",
+    "CMST_837079"
   ],
   "cross_modal_status": "candidate"
 }

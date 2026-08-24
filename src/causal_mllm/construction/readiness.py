@@ -11,13 +11,33 @@ Variant generation NEVER silently continues on unresolved evidence:
 ``assert_variant_ready`` raises ``VariantPrerequisiteError`` listing
 exactly why a family cannot yet produce a given condition.
 
-Prerequisite strength differs by variant — ``history_reset`` is mostly
-structural, ``cross_modal`` requires substantially stronger evidence:
+Two DIFFERENT notions of a semantic judgment are kept apart:
 
-    neutral / history_reset / shuffle : L2 only
-    text_only    : L2 + resolved cross-modal equivalence (uses text forms)
-    vision_only  : L2 + resolved visual risk relevance
-    cross_modal  : L2 + resolved equivalence + resolved risk relevance
+  * ANNOTATED (L1 completeness): a decision was made. ``not_equivalent``
+    and ``irrelevant`` are complete annotations — family_readiness()
+    legitimately reports L1 for them.
+  * FACTORIAL ELIGIBILITY: the decision must be the RIGHT one for the
+    comparison. ``S(T_mm) !~ S(T_text)`` cannot be constructed as a
+    modality counterfactual, and an ``irrelevant`` image cannot ground
+    a causal visual condition. Eligibility therefore requires
+    ``equivalent`` / ``relevant`` / ``required_for_joint_interpretation
+    == True`` — a decided-but-negative annotation REJECTS the family
+    from the causal subset (it belongs with the negative controls).
+
+Per-variant prerequisites (beyond L0 + canonical q*):
+
+    neutral       : none
+    text_only     : none (both forms are unimodal; no modality crossing)
+    vision_only   : equivalence + visual relevance == relevant
+    cross_modal   : equivalence + visual relevance == relevant +
+                    required_for_joint_interpretation == True
+    shuffle       : cross_modal-ready (same content, permuted order)
+    history_reset : none
+
+vision_only needs the equivalence gate because the H00->H01 contrast
+(unimodal_safe -> multimodal_safe + image) changes BOTH image presence
+and text wording unless the two text histories are established as
+semantically equivalent.
 
 A family is a cross_modal_CANDIDATE once constructible; whether it
 belongs to the strict cross-modal causal subset (Risk(T)<θ, Risk(V)<θ,
@@ -39,9 +59,17 @@ ALL_VARIANT_NAMES = (
     "cross_modal", "shuffle", "history_reset",
 )
 
-# Resolved decisions (not 'pending' and not 'uncertain')
-_RESOLVED_EQUIVALENCE = {"equivalent", "not_equivalent"}
-_RESOLVED_RISK = {"relevant", "irrelevant"}
+# ANNOTATED (L1 completeness): a DECISION exists, whichever way it went.
+# not_equivalent / irrelevant are complete annotations — the family is
+# simply ineligible for the causal subset (negative control material).
+ANNOTATED_EQUIVALENCE = {"equivalent", "not_equivalent"}
+ANNOTATED_RISK_RELEVANCE = {"relevant", "irrelevant"}
+
+# FACTORIAL ELIGIBILITY: the decision must support the comparison.
+# Constructing a modality counterfactual from an explicitly
+# not_equivalent annotation would defeat the whole point of annotating.
+FACTORIAL_EQUIVALENCE = {"equivalent"}
+FACTORIAL_RISK_RELEVANCE = {"relevant"}
 
 
 class VariantPrerequisiteError(RuntimeError):
@@ -91,10 +119,11 @@ def semantic_gaps(family: CausalFamily) -> list[str]:
                     f"is pending"
                 )
         if atom.structural_role == "shared_image":
-            if atom.risk_relevance not in _RESOLVED_RISK:
+            if atom.risk_relevance not in ANNOTATED_RISK_RELEVANCE:
                 gaps.append(
                     f"{atom.atom_id}: risk_relevance is "
-                    f"'{atom.risk_relevance}' (need relevant/irrelevant)"
+                    f"'{atom.risk_relevance}' (need a decision: "
+                    f"relevant/irrelevant)"
                 )
             if atom.required_for_joint_interpretation is None:
                 gaps.append(
@@ -106,7 +135,7 @@ def semantic_gaps(family: CausalFamily) -> list[str]:
         has_text = any(k.startswith("unimodal_") for k in forms)
         if has_mm and has_text:
             state = _equivalence_state(atom, "multimodal_vs_unimodal")
-            if state not in _RESOLVED_EQUIVALENCE:
+            if state not in ANNOTATED_EQUIVALENCE:
                 gaps.append(
                     f"{atom.atom_id}: multimodal_vs_unimodal equivalence "
                     f"is '{state}'"
@@ -148,14 +177,17 @@ def family_readiness(family: CausalFamily) -> dict:
     }
 
 
-# Per-variant semantic evidence requirements beyond L2
+# Per-variant factorial eligibility requirements beyond L0 + canonical q*.
+# text_only is NOT gated by equivalence: both neutral and text_only draw
+# unimodal text forms, so the contrast never crosses modalities.
 _VARIANT_REQUIREMENTS = {
     "neutral": (),
+    "text_only": (),
     "history_reset": (),
-    "shuffle": (),
-    "text_only": ("equivalence",),
-    "vision_only": ("risk_relevance",),
-    "cross_modal": ("equivalence", "risk_relevance"),
+    "vision_only": ("equivalence", "visual_relevance"),
+    "cross_modal": ("equivalence", "visual_relevance",
+                    "joint_interpretation"),
+    "shuffle": ("equivalence", "visual_relevance", "joint_interpretation"),
 }
 
 
@@ -169,25 +201,50 @@ def _variant_semantic_reasons(family: CausalFamily,
             has_text = any(k.startswith("unimodal_") for k in forms)
             if has_mm and has_text:
                 state = _equivalence_state(atom, "multimodal_vs_unimodal")
-                if state not in _RESOLVED_EQUIVALENCE:
-                    reasons.append(
-                        f"cross-modal equivalence unresolved on "
-                        f"{atom.atom_id} ('{state}') — modality and "
-                        f"wording would be confounded"
-                    )
-    if "risk_relevance" in requirements:
+                if state not in FACTORIAL_EQUIVALENCE:
+                    if state in ANNOTATED_EQUIVALENCE:
+                        reasons.append(
+                            f"{atom.atom_id}: annotated NOT equivalent "
+                            f"across modalities — cannot construct a "
+                            f"modality counterfactual (family belongs "
+                            f"with negative controls)"
+                        )
+                    else:
+                        reasons.append(
+                            f"cross-modal equivalence unresolved on "
+                            f"{atom.atom_id} ('{state}') — modality and "
+                            f"wording would be confounded"
+                        )
+    if "visual_relevance" in requirements:
         for atom in family.semantic_atoms:
             if atom.structural_role == "shared_image":
-                if atom.risk_relevance not in _RESOLVED_RISK:
-                    reasons.append(
-                        f"visual atom {atom.atom_id} risk_relevance is "
-                        f"'{atom.risk_relevance}' — image presence must "
-                        f"not be confused with risk relevance"
-                    )
+                if atom.risk_relevance not in FACTORIAL_RISK_RELEVANCE:
+                    if atom.risk_relevance in ANNOTATED_RISK_RELEVANCE:
+                        reasons.append(
+                            f"visual atom {atom.atom_id}: annotated "
+                            f"irrelevant — an irrelevant image cannot "
+                            f"ground a causal visual condition (family "
+                            f"belongs with negative controls)"
+                        )
+                    else:
+                        reasons.append(
+                            f"visual atom {atom.atom_id} risk_relevance "
+                            f"is '{atom.risk_relevance}' — image presence "
+                            f"must not be confused with risk relevance"
+                        )
+    if "joint_interpretation" in requirements:
+        for atom in family.semantic_atoms:
+            if atom.structural_role == "shared_image":
                 if atom.required_for_joint_interpretation is None:
                     reasons.append(
                         f"visual atom {atom.atom_id} "
                         f"required_for_joint_interpretation is null"
+                    )
+                elif atom.required_for_joint_interpretation is not True:
+                    reasons.append(
+                        f"visual atom {atom.atom_id}: annotated "
+                        f"required_for_joint_interpretation=False — "
+                        f"cross_modal is not a causal candidate"
                     )
     return reasons
 

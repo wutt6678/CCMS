@@ -8,8 +8,8 @@ never raw MTMCS field names. Each generator:
   3. attaches full provenance to every transformation
   4. leaves the source family immutable
 
-Factorial mapping (2x2: history risk x vision), with one canonical q*
-shared by ALL six conditions (hash-invariant):
+Factorial mapping (2x2: history risk T x vision V), with one canonical
+q* shared by ALL six conditions (hash-invariant):
 
     neutral       H_00  safe history text,        no image   + q*
     text_only     H_10  unsafe history text,      no image   + q*
@@ -17,6 +17,21 @@ shared by ALL six conditions (hash-invariant):
     cross_modal   H_11  unsafe history text,      + image    + q*
     shuffle             cross_modal history, permuted order  + q*
     history_reset       q* alone (minimal context)
+
+NAMING NOTE: the variant names are convenience aliases for the
+factorial cells H_ij. 'vision_only' does NOT mean 'no text semantics'
+— it is H_01 (T=0, V=1): a SAFE textual history plus the shared image.
+T=1 means 'unsafe/risk-bearing textual history', not 'any text exists'.
+Canonical cells: H00 = safe_text + no_image, H10 = unsafe_text +
+no_image, H01 = safe_text + image, H11 = unsafe_text + image.
+
+Prerequisite strength differs per variant (see readiness.py): text-only
+conditions are structural + canonical q*; image-bearing conditions
+additionally require ANNOTATED-POSITIVE evidence — equivalence ==
+'equivalent', risk_relevance == 'relevant' (not merely decided), and
+for cross_modal/shuffle required_for_joint_interpretation == True.
+A decided-but-negative annotation (not_equivalent / irrelevant /
+False) REJECTS the family from the causal subset.
 
 Cross-modal CAUSALITY (the strict subset) is NOT claimed here: a built
 cross_modal variant is a cross_modal_CANDIDATE until Iteration 6
@@ -330,6 +345,10 @@ def build_family_variants(family: CausalFamily, *,
     if result.validation is None:
         result.validation = {}
     result.validation["variant_generation"] = {
+        # True is justified here: construction only succeeds when the
+        # annotations are POSITIVE (equivalent / relevant /
+        # joint-interpretation True). Decided-but-negative families
+        # never reach this point — they are negative controls.
         "cross_modal_candidate": True,   # constructible; NOT yet causal
         "cross_modal_required": None,    # behavioral evidence (Iter 6+)
         "generated_at": datetime.datetime.now(

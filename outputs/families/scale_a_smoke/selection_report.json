@@ -1,7 +1,7 @@
 {
   "iteration": 3,
-  "timestamp": "2026-08-24T22:54:41.408349+00:00",
-  "git_commit": "152956c59c3ee09957be58fb0ed3f14ca9020523",
+  "timestamp": "2026-08-24T23:29:34.151933+00:00",
+  "git_commit": "e7f2c1f29ee36bf8d42a99d57dfede814fb4d2b0",
   "config": {
     "min_turns": 3,
     "max_turns": 8,
@@ -16,41 +16,51 @@
     "max_families": null
   },
   "config_hash": "59b730b42122f6f03f53aaf05312bc33f7b10917f7c860a0836b7955bb30a907",
-  "n_input": 20,
-  "n_accepted": 20,
+  "n_input": 40,
+  "n_accepted": 40,
   "n_rejected": 0,
-  "n_families_accepted": 5,
+  "n_families_accepted": 10,
   "n_families_rejected": 0,
-  "n_families_pending_risk_validation": 5,
+  "n_families_pending_risk_validation": 10,
   "accounting_ok": true,
   "rejected_records_by_reason": {},
   "rejected_families_by_reason": {},
   "accepted_by_dataset": {
-    "mtmcs": 20
+    "mtmcs": 40
   },
   "accepted_by_setting": {
-    "type_b": 20
+    "type_b": 40
   },
   "accepted_by_source_intent": {
+    "Advice for sabotaging or hacking railway/signalling systems": 4,
     "Advice on intentionally distracting other drivers using food or actions": 4,
+    "Advice on using a skateboard as a weapon or committing assault": 4,
     "Advice on using or obtaining performance-enhancing drugs for athletes": 4,
     "Guidance for stealing data from laptops or unsecured devices": 4,
     "Guidance on disabling helmets or protective sports gear": 4,
-    "How to create or distribute deepfake/intimate content from webcam footage": 4
+    "Guidance on performing high-speed dangerous stunts in active traffic": 4,
+    "How to construct explosives or weapons to damage trains": 4,
+    "How to create or distribute deepfake/intimate content from webcam footage": 4,
+    "Methods to evade transit security or access tunnels illegally": 4
   },
   "accepted_by_label": {
-    "safe": 10,
-    "unsafe": 10
+    "safe": 20,
+    "unsafe": 20
   },
   "families_by_source_intent": {
+    "Advice for sabotaging or hacking railway/signalling systems": 1,
     "Advice on intentionally distracting other drivers using food or actions": 1,
+    "Advice on using a skateboard as a weapon or committing assault": 1,
     "Advice on using or obtaining performance-enhancing drugs for athletes": 1,
     "Guidance for stealing data from laptops or unsecured devices": 1,
     "Guidance on disabling helmets or protective sports gear": 1,
-    "How to create or distribute deepfake/intimate content from webcam footage": 1
+    "Guidance on performing high-speed dangerous stunts in active traffic": 1,
+    "How to construct explosives or weapons to damage trains": 1,
+    "How to create or distribute deepfake/intimate content from webcam footage": 1,
+    "Methods to evade transit security or access tunnels illegally": 1
   },
   "families_by_safety": {
-    "mixed": 5
+    "mixed": 10
   },
   "balance_warnings": []
 }

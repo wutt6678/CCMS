@@ -4,6 +4,55 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.1] — 2026-08-25
+
+### Fixed — eligibility gates confused with annotation completeness
+
+- P0-1: `not_equivalent` no longer passes the equivalence gate.
+  `ANNOTATED_*` states (a decision exists) are now separated from
+  `FACTORIAL_*` eligibility (`equivalent` only). Constructing a
+  modality counterfactual from an explicit S(T_mm)!~S(T_text)
+  judgment raises `VariantPrerequisiteError` with a 'belongs with
+  negative controls' reason.
+- P0-2: `irrelevant` no longer passes the visual-relevance gate, and
+  `required_for_joint_interpretation=False` now blocks cross_modal /
+  shuffle. Requirements table: neutral/text_only/history_reset =
+  canonical q* only; vision_only = + equivalence + relevant;
+  cross_modal/shuffle = + joint-interpretation True.
+- vision_only now requires the equivalence gate (the H00->H01
+  contrast changes both image presence and text wording).
+- `run_variants_stage` routes decided-but-negative (or unresolved)
+  families to `negative_controls.jsonl` with explicit reasons instead
+  of failing the whole stage; per-family generators still fail loudly.
+
+### Added
+
+- Canonical-q grounding VALIDATION TARGETS on the harmonization block
+  (`canonical_q_grounding_valid`,
+  `canonical_q_no_unintended_modality_dependency`,
+  `canonical_q_semantically_preserves_mm_source`,
+  `canonical_q_semantically_preserves_text_source`), null until
+  human/Iteration-6 review; `ManualHarmonizer` accepts a dict entry
+  carrying the reviewer's judgments.
+- Naming documented: variant names are aliases for factorial cells
+  H00/H10/H01/H11; vision_only = safe text + image, NOT 'no text'.
+- Negative regression tests for not_equivalent / irrelevant /
+  joint=False, and for stage-level negative-control routing.
+
+### Evidence — Scale-A rebuilt from human review
+
+- `outputs/families/scale_a_smoke/review/` commits the human review
+  inputs: per-atom annotations and canonical q* with grounding
+  judgments for the first 10 Type-B rows (all four dialogues + images
+  read by the reviewer).
+- Result: 5 eligible families (000000/000003/000004/000006/000008) x
+  6 variants = 30 trajectories; 5 rows routed to negative controls
+  with explicit not_equivalent reasons. Canonical q* re-phrased to be
+  resolvable without the image (no deictic references), removing the
+  reference-resolvability confound in text_only/history_reset.
+- Research-data smoke evidence: PASS for the five built families
+  (caveats in review/REVIEW_NOTES.md).
+
 ## [0.5.0] — 2026-08-25
 
 ### Added — Iteration 5: annotate → harmonize → construct variants

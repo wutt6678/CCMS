@@ -328,12 +328,21 @@ def run_variants_stage(
 ) -> list:
     """Iteration 5C: generate all six variants per family, gated.
 
-    Reads harmonized_families.jsonl, builds variants (each generator
-    asserts its own prerequisites — unresolved semantics raise
-    VariantPrerequisiteError), validates the full family schema, and
-    persists families.jsonl + variants_report.json.
+    Reads harmonized_families.jsonl and builds variants for every
+    FACTORIALLY ELIGIBLE family (each generator asserts its own
+    prerequisites). Families whose annotations are decided-but-negative
+    (not_equivalent / irrelevant / joint-interpretation False) or still
+    unresolved are NOT built: they are routed to negative_controls.json
+    with explicit reasons, keeping the causal subset clean. The
+    per-family generator still fails loudly — this stage only catches
+    VariantPrerequisiteError to perform that routing.
+
+    Persists families.jsonl, negative_controls.json and
+    variants_report.json.
     """
     import datetime
+
+    from causal_mllm.construction.readiness import VariantPrerequisiteError
 
     output_dir = Path(output_dir)
     source_path = output_dir / HARMONIZED_FAMILIES_FILE
@@ -343,22 +352,40 @@ def run_variants_stage(
         )
     harmonized = _read_families(source_path)
 
-    complete = [build_family_variants(f, seed=seed) for f in harmonized]
-    for family in complete:
-        errors = validate_causal_family(family.to_dict())
+    complete: list = []
+    negative_controls: list = []
+    for family in harmonized:
+        try:
+            built = build_family_variants(family, seed=seed)
+        except VariantPrerequisiteError as exc:
+            negative_controls.append({
+                "family_id": family.family_id,
+                "source_id": family.source.get("source_id"),
+                "variant": exc.variant,
+                "reasons": exc.reasons,
+            })
+            continue
+        errors = validate_causal_family(built.to_dict())
         if errors:
             raise SchemaValidationError(
                 [f"{family.family_id}: {e}" for e in errors]
             )
+        complete.append(built)
 
     write_jsonl(output_dir / FAMILIES_FILE,
                 [f.to_dict() for f in complete])
+    write_jsonl(output_dir / "negative_controls.jsonl", negative_controls)
     report = {
         "iteration": "5C",
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "seed": seed,
         "n_families": len(complete),
         "n_trajectories": sum(len(f.variants) for f in complete),
+        "n_negative_controls": len(negative_controls),
+        "negative_controls": [
+            {"family_id": nc["family_id"], "reasons": nc["reasons"][:2]}
+            for nc in negative_controls
+        ],
         "variant_names": sorted(
             {name for f in complete for name in f.variants}),
         "family_ids": [f.family_id for f in complete],
@@ -368,6 +395,8 @@ def run_variants_stage(
             "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
-    log.info("Generated %d families x 6 variants (%d trajectories) -> %s",
-             len(complete), report["n_trajectories"], output_dir)
+    log.info("Generated %d families x 6 variants (%d trajectories); "
+             "%d families routed to negative controls -> %s",
+             len(complete), report["n_trajectories"],
+             len(negative_controls), output_dir)
     return complete

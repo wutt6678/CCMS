@@ -163,11 +163,48 @@ class TestScaleASmokeBuild:
                       for s in skeletons]
 
         family = harmonized[0]
-        for name in ("text_only", "vision_only", "cross_modal"):
+        # Image-bearing variants need equivalence/relevance evidence
+        for name in ("vision_only", "cross_modal", "shuffle"):
             with pytest.raises(VariantPrerequisiteError):
                 VARIANT_GENERATORS[name](family)
-        # Structural variants remain constructible
-        assert VARIANT_GENERATORS["history_reset"](family).messages
+        # Text-only conditions never cross modalities: constructible
+        for name in ("neutral", "text_only", "history_reset"):
+            assert VARIANT_GENERATORS[name](family).messages
+
+    def test_negative_control_routing_on_decided_negative_annotation(
+            self, tmp_path):
+        """A family annotated irrelevant is routed to negative controls,
+        not built — the causal subset stays clean."""
+
+        def irrelevant_annotator(family_key: str, atom: dict):
+            payload = _resolve_all_annotations(family_key, atom)
+            if atom.get("structural_role") == "shared_image":
+                payload = dict(payload)
+                payload["risk_relevance"] = "irrelevant"
+            return payload
+
+        config = {
+            "source": {"dataset": "mtmcs", "split": "type_b", "max_rows": 1},
+            "selection": {"settings": ["type_b"],
+                          "max_text_length": 100_000},
+            "seed": 42,
+        }
+        selection_result = run_selection_stage(config, tmp_path)
+        run_atoms_stage(selection_result, tmp_path, seed=42)
+        run_annotation_stage(
+            CallableAnnotator(irrelevant_annotator, model_name="test-vlm"),
+            tmp_path)
+        run_harmonization_stage(
+            CallableHarmonizer(_canonical_from_mm, model_name="test-llm"),
+            tmp_path)
+        complete = run_variants_stage(tmp_path, seed=42)
+        assert complete == []
+        controls = read_jsonl(tmp_path / "negative_controls.jsonl")
+        assert len(controls) == 1
+        assert any("annotated irrelevant" in r for r in controls[0]["reasons"])
+        report = json.loads((tmp_path / "variants_report.json").read_text())
+        assert report["n_families"] == 0
+        assert report["n_negative_controls"] == 1
 
     def test_stage_artifacts_and_reports(self, tmp_path):
         complete, out = self._run_pipeline(tmp_path)
