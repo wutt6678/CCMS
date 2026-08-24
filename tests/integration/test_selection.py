@@ -96,8 +96,14 @@ class TestSelectionOnGoldenFixtures:
         assert report["accounting_ok"] is True
         assert report["n_input"] == 28
         assert report["n_families_accepted"] == 5
+        assert report["n_families_rejected"] == 2
         assert report["accepted_by_dataset"] == {"mtmcs": 20}
-        assert report["reason_counts"] == {"setting_excluded": 8}
+        # Record-level: 2 rejected rows x 4 records; family-level: 2 pairs
+        assert report["rejected_records_by_reason"] == {"setting_excluded": 8}
+        assert report["rejected_families_by_reason"] == {"setting_excluded": 2}
+        # All golden MTMCS pairs are safe+unsafe mixed -> balanced by design
+        assert report["families_by_safety"] == {"mixed": 5}
+        assert all("safety" not in w for w in report["balance_warnings"])
         assert report["config_hash"] and report["timestamp"]
 
 

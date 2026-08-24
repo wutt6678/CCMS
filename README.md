@@ -1,5 +1,6 @@
 # CCMS — Causal Cross-Modal Safety-State Dataset
 
+[![CI](https://github.com/wutt6678/CCMS/actions/workflows/ci.yml/badge.svg)](https://github.com/wutt6678/CCMS/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](pyproject.toml)
 

@@ -81,11 +81,15 @@ def main(argv: list[str] | None = None) -> None:
         report = result.report
         log.info(
             "Selection done: %d/%d records accepted (%d families), "
-            "%d rejected. Report: %s",
+            "%d rejected. Rejected families by reason: %s",
             report["n_accepted"], report["n_input"],
             report["n_families_accepted"], report["n_rejected"],
-            report["reason_counts"],
+            report["rejected_families_by_reason"],
         )
+        log.info("Accepted families by category: %s | by safety: %s",
+                 report["families_by_category"], report["families_by_safety"])
+        for warning in report["balance_warnings"]:
+            log.warning("Balance check: %s", warning)
 
     if stage in ("atoms", "variants") or stage == "all":
         # TODO: Implement remaining stages (Iteration 4+)

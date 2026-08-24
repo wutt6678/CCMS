@@ -1,0 +1,70 @@
+# Independent test evidence for every push/PR.
+#
+# Two jobs:
+#   unit        — fast, fully offline (no network, no dataset downloads)
+#   integration — real source datasets (HuggingFace network access required)
+#
+# The integration job fails loudly if upstream schemas drift (schema guards)
+# or if normalization/selection invariants break on real data.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: Unit tests (offline)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint (ruff) on Iteration 3+ modules
+        run: |
+          ruff check src/causal_mllm/construction/ \
+                     src/causal_mllm/adapters/__init__.py \
+                     src/causal_mllm/cli/build_families.py \
+                     tests/unit/test_select.py \
+                     tests/integration/test_selection.py
+
+      - name: Run unit tests
+        run: python -m pytest tests/unit -q --tb=short
+
+      - name: Run offline golden-fixture tests
+        run: python -m pytest tests/integration/test_golden_fixtures.py -q \
+             -k "not SchemaGuards and not adapter_output" --tb=short
+
+  integration:
+    name: Integration tests (real datasets)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: unit
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run integration tests
+        run: python -m pytest tests/integration -q --tb=short

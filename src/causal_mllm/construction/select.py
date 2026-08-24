@@ -450,30 +450,106 @@ def _make_rejection(
 # Reporting
 # ---------------------------------------------------------------------------
 
+# A family set is flagged when a single category/label covers at least this
+# share of accepted families (and there are enough families to matter).
+# Deliberately simple: report + warn, no stratified resampling yet.
+BALANCE_CONCENTRATION_THRESHOLD = 0.8
+BALANCE_MIN_FAMILIES = 5
+
+
+def _family_key_of(ex: CanonicalSourceExample) -> str:
+    """Family key used for family-level aggregation."""
+    return str(ex.metadata.get("pair_id") or ex.source_id)
+
+
+def _concentration_warnings(counts: dict[str, int], dimension: str) -> list[str]:
+    """Warn when one value dominates a distribution."""
+    total = sum(counts.values())
+    if total < BALANCE_MIN_FAMILIES or not counts:
+        return []
+    warnings: list[str] = []
+    for value, n in sorted(counts.items()):
+        share = n / total
+        if share >= BALANCE_CONCENTRATION_THRESHOLD:
+            warnings.append(
+                f"concentration:{dimension} '{value}' covers "
+                f"{n}/{total} families ({share:.0%})"
+            )
+    return warnings
+
+
 def build_selection_report(
     n_input: int,
     result: SelectionResult,
     config: SelectionConfig,
 ) -> dict:
-    """Build a machine-readable selection report with full provenance."""
+    """Build a machine-readable selection report with full provenance.
+
+    Rejection counts are reported at BOTH granularities:
+      * ``rejected_records_by_reason`` — one count per rejection row. A
+        rejected MTMCS family contributes 4 (one per condition record).
+      * ``rejected_families_by_reason`` — one count per family unit
+        (pair_id for MTMCS groups, source_id for singletons). A rejected
+        MTMCS family contributes exactly 1.
+    """
     import datetime
 
     result.verify_accounting(n_input)
 
-    reason_counts: dict[str, int] = {}
+    # Record-level counts (one per rejection row)
+    record_counts: dict[str, int] = {}
     for rej in result.rejections:
         for code in rej.reason.split(";"):
-            reason_counts[code] = reason_counts.get(code, 0) + 1
+            record_counts[code] = record_counts.get(code, 0) + 1
+
+    # Family-level counts (one per family unit, de-duplicated per reason)
+    family_reasons: dict[str, set[str]] = {}
+    for rej in result.rejections:
+        key = rej.pair_id or rej.source_id
+        family_reasons.setdefault(key, set()).update(rej.reason.split(";"))
+    family_counts: dict[str, int] = {}
+    for codes in family_reasons.values():
+        for code in codes:
+            family_counts[code] = family_counts.get(code, 0) + 1
 
     dataset_counts: dict[str, int] = {}
     setting_counts: dict[str, int] = {}
+    category_counts: dict[str, int] = {}
+    label_counts: dict[str, int] = {}
+    family_categories: dict[str, str] = {}
+    family_labels: dict[str, set] = {}
     for ex in result.accepted:
         dataset_counts[ex.source_dataset] = dataset_counts.get(ex.source_dataset, 0) + 1
         setting_counts[ex.source_setting] = setting_counts.get(ex.source_setting, 0) + 1
+        category = ex.source_category or "(none)"
+        category_counts[category] = category_counts.get(category, 0) + 1
+        label_counts[ex.label] = label_counts.get(ex.label, 0) + 1
+        # Family-level distributions (for the 20-family balance check)
+        fkey = _family_key_of(ex)
+        family_categories[fkey] = category
+        family_labels.setdefault(fkey, set()).add(ex.label)
 
-    n_families = len({
-        (ex.metadata.get("pair_id") or ex.source_id) for ex in result.accepted
-    })
+    family_category_counts: dict[str, int] = {}
+    for category in family_categories.values():
+        family_category_counts[category] = family_category_counts.get(category, 0) + 1
+    # A family's safety mix: balanced (has both labels), or its single label
+    family_safety_counts: dict[str, int] = {}
+    for labels in family_labels.values():
+        key = "mixed" if len(labels) > 1 else next(iter(labels))
+        family_safety_counts[key] = family_safety_counts.get(key, 0) + 1
+
+    n_families = len({_family_key_of(ex) for ex in result.accepted})
+
+    balance_warnings = (
+        _concentration_warnings(family_category_counts, "source_category")
+        # 'mixed' families contain both safe and unsafe records and are
+        # balanced by construction — only single-label families can
+        # concentrate a safety category.
+        + _concentration_warnings(
+            {k: v for k, v in family_safety_counts.items() if k != "mixed"},
+            "safety",
+        )
+    )
 
     return {
         "iteration": 3,
@@ -485,10 +561,17 @@ def build_selection_report(
         "n_accepted": len(result.accepted),
         "n_rejected": len(result.rejections),
         "n_families_accepted": n_families,
+        "n_families_rejected": len(family_reasons),
         "accounting_ok": True,
-        "reason_counts": dict(sorted(reason_counts.items())),
+        "rejected_records_by_reason": dict(sorted(record_counts.items())),
+        "rejected_families_by_reason": dict(sorted(family_counts.items())),
         "accepted_by_dataset": dict(sorted(dataset_counts.items())),
         "accepted_by_setting": dict(sorted(setting_counts.items())),
+        "accepted_by_category": dict(sorted(category_counts.items())),
+        "accepted_by_label": dict(sorted(label_counts.items())),
+        "families_by_category": dict(sorted(family_category_counts.items())),
+        "families_by_safety": dict(sorted(family_safety_counts.items())),
+        "balance_warnings": balance_warnings,
     }
 
 

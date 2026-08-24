@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.3.1] — 2026-08-23
+
+### Fixed — Selection report granularity
+
+- The selection report's single `reason_counts` was record-level, so one
+  rejected MTMCS family counted four times. Replaced with both
+  `rejected_records_by_reason` and `rejected_families_by_reason` (plus
+  `n_families_rejected`) so family-level reports are not misleading
+
+### Added — Balance reporting
+
+- Selection report now includes `accepted_by_category`, `accepted_by_label`,
+  `families_by_category`, and `families_by_safety` distributions
+- `balance_warnings`: flags extreme concentration (>= 80% of >= 5 families)
+  in a single source category or safety category. Report + warn only — no
+  stratified resampling yet. MTMCS pairs are safe+unsafe mixed by
+  construction and never trigger the safety warning
+- `build_families --stage select` logs family-level rejection counts,
+  category/safety distributions, and balance warnings
+
+### Added — GitHub Actions CI
+
+- `.github/workflows/ci.yml`: `unit` job (offline: unit tests, offline golden
+  fixtures, ruff on Iteration 3+ modules) and `integration` job (real
+  datasets). Test evidence is now attached to commits independently of local
+  runs
+
 ## [0.3.0] — 2026-08-23
 
 ### Added — Iteration 3: Candidate Selection with Rejection Reasons

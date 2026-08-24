@@ -290,9 +290,91 @@ class TestAccounting:
         assert result.report["n_input"] == len(inputs)
         assert (result.report["n_accepted"] + result.report["n_rejected"]
                 == result.report["n_input"])
-        assert result.report["reason_counts"].get("no_images") == 1
+        assert result.report["rejected_records_by_reason"] == {"no_images": 1}
+        assert result.report["rejected_families_by_reason"] == {"no_images": 1}
+        assert result.report["n_families_rejected"] == 1
         assert result.report["n_families_accepted"] == 1
         assert result.report["config_hash"]
+
+
+# ---------------------------------------------------------------------------
+# Report granularity: record-level vs family-level rejection counts
+# ---------------------------------------------------------------------------
+
+class TestReportGranularity:
+    def test_one_rejected_family_counts_4_records_but_1_family(self):
+        good = make_mtmcs_group("type_b", 1)
+        bad = make_mtmcs_group("type_b", 2, break_terminal=True)
+        report = run_selection(good + bad).report
+        assert report["rejected_records_by_reason"] == {
+            "terminal_query_invariant_violated": 4,
+        }
+        assert report["rejected_families_by_reason"] == {
+            "terminal_query_invariant_violated": 1,
+        }
+        assert report["n_families_rejected"] == 1
+
+    def test_not_sampled_counts_once_per_family(self):
+        inputs = [r for i in range(1, 8) for r in make_mtmcs_group("type_b", i)]
+        report = run_selection(
+            inputs, SelectionConfig(max_families=2, seed=42)
+        ).report
+        assert report["rejected_records_by_reason"] == {"not_sampled": 20}
+        assert report["rejected_families_by_reason"] == {"not_sampled": 5}
+        assert report["n_families_rejected"] == 5
+
+    def test_singleton_family_counts_match(self):
+        singleton = make_text_only_singleton()
+        report = run_selection([singleton]).report  # require_images=True
+        assert report["rejected_records_by_reason"] == {"no_images": 1}
+        assert report["rejected_families_by_reason"] == {"no_images": 1}
+
+
+# ---------------------------------------------------------------------------
+# Balance reporting: category/safety distributions + concentration warnings
+# ---------------------------------------------------------------------------
+
+class TestBalanceReporting:
+    def test_distributions_reported(self):
+        group = make_mtmcs_group("type_b", 1)
+        report = run_selection(group).report
+        assert report["accepted_by_label"] == {"safe": 2, "unsafe": 2}
+        assert report["families_by_safety"] == {"mixed": 1}
+        assert report["families_by_category"] == {"(none)": 1}
+        assert report["accepted_by_category"] == {"(none)": 4}
+        # Below BALANCE_MIN_FAMILIES -> never warn
+        assert report["balance_warnings"] == []
+
+    def test_concentrated_categories_and_safety_warned(self):
+        singletons = [
+            make_text_only_singleton(source_id=f"cosafe:test:{i:06d}")
+            for i in range(6)
+        ]
+        report = run_selection(
+            singletons, SelectionConfig(require_images=False)
+        ).report
+        assert report["families_by_category"] == {"(none)": 6}
+        assert report["families_by_safety"] == {"unsafe": 6}
+        assert any("source_category" in w for w in report["balance_warnings"])
+        assert any("safety" in w for w in report["balance_warnings"])
+
+    def test_mixed_families_do_not_trigger_safety_warning(self):
+        """MTMCS pairs contain safe+unsafe records: balanced by construction."""
+        groups = [r for i in range(1, 7) for r in make_mtmcs_group("type_b", i)]
+        report = run_selection(groups).report
+        assert report["families_by_safety"] == {"mixed": 6}
+        assert all("safety" not in w for w in report["balance_warnings"])
+
+    def test_balanced_categories_no_warning(self):
+        inputs = []
+        for i in range(1, 7):
+            group = make_mtmcs_group("type_b", i)
+            for ex in group:
+                ex.source_category = f"intent_{i % 2}"
+            inputs.extend(group)
+        report = run_selection(inputs).report
+        assert report["families_by_category"] == {"intent_0": 3, "intent_1": 3}
+        assert report["balance_warnings"] == []
 
 
 # ---------------------------------------------------------------------------
