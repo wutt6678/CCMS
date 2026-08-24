@@ -1,0 +1,17 @@
+{
+  "iteration": 4,
+  "timestamp": "2026-08-24T22:54:41.424168+00:00",
+  "git_commit": "152956c59c3ee09957be58fb0ed3f14ca9020523",
+  "seed": 42,
+  "extraction_backend": "rule",
+  "n_families": 5,
+  "n_atoms": 20,
+  "n_causal_atoms": 5,
+  "family_ids": [
+    "CMST_762906",
+    "CMST_266940",
+    "CMST_187874",
+    "CMST_167801",
+    "CMST_477538"
+  ]
+}

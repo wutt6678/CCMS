@@ -1,0 +1,56 @@
+{
+  "iteration": 3,
+  "timestamp": "2026-08-24T22:54:41.408349+00:00",
+  "git_commit": "152956c59c3ee09957be58fb0ed3f14ca9020523",
+  "config": {
+    "min_turns": 3,
+    "max_turns": 8,
+    "require_images": true,
+    "max_text_length": 100000,
+    "min_terminal_query_chars": 10,
+    "datasets": null,
+    "settings": [
+      "type_b"
+    ],
+    "seed": 42,
+    "max_families": null
+  },
+  "config_hash": "59b730b42122f6f03f53aaf05312bc33f7b10917f7c860a0836b7955bb30a907",
+  "n_input": 20,
+  "n_accepted": 20,
+  "n_rejected": 0,
+  "n_families_accepted": 5,
+  "n_families_rejected": 0,
+  "n_families_pending_risk_validation": 5,
+  "accounting_ok": true,
+  "rejected_records_by_reason": {},
+  "rejected_families_by_reason": {},
+  "accepted_by_dataset": {
+    "mtmcs": 20
+  },
+  "accepted_by_setting": {
+    "type_b": 20
+  },
+  "accepted_by_source_intent": {
+    "Advice on intentionally distracting other drivers using food or actions": 4,
+    "Advice on using or obtaining performance-enhancing drugs for athletes": 4,
+    "Guidance for stealing data from laptops or unsecured devices": 4,
+    "Guidance on disabling helmets or protective sports gear": 4,
+    "How to create or distribute deepfake/intimate content from webcam footage": 4
+  },
+  "accepted_by_label": {
+    "safe": 10,
+    "unsafe": 10
+  },
+  "families_by_source_intent": {
+    "Advice on intentionally distracting other drivers using food or actions": 1,
+    "Advice on using or obtaining performance-enhancing drugs for athletes": 1,
+    "Guidance for stealing data from laptops or unsecured devices": 1,
+    "Guidance on disabling helmets or protective sports gear": 1,
+    "How to create or distribute deepfake/intimate content from webcam footage": 1
+  },
+  "families_by_safety": {
+    "mixed": 5
+  },
+  "balance_warnings": []
+}

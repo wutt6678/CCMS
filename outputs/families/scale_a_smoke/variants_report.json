@@ -1,0 +1,23 @@
+{
+  "iteration": "5C",
+  "timestamp": "2026-08-24T22:54:41.487860+00:00",
+  "seed": 42,
+  "n_families": 5,
+  "n_trajectories": 30,
+  "variant_names": [
+    "cross_modal",
+    "history_reset",
+    "neutral",
+    "shuffle",
+    "text_only",
+    "vision_only"
+  ],
+  "family_ids": [
+    "CMST_762906",
+    "CMST_266940",
+    "CMST_187874",
+    "CMST_167801",
+    "CMST_477538"
+  ],
+  "cross_modal_status": "candidate"
+}
