@@ -45,8 +45,9 @@ jobs:
         run: python -m pytest tests/unit -q --tb=short
 
       - name: Run offline golden-fixture tests
-        run: python -m pytest tests/integration/test_golden_fixtures.py -q \
-             -k "not SchemaGuards and not adapter_output" --tb=short
+        run: |
+          python -m pytest tests/integration/test_golden_fixtures.py -q \
+            -k "not SchemaGuards and not adapter_output" --tb=short
 
   integration:
     name: Integration tests (real datasets)
