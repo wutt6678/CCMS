@@ -244,6 +244,10 @@ def _extract_mtmcs(family_id: str,
                     f"turn {turn}: image paths differ across safe/unsafe "
                     f"conditions ({ms.images} vs {mu.images})"
                 )
+            # Structural fact: an image is present and shared. Whether it
+            # is entity/scene content (semantic_type) and whether it is
+            # RISK-RELEVANT (I -> Risk) are annotation questions, never
+            # extraction conclusions.
             atoms.append(SemanticAtom(
                 atom_id=f"{family_id}:t{turn}:vision",
                 description=(
@@ -252,11 +256,13 @@ def _extract_mtmcs(family_id: str,
                 ),
                 source_turns=[turn],
                 source_modalities=["vision"],
-                atom_type=AtomType.ENTITY_OR_SCENE.value,
+                atom_type=AtomType.UNKNOWN.value,  # alias of semantic_type
                 divergence=DIVERGENCE_SHARED,
                 structural_role="shared_image",
                 semantic_type="unknown",
                 semantic_validation="pending",
+                risk_relevance="pending",
+                required_for_joint_interpretation=None,
                 surface_forms=surface_forms,
                 source_media=[_media_ref(p) for p in ms.images],
             ))
@@ -286,20 +292,19 @@ def _extract_mtmcs(family_id: str,
             ))
         elif _norm(ms.text):
             if turn == terminal_turn:
-                atom_type = AtomType.INTENT.value
                 role = "terminal_query"
                 desc = f"shared terminal query q* at turn {turn}"
             else:
-                # Position alone cannot identify semantic function.
-                atom_type = AtomType.UNKNOWN.value
                 role = "shared_history_turn"
                 desc = f"shared history content at turn {turn}"
+            # Structural role only; semantic type stays unknown (the alias
+            # atom_type mirrors it) until annotation.
             atoms.append(SemanticAtom(
                 atom_id=f"{family_id}:t{turn}:text",
                 description=desc,
                 source_turns=[turn],
                 source_modalities=["text"],
-                atom_type=atom_type,
+                atom_type=AtomType.UNKNOWN.value,
                 divergence=DIVERGENCE_SHARED,
                 structural_role=role,
                 semantic_type="unknown",
@@ -341,30 +346,28 @@ def _extract_singleton(family_id: str,
                 description=f"visual content at turn {turn}",
                 source_turns=[turn],
                 source_modalities=["vision"],
-                atom_type=AtomType.ENTITY_OR_SCENE.value,
+                atom_type=AtomType.UNKNOWN.value,
                 divergence=DIVERGENCE_NOT_APPLICABLE,
                 structural_role="shared_image",
                 semantic_type="unknown",
                 semantic_validation="pending",
+                risk_relevance="pending",
                 source_media=[_media_ref(p) for p in msg.images],
             ))
         if not _norm(msg.text):
             continue
         if turn == terminal_turn:
-            atom_type, role = AtomType.INTENT.value, "terminal_query"
-            desc = f"terminal query at turn {turn}"
+            role, desc = "terminal_query", f"terminal query at turn {turn}"
         elif msg.role == "assistant":
-            atom_type, role = AtomType.UNKNOWN.value, "assistant_context"
-            desc = f"assistant context at turn {turn}"
+            role, desc = "assistant_context", f"assistant context at turn {turn}"
         else:
-            atom_type, role = AtomType.UNKNOWN.value, "shared_history_turn"
-            desc = f"user context at turn {turn}"
+            role, desc = "shared_history_turn", f"user context at turn {turn}"
         atoms.append(SemanticAtom(
             atom_id=f"{family_id}:t{turn}:text",
             description=desc,
             source_turns=[turn],
             source_modalities=["text"],
-            atom_type=atom_type,
+            atom_type=AtomType.UNKNOWN.value,
             divergence=DIVERGENCE_NOT_APPLICABLE,
             structural_role=role,
             semantic_type="unknown",

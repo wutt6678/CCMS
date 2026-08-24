@@ -4,6 +4,41 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.2] — 2026-08-24
+
+### Added — Semantic annotation scaffolding (Iteration-4 review, round 2)
+
+- P0-1 cross-modal semantic equivalence: atoms carry
+  `semantic_equivalence` with axes `multimodal_vs_unimodal` and
+  `safe_vs_unsafe_shared_parts`, defaulting to 'pending'. S(T_mm) ~
+  S(T_text) must be ESTABLISHED by annotation before differently worded
+  surface forms are treated as modality counterfactuals. Annotated form:
+  `{state: equivalent, confidence: 0.94}`.
+- P0-2 visual risk relevance: atoms carry `risk_relevance`
+  (pending|relevant|irrelevant|uncertain) and
+  `required_for_joint_interpretation` (null until evidenced), separating
+  'image is present' from 'image supplies information required to
+  interpret the risky trajectory'. The strict subset eventually needs
+  Risk(T)<θ, Risk(V)<θ, Risk(T,V)>=θ (Iteration 6 behaviorally).
+- Annotation module (`construction/annotation.py`):
+  `ManualFileAnnotator` (JSON keyed by family_key -> atom_id, for the
+  manual check of the first 10-20 families) and `CallableAnnotator`
+  (wraps any LLM/VLM callable, recorded as semantic_validation='llm').
+  Annotation payloads are validated fail-loud (`AnnotationError`) and
+  applied to copies — skeletons are never mutated.
+
+### Changed
+
+- P0-3 atom_type is now an EXACT ALIAS of semantic_type, validator-
+  enforced. The extractor no longer emits entity_or_scene/intent
+  guesses for vision/terminal atoms — structure lives in
+  `structural_role`, meaning stays 'unknown' until annotated. Iteration
+  5 must read `semantic_type`.
+- P1 skeleton validation now REQUIRES non-null `sha256` in every
+  `source_media` entry — missing media never yields a valid skeleton.
+  Test factories gained `image_path` for pointing at real hashable files.
+- 18 new tests (173 unit + 91 integration = 264 total)
+
 ## [0.4.1] — 2026-08-24
 
 ### Added — Iteration-4 review: four-condition atoms, terminal alignment,

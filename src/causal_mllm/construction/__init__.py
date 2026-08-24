@@ -6,6 +6,13 @@ Stages:
   variants (Iteration 5) — six variant generators          [stub]
 """
 
+from causal_mllm.construction.annotation import (
+    AnnotationError,
+    AtomAnnotator,
+    CallableAnnotator,
+    ManualFileAnnotator,
+    apply_annotations,
+)
 from causal_mllm.construction.atoms import (
     AtomExtraction,
     AtomExtractionError,
@@ -28,11 +35,16 @@ from causal_mllm.construction.select import (
 )
 
 __all__ = [
+    "AnnotationError",
+    "AtomAnnotator",
     "AtomExtraction",
     "AtomExtractionError",
+    "CallableAnnotator",
+    "ManualFileAnnotator",
     "SelectionConfig",
     "SelectionRejection",
     "SelectionResult",
+    "apply_annotations",
     "assert_canonical",
     "build_family_review_flags",
     "build_family_skeleton",

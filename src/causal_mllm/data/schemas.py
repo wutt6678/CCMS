@@ -169,6 +169,28 @@ SEMANTIC_VALIDATION_STATES = frozenset({
     "human",      # human review
 })
 
+# Cross-modal semantic-equivalence states. S(T_mm) ~ S(T_text) must be
+# ESTABLISHED by annotation before differently worded surface forms are
+# treated as modality counterfactuals — the 752-row diagnostic showed
+# the mm/text trajectories are not literal counterparts.
+EQUIVALENCE_STATES = frozenset({
+    "pending", "equivalent", "not_equivalent", "uncertain",
+})
+EQUIVALENCE_AXES = frozenset({
+    "multimodal_vs_unimodal",
+    "safe_vs_unsafe_shared_parts",
+})
+
+# Visual risk-relevance states: 'image is present' (structural) vs
+# 'image supplies information required to interpret the risky
+# trajectory' (semantic). The strict cross-modal subset eventually
+# needs behavioral evidence approaching Risk(T)<θ, Risk(V)<θ,
+# Risk(T,V)>=θ (Iteration 6); Iteration 4 provides the annotation
+# scaffolding so Iteration 5 can construct interventions intelligently.
+RISK_RELEVANCE_STATES = frozenset({
+    "pending", "relevant", "irrelevant", "uncertain",
+})
+
 # The four MTMCS condition keys used in atom surface forms
 MTMCS_CONDITIONS = (
     "multimodal_safe",
@@ -189,6 +211,16 @@ class SemanticAtom:
       * ``divergence`` + ``structural_role`` — observable structure
       * ``semantic_type`` — meaning; 'unknown' until annotated
         (metadata / LLM / human). NEVER inferred from turn position.
+      * ``atom_type`` — DEPRECATED name retained for schema continuity;
+        it must be an EXACT ALIAS of ``semantic_type`` (validator-
+        enforced). Extraction emits 'unknown' for both; annotation
+        updates both together. Iteration 5 must read ``semantic_type``.
+      * ``semantic_equivalence`` — validated statement that differently
+        worded surface forms express the SAME underlying contribution
+        (S(T_mm) ~ S(T_text)); 'pending' until annotated.
+      * ``risk_relevance`` — for visual atoms: whether the image merely
+        IS PRESENT or actually supplies information required to
+        interpret the risky trajectory. 'pending' until annotated.
       * ``surface_forms`` — the turn's content in ALL four MTMCS
         conditions ({text, images}); Iteration 5 consumes these directly
       * ``source_media`` — explicit image assets ({path, sha256}) so no
@@ -201,12 +233,17 @@ class SemanticAtom:
     description: str
     source_turns: list[int]
     source_modalities: list[str]  # "text" | "vision"
-    atom_type: str = "unknown"  # AtomType value; 'unknown' until annotated
+    atom_type: str = "unknown"  # EXACT ALIAS of semantic_type (enforced)
     divergence: str = "shared"  # shared | causal | not_applicable
     structural_role: Optional[str] = None  # STRUCTURAL_ROLES value
     semantic_type: str = "unknown"  # unknown until annotated
     semantic_description: Optional[str] = None
     semantic_validation: str = "pending"  # pending | metadata | llm | human
+    semantic_equivalence: dict = field(default_factory=lambda: {
+        axis: "pending" for axis in EQUIVALENCE_AXES
+    })
+    risk_relevance: str = "pending"  # pending|relevant|irrelevant|uncertain
+    required_for_joint_interpretation: Optional[bool] = None
     safe_text: Optional[str] = None  # multimodal safe form (convenience)
     unsafe_text: Optional[str] = None  # multimodal unsafe form (convenience)
     surface_forms: dict[str, dict] = field(default_factory=dict)
@@ -224,6 +261,10 @@ class SemanticAtom:
             "semantic_type": self.semantic_type,
             "semantic_description": self.semantic_description,
             "semantic_validation": self.semantic_validation,
+            "semantic_equivalence": self.semantic_equivalence,
+            "risk_relevance": self.risk_relevance,
+            "required_for_joint_interpretation":
+                self.required_for_joint_interpretation,
         }
         if self.safe_text is not None:
             result["safe_text"] = self.safe_text
@@ -248,11 +289,44 @@ class SemanticAtom:
             semantic_type=d.get("semantic_type", "unknown"),
             semantic_description=d.get("semantic_description"),
             semantic_validation=d.get("semantic_validation", "pending"),
+            semantic_equivalence=d.get("semantic_equivalence", {
+                axis: "pending" for axis in EQUIVALENCE_AXES
+            }),
+            risk_relevance=d.get("risk_relevance", "pending"),
+            required_for_joint_interpretation=d.get(
+                "required_for_joint_interpretation"),
             safe_text=d.get("safe_text"),
             unsafe_text=d.get("unsafe_text"),
             surface_forms=d.get("surface_forms", {}),
             source_media=d.get("source_media", []),
         )
+
+    def set_semantic_annotation(
+        self,
+        *,
+        semantic_type: str,
+        semantic_description: Optional[str] = None,
+        semantic_validation: str = "human",
+        semantic_equivalence: Optional[dict] = None,
+        risk_relevance: Optional[str] = None,
+        required_for_joint_interpretation: Optional[bool] = None,
+    ) -> None:
+        """Apply a semantic annotation, keeping atom_type in sync.
+
+        atom_type is an exact alias of semantic_type; both are updated
+        together so no downstream stage can consume a stale field.
+        """
+        self.semantic_type = semantic_type
+        self.atom_type = semantic_type  # alias invariant
+        self.semantic_description = semantic_description
+        self.semantic_validation = semantic_validation
+        if semantic_equivalence is not None:
+            self.semantic_equivalence = semantic_equivalence
+        if risk_relevance is not None:
+            self.risk_relevance = risk_relevance
+        if required_for_joint_interpretation is not None:
+            self.required_for_joint_interpretation = \
+                required_for_joint_interpretation
 
 
 @dataclass

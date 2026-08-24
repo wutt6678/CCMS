@@ -132,7 +132,10 @@ def validate_family_skeleton(record: dict) -> list[str]:
         comparative H_safe-vs-H_unsafe decomposition is the point)
     """
     from causal_mllm.data.schemas import (
+        EQUIVALENCE_AXES,
+        EQUIVALENCE_STATES,
         MTMCS_CONDITIONS,
+        RISK_RELEVANCE_STATES,
         SEMANTIC_VALIDATION_STATES,
         STRUCTURAL_ROLES,
         AtomType,
@@ -189,6 +192,15 @@ def validate_family_skeleton(record: dict) -> list[str]:
                 errors.append(f"semantic_atoms[{i}] missing 'source_turns'")
             if atom.get("type") not in valid_types:
                 errors.append(f"semantic_atoms[{i}] invalid type '{atom.get('type')}'")
+            # P0-3: atom_type is an EXACT ALIAS of semantic_type. Two
+            # competing semantic fields let Iteration 5 consume the wrong
+            # one, so any divergence is a validation error.
+            if atom.get("type", "unknown") != atom.get("semantic_type", "unknown"):
+                errors.append(
+                    f"semantic_atoms[{i}] atom_type '{atom.get('type')}' "
+                    f"!= semantic_type '{atom.get('semantic_type')}' "
+                    f"(must be exact aliases)"
+                )
             divergence = atom.get("divergence", "shared")
             if divergence not in valid_divergences:
                 errors.append(
@@ -206,6 +218,50 @@ def validate_family_skeleton(record: dict) -> list[str]:
                     f"semantic_atoms[{i}] invalid semantic_validation "
                     f"'{atom.get('semantic_validation')}'"
                 )
+            # P0-2: visual risk relevance must carry a valid state
+            if atom.get("risk_relevance", "pending") not in RISK_RELEVANCE_STATES:
+                errors.append(
+                    f"semantic_atoms[{i}] invalid risk_relevance "
+                    f"'{atom.get('risk_relevance')}'"
+                )
+            # P0-1: cross-modal equivalence axes and states
+            equivalence = atom.get("semantic_equivalence", {})
+            if not isinstance(equivalence, dict):
+                errors.append(
+                    f"semantic_atoms[{i}] semantic_equivalence must be a dict"
+                )
+            else:
+                for axis, value in equivalence.items():
+                    if axis not in EQUIVALENCE_AXES:
+                        errors.append(
+                            f"semantic_atoms[{i}] unknown equivalence "
+                            f"axis '{axis}'"
+                        )
+                        continue
+                    state = value.get("state", value) \
+                        if isinstance(value, dict) else value
+                    if state not in EQUIVALENCE_STATES:
+                        errors.append(
+                            f"semantic_atoms[{i}] invalid equivalence state "
+                            f"'{state}' for axis '{axis}'"
+                        )
+                    if isinstance(value, dict) and value.get("confidence") \
+                            is not None:
+                        conf = value["confidence"]
+                        if not isinstance(conf, (int, float)) \
+                                or not 0.0 <= float(conf) <= 1.0:
+                            errors.append(
+                                f"semantic_atoms[{i}] confidence {conf} "
+                                f"out of [0, 1] for axis '{axis}'"
+                            )
+            # P1: explicit media references must be hash-verified.
+            # Missing media must never yield a valid skeleton.
+            for j, media in enumerate(atom.get("source_media", [])):
+                if not media.get("path") or not media.get("sha256"):
+                    errors.append(
+                        f"semantic_atoms[{i}].source_media[{j}] missing "
+                        f"path or sha256 (unhashed media is invalid)"
+                    )
             if divergence == "causal":
                 n_causal += 1
                 if not atom.get("safe_text") or not atom.get("unsafe_text"):
@@ -223,7 +279,7 @@ def validate_family_skeleton(record: dict) -> list[str]:
                         )
             if role == "shared_image" and is_mtmcs:
                 media = atom.get("source_media", [])
-                if not media or not all(m.get("path") for m in media):
+                if not media:
                     errors.append(
                         f"semantic_atoms[{i}] vision atom missing "
                         f"source_media paths"

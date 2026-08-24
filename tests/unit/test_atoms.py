@@ -25,6 +25,13 @@ from tests.unit.factories import make_mtmcs_group, make_text_only_singleton
 FAMILY_ID = "CMST_test01"
 
 
+def _real_image(tmp_path) -> str:
+    """Write a real file so media hashing succeeds in validation tests."""
+    p = tmp_path / "mtmcs_test_main.png"
+    p.write_bytes(b"\x89PNG\r\n\x1a\n" + b"fake-image-bytes-for-hash")
+    return str(p)
+
+
 # ---------------------------------------------------------------------------
 # Comparative extraction: type_b (divergence in history, shared q*)
 # ---------------------------------------------------------------------------
@@ -69,13 +76,17 @@ class TestTypeBComparativeExtraction:
         assert atom.surface_forms["multimodal_safe"]["images"]
         assert atom.surface_forms["unimodal_safe"]["images"] == []
 
-    def test_shared_terminal_is_a_shared_intent_atom(self):
+    def test_shared_terminal_structural_role_without_inferred_type(self):
         group = make_mtmcs_group("type_b", 1)
         extraction = extract_family_atoms(FAMILY_ID, group)
         terminal_atoms = [a for a in extraction.atoms if a.source_turns == [2]]
         assert len(terminal_atoms) == 1
         atom = terminal_atoms[0]
-        assert atom.atom_type == "intent"
+        # Structure says 'this is the terminal query'; meaning is NOT
+        # inferred (atom_type must mirror semantic_type exactly)
+        assert atom.structural_role == "terminal_query"
+        assert atom.atom_type == "unknown"
+        assert atom.semantic_type == "unknown"
         assert atom.divergence == "shared"  # q* identical across conditions
         assert extraction.shared_terminal_query is True
 
@@ -85,9 +96,25 @@ class TestTypeBComparativeExtraction:
         vision = [a for a in extraction.atoms if "vision" in a.source_modalities]
         assert len(vision) == 1
         assert vision[0].source_turns == [0]
-        assert vision[0].atom_type == "entity_or_scene"
+        # 'image present' is structural; entity/scene meaning and risk
+        # relevance are annotation questions
+        assert vision[0].atom_type == "unknown"
+        assert vision[0].semantic_type == "unknown"
         assert vision[0].divergence == "shared"
         assert vision[0].structural_role == "shared_image"
+        assert vision[0].risk_relevance == "pending"
+        assert vision[0].required_for_joint_interpretation is None
+
+    def test_atoms_carry_pending_equivalence_defaults(self):
+        """S(T_mm) ~ S(T_text) is never assumed; axes start pending."""
+        group = make_mtmcs_group("type_b", 1)
+        extraction = extract_family_atoms(FAMILY_ID, group)
+        for atom in extraction.atoms:
+            assert atom.semantic_equivalence == {
+                "multimodal_vs_unimodal": "pending",
+                "safe_vs_unsafe_shared_parts": "pending",
+            }
+            assert atom.semantic_validation == "pending"
 
     def test_vision_atom_has_explicit_media_reference(self):
         """Iteration 5 must not infer which image an atom refers to."""
@@ -241,9 +268,11 @@ class TestSingletonExtraction:
     def test_terminal_intent_present(self):
         singleton = make_text_only_singleton()
         extraction = extract_family_atoms(FAMILY_ID, [singleton])
-        intents = [a for a in extraction.atoms if a.atom_type == "intent"]
+        intents = [a for a in extraction.atoms
+                   if a.structural_role == "terminal_query"]
         assert len(intents) == 1
         assert intents[0].source_turns == [2]
+        assert intents[0].atom_type == "unknown"  # meaning not inferred
 
     def test_assistant_turns_are_structural_context_atoms(self):
         singleton = make_text_only_singleton()
@@ -308,13 +337,13 @@ class TestFamilySkeleton:
         assert skeleton.validation["standalone_terminal_risk"] is None
         assert skeleton.validation["strict_causal_candidate"] is None
 
-    def test_skeleton_passes_skeleton_validator(self):
-        group = make_mtmcs_group("type_b", 1)
+    def test_skeleton_passes_skeleton_validator(self, tmp_path):
+        group = make_mtmcs_group("type_b", 1, image_path=_real_image(tmp_path))
         skeleton = build_family_skeleton(group)
         assert validate_family_skeleton(skeleton.to_dict()) == []
 
-    def test_type_a_skeleton_marks_terminal_divergence(self):
-        group = make_mtmcs_group("type_a", 2)
+    def test_type_a_skeleton_marks_terminal_divergence(self, tmp_path):
+        group = make_mtmcs_group("type_a", 2, image_path=_real_image(tmp_path))
         skeleton = build_family_skeleton(group)
         assert skeleton.ground_truth["shared_terminal_query"] is False
         assert skeleton.ground_truth["divergent_turns"] == [2]
@@ -349,30 +378,30 @@ class TestFamilySkeleton:
 # ---------------------------------------------------------------------------
 
 class TestSkeletonValidator:
-    def _valid_dict(self):
-        group = make_mtmcs_group("type_b", 1)
+    def _valid_dict(self, tmp_path):
+        group = make_mtmcs_group("type_b", 1, image_path=_real_image(tmp_path))
         return build_family_skeleton(group).to_dict()
 
-    def test_detects_missing_atoms(self):
-        record = self._valid_dict()
+    def test_detects_missing_atoms(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         record["semantic_atoms"] = []
         errors = validate_family_skeleton(record)
         assert any("non-empty" in e for e in errors)
 
-    def test_detects_duplicate_atom_ids(self):
-        record = self._valid_dict()
+    def test_detects_duplicate_atom_ids(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         record["semantic_atoms"][1]["atom_id"] = record["semantic_atoms"][0]["atom_id"]
         errors = validate_family_skeleton(record)
         assert any("Duplicate atom_id" in e for e in errors)
 
-    def test_detects_terminal_hash_mismatch(self):
-        record = self._valid_dict()
+    def test_detects_terminal_hash_mismatch(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         record["terminal_query"]["text"] = "TAMPERED QUERY"
         errors = validate_family_skeleton(record)
         assert any("sha256" in e for e in errors)
 
-    def test_detects_mtmcs_family_without_causal_atom(self):
-        record = self._valid_dict()
+    def test_detects_mtmcs_family_without_causal_atom(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         for atom in record["semantic_atoms"]:
             atom["divergence"] = "shared"
             atom.pop("safe_text", None)
@@ -380,44 +409,108 @@ class TestSkeletonValidator:
         errors = validate_family_skeleton(record)
         assert any("no causal atom" in e for e in errors)
 
-    def test_detects_causal_atom_without_surface_forms(self):
-        record = self._valid_dict()
+    def test_detects_causal_atom_without_safe_texts(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         causal = next(a for a in record["semantic_atoms"]
                       if a["divergence"] == "causal")
         causal.pop("safe_text")
         errors = validate_family_skeleton(record)
         assert any("safe_text/unsafe_text" in e for e in errors)
 
-    def test_detects_invalid_divergence(self):
-        record = self._valid_dict()
+    def test_detects_invalid_divergence(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         record["semantic_atoms"][0]["divergence"] = "maybe"
         errors = validate_family_skeleton(record)
         assert any("invalid divergence" in e for e in errors)
 
-    def test_detects_missing_structural_role(self):
-        record = self._valid_dict()
+    def test_detects_missing_structural_role(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         record["semantic_atoms"][0]["structural_role"] = None
         errors = validate_family_skeleton(record)
         assert any("structural_role" in e for e in errors)
 
-    def test_detects_invalid_semantic_validation_state(self):
-        record = self._valid_dict()
+    def test_detects_invalid_semantic_validation_state(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         record["semantic_atoms"][0]["semantic_validation"] = "guessed"
         errors = validate_family_skeleton(record)
         assert any("semantic_validation" in e for e in errors)
 
-    def test_detects_causal_atom_missing_surface_forms(self):
-        record = self._valid_dict()
+    def test_detects_causal_atom_missing_surface_forms(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         causal = next(a for a in record["semantic_atoms"]
                       if a["divergence"] == "causal")
         causal.pop("surface_forms")
         errors = validate_family_skeleton(record)
         assert any("surface_forms" in e for e in errors)
 
-    def test_detects_vision_atom_missing_source_media(self):
-        record = self._valid_dict()
+    def test_detects_vision_atom_missing_source_media(self, tmp_path):
+        record = self._valid_dict(tmp_path)
         vision = next(a for a in record["semantic_atoms"]
                       if a.get("structural_role") == "shared_image")
         vision.pop("source_media")
         errors = validate_family_skeleton(record)
         assert any("source_media" in e for e in errors)
+
+    # ---- P0-3: atom_type must be an exact alias of semantic_type ----
+
+    def test_detects_atom_type_semantic_type_divergence(self, tmp_path):
+        record = self._valid_dict(tmp_path)
+        record["semantic_atoms"][0]["type"] = "intent"
+        errors = validate_family_skeleton(record)
+        assert any("exact aliases" in e for e in errors)
+
+    # ---- P1: media hashes are mandatory ----
+
+    def test_detects_missing_media_hash(self, tmp_path):
+        record = self._valid_dict(tmp_path)
+        vision = next(a for a in record["semantic_atoms"]
+                      if a.get("structural_role") == "shared_image")
+        vision["source_media"][0]["sha256"] = None
+        errors = validate_family_skeleton(record)
+        assert any("sha256" in e for e in errors)
+
+    # ---- P0-1 / P0-2: annotation state vocabularies ----
+
+    def test_detects_invalid_risk_relevance(self, tmp_path):
+        record = self._valid_dict(tmp_path)
+        vision = next(a for a in record["semantic_atoms"]
+                      if a.get("structural_role") == "shared_image")
+        vision["risk_relevance"] = "probably"
+        errors = validate_family_skeleton(record)
+        assert any("risk_relevance" in e for e in errors)
+
+    def test_detects_invalid_equivalence_state(self, tmp_path):
+        record = self._valid_dict(tmp_path)
+        record["semantic_atoms"][0]["semantic_equivalence"] = {
+            "multimodal_vs_unimodal": "kinda_same",
+            "safe_vs_unsafe_shared_parts": "pending",
+        }
+        errors = validate_family_skeleton(record)
+        assert any("equivalence state" in e for e in errors)
+
+    def test_detects_unknown_equivalence_axis(self, tmp_path):
+        record = self._valid_dict(tmp_path)
+        record["semantic_atoms"][0]["semantic_equivalence"] = {
+            "multimodal_vs_unimodal": "pending",
+            "safe_vs_unsafe_shared_parts": "pending",
+            "left_vs_right": "equivalent",
+        }
+        errors = validate_family_skeleton(record)
+        assert any("unknown equivalence" in e for e in errors)
+
+    def test_detects_out_of_range_confidence(self, tmp_path):
+        record = self._valid_dict(tmp_path)
+        record["semantic_atoms"][0]["semantic_equivalence"] = {
+            "multimodal_vs_unimodal": {"state": "equivalent", "confidence": 1.4},
+            "safe_vs_unsafe_shared_parts": "pending",
+        }
+        errors = validate_family_skeleton(record)
+        assert any("confidence" in e for e in errors)
+
+    def test_annotated_equivalence_passes(self, tmp_path):
+        record = self._valid_dict(tmp_path)
+        record["semantic_atoms"][0]["semantic_equivalence"] = {
+            "multimodal_vs_unimodal": {"state": "equivalent", "confidence": 0.94},
+            "safe_vs_unsafe_shared_parts": {"state": "not_equivalent"},
+        }
+        assert validate_family_skeleton(record) == []

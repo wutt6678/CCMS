@@ -12,6 +12,7 @@ def make_mtmcs_group(
     break_terminal: bool = False,
     equal_terminals: bool = False,
     n_turns: int = 3,
+    image_path: str | None = None,
 ) -> list[CanonicalSourceExample]:
     """Build one valid MTMCS 4-record atomic group.
 
@@ -20,6 +21,10 @@ def make_mtmcs_group(
 
     break_terminal: corrupt the mm_unsafe terminal (for invariant tests).
     equal_terminals: force type_a-style terminals to be identical.
+    image_path: override the multimodal image path. Point this at a REAL
+        file when the skeleton will pass validation (media hashes are
+        required); the default synthetic path is fine for selection and
+        extraction tests that never validate media.
     """
     pair_id = f"mtmcs:{split}:{pair_num:06d}"
     records = []
@@ -53,7 +58,8 @@ def make_mtmcs_group(
             for i, text in enumerate(texts):
                 images = []
                 if modality == "multimodal" and i == 0:
-                    images = [f"media/source/mtmcs_{split}_{pair_num}_main.png"]
+                    images = [image_path or
+                              f"media/source/mtmcs_{split}_{pair_num}_main.png"]
                 messages.append(Message(turn_index=i, role="user",
                                         text=text, images=images))
 
