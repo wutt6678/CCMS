@@ -3,8 +3,20 @@ seed: 42
 
 source:
   dataset: mtmcs
-  split: test
+  # MTMCS splits are type_a / type_b. type_b shares the terminal query
+  # across safe/unsafe — the causal experiment gold standard.
+  split: type_b
+  max_rows: 50
+
+selection:
+  min_turns: 3
+  max_turns: 8
+  require_images: true
+  max_text_length: 5000
+  min_terminal_query_chars: 10
+  settings: [type_b]
   max_families: 5
+  seed: 42
 
 family:
   variants:

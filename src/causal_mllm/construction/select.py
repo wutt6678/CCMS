@@ -1,18 +1,46 @@
-"""Candidate selection for causal family construction.
+"""Candidate selection for causal family construction (Iteration 3).
 
-Iteration 2: Type guard ensuring the family builder consumes only
-CanonicalSourceExample instances. This prevents raw dicts from
-bypassing normalization.
+Selection is a PURE, PASS-THROUGH filter over normalized source records:
 
-Iteration 3 will implement the full selection pipeline here.
+  * It never mutates a record. Accepted examples are the same objects
+    that were passed in — no synthetic assistant responses, no edits.
+    Source trajectory != experimental frozen trajectory; interventions
+    happen only in later variant-generation iterations.
+  * It never loses a record silently. The accounting invariant is
+    ``n_input == n_accepted + n_rejected`` and is asserted before any
+    result is returned.
+  * MTMCS records are selected at the atomic 4-record group level
+    (keyed by ``metadata['pair_id']``). A group is accepted only if
+    ALL four conditions pass; otherwise all four are rejected with
+    machine-readable reasons.
+
+Rejection reason codes (stable, machine-readable):
+
+  dataset_excluded                     source dataset not in config.datasets
+  setting_excluded                     source_setting not in config.settings
+  too_few_turns                        num_turns < min_turns
+  too_many_turns                       num_turns > max_turns
+  text_too_long                        total text chars > max_text_length
+  terminal_query_too_short             terminal query below char minimum
+  no_images                            vision required but record has none
+  group_incomplete                     MTMCS group missing conditions
+  terminal_query_invariant_violated    type_b safe/unsafe terminals differ
+  terminal_query_not_divergent         type_a safe/unsafe terminals equal
+  not_sampled                          eligible but not drawn by seeded sample
 """
 
 from __future__ import annotations
 
-from typing import Sequence
+import random
+from dataclasses import dataclass, field
+from typing import Any, Optional, Sequence
 
 from causal_mllm.data.schemas import CanonicalSourceExample
+from causal_mllm.seeds import config_hash, get_git_commit, sha256_text
 
+# ---------------------------------------------------------------------------
+# Type guard
+# ---------------------------------------------------------------------------
 
 def assert_canonical(examples: Sequence[CanonicalSourceExample]) -> None:
     """Type guard: verify that all inputs are CanonicalSourceExample.
@@ -36,62 +64,441 @@ def assert_canonical(examples: Sequence[CanonicalSourceExample]) -> None:
             )
 
 
+# ---------------------------------------------------------------------------
+# Selection configuration and rejection manifest
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class SelectionConfig:
+    """Inclusion/exclusion criteria for candidate selection.
+
+    Attributes:
+        min_turns: Minimum number of messages per record.
+        max_turns: Maximum number of messages per record.
+        require_images: Require vision support for multimodal candidates.
+            MTMCS unimodal (text) records satisfy this via their multimodal
+            sibling in the same pair. Records from text-only datasets
+            (cosafe, mtid) are rejected under this flag.
+        max_text_length: Maximum total text characters per record.
+        min_terminal_query_chars: Minimum terminal query length; rejects
+            degenerate/empty terminal queries.
+        datasets: Allowed source_dataset values (None = all).
+        settings: Allowed source_setting values (None = all), e.g.
+            ``frozenset({"type_b"})`` to keep only the causal gold standard.
+        seed: Seed for deterministic family sampling.
+        max_families: Maximum number of family units to keep after
+            filtering (None = keep all). MTMCS groups count as one unit.
+    """
+    min_turns: int = 3
+    max_turns: int = 8
+    require_images: bool = True
+    max_text_length: int = 5000
+    min_terminal_query_chars: int = 10
+    datasets: Optional[frozenset[str]] = None
+    settings: Optional[frozenset[str]] = None
+    seed: int = 42
+    max_families: Optional[int] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "min_turns": self.min_turns,
+            "max_turns": self.max_turns,
+            "require_images": self.require_images,
+            "max_text_length": self.max_text_length,
+            "min_terminal_query_chars": self.min_terminal_query_chars,
+            "datasets": sorted(self.datasets) if self.datasets else None,
+            "settings": sorted(self.settings) if self.settings else None,
+            "seed": self.seed,
+            "max_families": self.max_families,
+        }
+
+    @classmethod
+    def from_config(cls, config: dict) -> "SelectionConfig":
+        """Build from the ``selection`` section of a generation YAML."""
+        fields = {f for f in cls.__dataclass_fields__}
+        kwargs: dict[str, Any] = {}
+        for key, value in (config or {}).items():
+            if key not in fields:
+                raise ValueError(f"Unknown selection config key: '{key}'")
+            if key in ("datasets", "settings") and value is not None:
+                value = frozenset(value)
+            kwargs[key] = value
+        return cls(**kwargs)
+
+
+@dataclass
+class SelectionRejection:
+    """Machine-readable rejection record. No record disappears silently."""
+    source_id: str
+    reason: str
+    stage: str = "selection"
+    detail: str = ""
+    pair_id: Optional[str] = None
+    source_dataset: Optional[str] = None
+
+    def to_dict(self) -> dict:
+        return {
+            "source_id": self.source_id,
+            "stage": self.stage,
+            "reason": self.reason,
+            "detail": self.detail,
+            "pair_id": self.pair_id,
+            "source_dataset": self.source_dataset,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> "SelectionRejection":
+        return cls(
+            source_id=d["source_id"],
+            reason=d["reason"],
+            stage=d.get("stage", "selection"),
+            detail=d.get("detail", ""),
+            pair_id=d.get("pair_id"),
+            source_dataset=d.get("source_dataset"),
+        )
+
+
+@dataclass
+class SelectionResult:
+    """Output of candidate selection with full accounting."""
+    accepted: list[CanonicalSourceExample] = field(default_factory=list)
+    rejections: list[SelectionRejection] = field(default_factory=list)
+    report: dict = field(default_factory=dict)
+
+    def verify_accounting(self, n_input: int) -> None:
+        """Assert that no record disappeared without a rejection record."""
+        n_accounted = len(self.accepted) + len(self.rejections)
+        if n_accounted != n_input:
+            raise AssertionError(
+                f"Selection accounting mismatch: input={n_input}, "
+                f"accepted={len(self.accepted)}, "
+                f"rejected={len(self.rejections)} "
+                f"(accounted={n_accounted})"
+            )
+
+
+# ---------------------------------------------------------------------------
+# Family units: MTMCS records are grouped, everything else is singleton
+# ---------------------------------------------------------------------------
+
+@dataclass
+class _FamilyUnit:
+    """One selection unit: an MTMCS 4-record group or a singleton."""
+    key: str  # pair_id for MTMCS groups, source_id for singletons
+    records: list[CanonicalSourceExample]
+    is_group: bool
+
+
+def _group_key(ex: CanonicalSourceExample) -> Optional[str]:
+    """Return the MTMCS pair_id if this record belongs to a group."""
+    if ex.source_dataset == "mtmcs":
+        pair_id = ex.metadata.get("pair_id")
+        if pair_id:
+            return str(pair_id)
+    return None
+
+
+def _build_units(examples: Sequence[CanonicalSourceExample]) -> list[_FamilyUnit]:
+    """Partition examples into family units, preserving input order."""
+    units: list[_FamilyUnit] = []
+    group_index: dict[str, int] = {}
+    for ex in examples:
+        key = _group_key(ex)
+        if key is None:
+            units.append(_FamilyUnit(key=ex.source_id, records=[ex], is_group=False))
+        elif key in group_index:
+            units[group_index[key]].records.append(ex)
+        else:
+            group_index[key] = len(units)
+            units.append(_FamilyUnit(key=key, records=[ex], is_group=True))
+    return units
+
+
+# ---------------------------------------------------------------------------
+# Per-record filters
+# ---------------------------------------------------------------------------
+
+def _record_reasons(ex: CanonicalSourceExample, config: SelectionConfig) -> list[str]:
+    """Evaluate per-record inclusion criteria. Returns reason codes."""
+    reasons: list[str] = []
+
+    if config.datasets is not None and ex.source_dataset not in config.datasets:
+        reasons.append("dataset_excluded")
+    if config.settings is not None and ex.source_setting not in config.settings:
+        reasons.append("setting_excluded")
+
+    if ex.num_turns < config.min_turns:
+        reasons.append(f"too_few_turns:{ex.num_turns}<{config.min_turns}")
+    if ex.num_turns > config.max_turns:
+        reasons.append(f"too_many_turns:{ex.num_turns}>{config.max_turns}")
+
+    total_text = sum(len(m.text or "") for m in ex.messages)
+    if total_text > config.max_text_length:
+        reasons.append(f"text_too_long:{total_text}>{config.max_text_length}")
+
+    if len((ex.terminal_query or "").strip()) < config.min_terminal_query_chars:
+        reasons.append(
+            f"terminal_query_too_short:{len((ex.terminal_query or '').strip())}"
+            f"<{config.min_terminal_query_chars}"
+        )
+
+    return reasons
+
+
+def _reason_code(reason: str) -> str:
+    """Strip the numeric detail suffix from a reason for counting."""
+    return reason.split(":", 1)[0]
+
+
+def _image_reason(
+    ex: CanonicalSourceExample,
+    config: SelectionConfig,
+    unit: _FamilyUnit,
+) -> Optional[str]:
+    """Vision-requirement check.
+
+    MTMCS unimodal records inherit vision support from their multimodal
+    sibling in the same pair. Records from text-only datasets carry no
+    vision at all and are rejected when images are required.
+    """
+    if not config.require_images:
+        return None
+    if ex.has_images:
+        return None
+    if unit.is_group:
+        if any(r.has_images for r in unit.records):
+            return None  # sibling carries the image
+        return "no_images"
+    return "no_images"
+
+
+# ---------------------------------------------------------------------------
+# Group-level causal invariants (MTMCS)
+# ---------------------------------------------------------------------------
+
+_GROUP_CONDITIONS = frozenset({
+    "multimodal:safe",
+    "multimodal:unsafe",
+    "unimodal:safe",
+    "unimodal:unsafe",
+})
+
+
+def _group_invariant_reasons(records: list[CanonicalSourceExample]) -> list[str]:
+    """Verify MTMCS group-level causal invariants.
+
+    - Group must contain all four conditions exactly once.
+    - type_b: safe/unsafe terminal queries must be IDENTICAL per modality
+      (shared terminal query = the causal experiment gold standard).
+    - type_a: safe/unsafe terminal queries must DIFFER (divergence at the
+      terminal turn is what defines type_a).
+    """
+    reasons: list[str] = []
+
+    conditions = {}
+    for r in records:
+        cond = f"{r.metadata.get('modality')}:{r.metadata.get('safety')}"
+        conditions[cond] = r
+    if set(conditions) != _GROUP_CONDITIONS or len(records) != len(_GROUP_CONDITIONS):
+        reasons.append(f"group_incomplete:{sorted(conditions)}")
+        return reasons  # cannot evaluate invariants on a partial group
+
+    setting = records[0].source_setting
+    for modality, field_name in (("multimodal", "mm"), ("unimodal", "text")):
+        safe_q = conditions[f"{modality}:safe"].terminal_query
+        unsafe_q = conditions[f"{modality}:unsafe"].terminal_query
+        same = sha256_text(safe_q) == sha256_text(unsafe_q)
+        if setting == "type_b" and not same:
+            reasons.append(f"terminal_query_invariant_violated:{field_name}")
+        elif setting == "type_a" and same:
+            reasons.append(f"terminal_query_not_divergent:{field_name}")
+
+    return reasons
+
+
+# ---------------------------------------------------------------------------
+# Main entry point
+# ---------------------------------------------------------------------------
+
 def select_candidates(
     examples: Sequence[CanonicalSourceExample],
+    config: SelectionConfig | None = None,
     *,
-    min_turns: int = 3,
-    max_turns: int = 8,
-    require_images: bool = True,
-    max_text_length: int = 5000,
-) -> tuple[list[CanonicalSourceExample], list[dict]]:
+    min_turns: int | None = None,
+    max_turns: int | None = None,
+    require_images: bool | None = None,
+    max_text_length: int | None = None,
+) -> tuple[list[CanonicalSourceExample], list[SelectionRejection]]:
     """Conservative candidate selector for causal family construction.
 
-    Applies inclusion/exclusion criteria from the experiment plan.
-    Returns (accepted, rejections) where each rejection has a reason.
+    Applies inclusion/exclusion criteria and returns ``(accepted,
+    rejections)``. Every input record appears in exactly one of the two
+    outputs; nothing is silently dropped. Accepted records are the exact
+    input objects (pass-through — selection never mutates source data).
 
-    This is a stub for Iteration 2. Full implementation in Iteration 3.
+    MTMCS records are selected atomically per ``pair_id`` group: either
+    all four conditions are accepted or all four are rejected.
 
     Args:
-        examples: Normalized source examples.
-        min_turns: Minimum conversational turns.
-        max_turns: Maximum conversational turns.
-        require_images: Whether to require at least one image.
-        max_text_length: Maximum total text length.
+        examples: Normalized source examples (CanonicalSourceExample only).
+        config: Full selection configuration. If None, a default config is
+            built from the keyword overrides below.
+        min_turns: Override config.min_turns (keyword convenience).
+        max_turns: Override config.max_turns.
+        require_images: Override config.require_images.
+        max_text_length: Override config.max_text_length.
 
     Returns:
         Tuple of (accepted examples, rejection records).
+
+    Raises:
+        TypeError: If any input is not a CanonicalSourceExample.
+        AssertionError: If the accounting invariant is violated.
     """
     assert_canonical(examples)
 
-    accepted: list[CanonicalSourceExample] = []
-    rejections: list[dict] = []
+    if config is None:
+        config = SelectionConfig()
+    if min_turns is not None:
+        config = _replace(config, min_turns=min_turns)
+    if max_turns is not None:
+        config = _replace(config, max_turns=max_turns)
+    if require_images is not None:
+        config = _replace(config, require_images=require_images)
+    if max_text_length is not None:
+        config = _replace(config, max_text_length=max_text_length)
 
-    for ex in examples:
-        reason = None
+    units = _build_units(examples)
 
-        # Turn count
-        if ex.num_turns < min_turns:
-            reason = f"too few turns ({ex.num_turns} < {min_turns})"
-        elif ex.num_turns > max_turns:
-            reason = f"too many turns ({ex.num_turns} > {max_turns})"
-
-        # Image requirement
-        if require_images and not ex.has_images:
-            reason = "no images"
-
-        # Text length
-        if reason is None:
-            total_text = sum(len(m.text or "") for m in ex.messages)
-            if total_text > max_text_length:
-                reason = f"text too long ({total_text} > {max_text_length})"
-
-        if reason:
-            rejections.append({
-                "source_id": ex.source_id,
-                "source_dataset": ex.source_dataset,
-                "reason": reason,
-            })
+    # ---- Phase 1: criterion filtering (whole-unit decisions) ----
+    eligible: list[_FamilyUnit] = []
+    rejections: list[SelectionRejection] = []
+    for unit in units:
+        reasons = _evaluate_unit(unit, config)
+        if reasons:
+            for r in unit.records:
+                rejections.append(_make_rejection(r, reasons))
         else:
-            accepted.append(ex)
+            eligible.append(unit)
 
-    return accepted, rejections
+    # ---- Phase 2: deterministic family sampling ----
+    if config.max_families is not None and len(eligible) > config.max_families:
+        eligible = sorted(eligible, key=lambda u: u.key)
+        rng = random.Random(config.seed)
+        sampled = set(rng.sample([u.key for u in eligible], config.max_families))
+        kept: list[_FamilyUnit] = []
+        for unit in eligible:
+            if unit.key in sampled:
+                kept.append(unit)
+            else:
+                for r in unit.records:
+                    rejections.append(_make_rejection(r, ["not_sampled"]))
+        eligible = kept
+
+    # ---- Assemble result; preserve original input order ----
+    accepted_ids = {id(r) for unit in eligible for r in unit.records}
+    accepted = [ex for ex in examples if id(ex) in accepted_ids]
+
+    result = SelectionResult(accepted=accepted, rejections=rejections)
+    result.verify_accounting(len(examples))
+    return result.accepted, result.rejections
+
+
+def _replace(config: SelectionConfig, **kwargs) -> SelectionConfig:
+    """Frozen-dataclass copy helper."""
+    current = {f: getattr(config, f) for f in config.__dataclass_fields__}
+    current.update(kwargs)
+    return SelectionConfig(**current)
+
+
+def _evaluate_unit(unit: _FamilyUnit, config: SelectionConfig) -> list[str]:
+    """Return rejection reasons for a whole unit (empty = eligible)."""
+    if unit.is_group:
+        reasons = _group_invariant_reasons(unit.records)
+        if reasons:
+            return reasons
+
+    reasons: list[str] = []
+    for r in unit.records:
+        reasons.extend(_record_reasons(r, config))
+        image_reason = _image_reason(r, config, unit)
+        if image_reason:
+            reasons.append(image_reason)
+    # De-duplicate while preserving order (same reason on several records)
+    seen: set[str] = set()
+    unique: list[str] = []
+    for reason in reasons:
+        if reason not in seen:
+            seen.add(reason)
+            unique.append(reason)
+    return unique
+
+
+def _make_rejection(
+    ex: CanonicalSourceExample, reasons: list[str]
+) -> SelectionRejection:
+    return SelectionRejection(
+        source_id=ex.source_id,
+        reason=";".join(_reason_code(r) for r in reasons),
+        detail="; ".join(reasons),
+        pair_id=_group_key(ex),
+        source_dataset=ex.source_dataset,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Reporting
+# ---------------------------------------------------------------------------
+
+def build_selection_report(
+    n_input: int,
+    result: SelectionResult,
+    config: SelectionConfig,
+) -> dict:
+    """Build a machine-readable selection report with full provenance."""
+    import datetime
+
+    result.verify_accounting(n_input)
+
+    reason_counts: dict[str, int] = {}
+    for rej in result.rejections:
+        for code in rej.reason.split(";"):
+            reason_counts[code] = reason_counts.get(code, 0) + 1
+
+    dataset_counts: dict[str, int] = {}
+    setting_counts: dict[str, int] = {}
+    for ex in result.accepted:
+        dataset_counts[ex.source_dataset] = dataset_counts.get(ex.source_dataset, 0) + 1
+        setting_counts[ex.source_setting] = setting_counts.get(ex.source_setting, 0) + 1
+
+    n_families = len({
+        (ex.metadata.get("pair_id") or ex.source_id) for ex in result.accepted
+    })
+
+    return {
+        "iteration": 3,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "git_commit": get_git_commit(),
+        "config": config.to_dict(),
+        "config_hash": config_hash(config.to_dict()),
+        "n_input": n_input,
+        "n_accepted": len(result.accepted),
+        "n_rejected": len(result.rejections),
+        "n_families_accepted": n_families,
+        "accounting_ok": True,
+        "reason_counts": dict(sorted(reason_counts.items())),
+        "accepted_by_dataset": dict(sorted(dataset_counts.items())),
+        "accepted_by_setting": dict(sorted(setting_counts.items())),
+    }
+
+
+def run_selection(
+    examples: Sequence[CanonicalSourceExample],
+    config: SelectionConfig | None = None,
+) -> SelectionResult:
+    """Full selection pass returning a SelectionResult with the report."""
+    accepted, rejections = select_candidates(examples, config)
+    result = SelectionResult(accepted=accepted, rejections=rejections)
+    result.report = build_selection_report(len(examples), result,
+                                           config or SelectionConfig())
+    return result

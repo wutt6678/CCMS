@@ -216,8 +216,8 @@ python -m causal_mllm.cli.evaluate \
 
 - [x] **Iteration 0** — Project skeleton, configs, schemas, CLI stubs, 60 unit tests
 - [x] **Iteration 1** — Source dataset inspection, schema reports, adapter `normalize()`, 18 integration tests
-- [ ] **Iteration 2** — Full canonical adapters with golden fixture tests
-- [ ] **Iteration 3** — Candidate selection with rejection reasons
+- [x] **Iteration 2** — Full canonical adapters with golden fixture tests
+- [x] **Iteration 3** — Candidate selection with rejection reasons
 - [ ] **Iteration 4** — Semantic atom extraction
 - [ ] **Iteration 5** — Six independent variant generators
 - [ ] **Iteration 6** — Automatic validation layer
