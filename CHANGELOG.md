@@ -29,7 +29,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `.github/workflows/ci.yml`: `unit` job (offline: unit tests, offline golden
   fixtures, ruff on Iteration 3+ modules) and `integration` job (real
   datasets). Test evidence is now attached to commits independently of local
-  runs
+  runs. Integration results uploaded as a JUnit XML artifact
+- Pinned `datasets>=4.2,<5.0`: 5.x is an untested breaking major release
 
 ## [0.3.0] — 2026-08-23
 
