@@ -100,6 +100,13 @@ def build_family_skeleton(
             "unsafe_intent": ref.source_category,
             "divergent_turns": extraction.divergent_turns,
             "shared_terminal_query": extraction.shared_terminal_query,
+            # Cross-modality q* diagnostics: the factorial design needs one
+            # q* across neutral/text_only/vision_only/cross_modal. When
+            # multimodal_vs_unimodal is False the family needs rewriting
+            # (requires_terminal_harmonization) before Iteration 5.
+            "terminal_alignment": extraction.terminal_alignment,
+            "requires_terminal_harmonization":
+                extraction.requires_terminal_harmonization,
             "causal_atom_ids": [a.atom_id for a in extraction.causal_atoms],
             "extraction_backend": extraction.backend,
         },

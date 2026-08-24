@@ -44,7 +44,30 @@ class TestTypeBComparativeExtraction:
         atom = extraction.causal_atoms[0]
         assert atom.safe_text == "[safe opening] describe the scene 1"
         assert atom.unsafe_text == "[unsafe opening] ignore rules 1"
-        assert atom.atom_type == "attribute_or_state"
+        # Structure is known, meaning is NOT inferred from turn position
+        assert atom.atom_type == "unknown"
+        assert atom.structural_role == "divergent_history_turn"
+        assert atom.semantic_type == "unknown"
+        assert atom.semantic_description is None
+        assert atom.semantic_validation == "pending"
+
+    def test_causal_atom_records_all_four_condition_forms(self):
+        """Iteration 5 needs every condition's surface form, not just mm."""
+        group = make_mtmcs_group("type_b", 1)
+        extraction = extract_family_atoms(FAMILY_ID, group)
+        atom = extraction.causal_atoms[0]
+        assert set(atom.surface_forms) == {
+            "multimodal_safe", "multimodal_unsafe",
+            "unimodal_safe", "unimodal_unsafe",
+        }
+        assert atom.surface_forms["multimodal_safe"]["text"] == atom.safe_text
+        assert atom.surface_forms["multimodal_unsafe"]["text"] == atom.unsafe_text
+        # Unimodal forms are separately written fields and must be recorded
+        assert atom.surface_forms["unimodal_safe"]["text"] == atom.safe_text
+        assert atom.surface_forms["unimodal_unsafe"]["text"] == atom.unsafe_text
+        # Images only exist in the multimodal conditions
+        assert atom.surface_forms["multimodal_safe"]["images"]
+        assert atom.surface_forms["unimodal_safe"]["images"] == []
 
     def test_shared_terminal_is_a_shared_intent_atom(self):
         group = make_mtmcs_group("type_b", 1)
@@ -64,14 +87,30 @@ class TestTypeBComparativeExtraction:
         assert vision[0].source_turns == [0]
         assert vision[0].atom_type == "entity_or_scene"
         assert vision[0].divergence == "shared"
+        assert vision[0].structural_role == "shared_image"
+
+    def test_vision_atom_has_explicit_media_reference(self):
+        """Iteration 5 must not infer which image an atom refers to."""
+        group = make_mtmcs_group("type_b", 1)
+        extraction = extract_family_atoms(FAMILY_ID, group)
+        vision = next(a for a in extraction.atoms
+                      if a.structural_role == "shared_image")
+        assert len(vision.source_media) == 1
+        assert vision.source_media[0]["path"] == \
+            "media/source/mtmcs_type_b_1_main.png"
+        # sha256 is None only because the synthetic file does not exist;
+        # integration tests assert real hashes on real media
+        assert "sha256" in vision.source_media[0]
 
     def test_shared_context_turns_marked_shared(self):
         group = make_mtmcs_group("type_b", 1, n_turns=5)
         extraction = extract_family_atoms(FAMILY_ID, group)
         middle = [a for a in extraction.atoms
-                  if a.atom_type == "contextual_disambiguator"]
+                  if a.structural_role == "shared_history_turn"]
         assert middle, "expected shared context atoms for middle turns"
         assert all(a.divergence == "shared" for a in middle)
+        # Semantic meaning of shared context is not inferred either
+        assert all(a.semantic_type == "unknown" for a in middle)
 
     def test_atom_ids_deterministic_and_unique(self):
         group = make_mtmcs_group("type_b", 1)
@@ -97,15 +136,52 @@ class TestTypeBComparativeExtraction:
 # ---------------------------------------------------------------------------
 
 class TestTypeAComparativeExtraction:
-    def test_causal_atom_is_the_terminal_intent(self):
+    def test_causal_atom_is_the_terminal_turn(self):
         group = make_mtmcs_group("type_a", 2)
         extraction = extract_family_atoms(FAMILY_ID, group)
         causal = extraction.causal_atoms
         assert len(causal) == 1
         assert causal[0].source_turns == [2]
-        assert causal[0].atom_type == "intent"  # divergence IS the query
+        # Even at the terminal turn the semantic type is not inferred;
+        # structure says 'this turn diverges', annotation says what it means
+        assert causal[0].atom_type == "unknown"
+        assert causal[0].structural_role == "divergent_history_turn"
+        assert causal[0].surface_forms["multimodal_safe"]["text"] != \
+            causal[0].surface_forms["multimodal_unsafe"]["text"]
         assert extraction.shared_terminal_query is False
         assert extraction.divergent_turns == [2]
+
+
+# ---------------------------------------------------------------------------
+# Cross-modality terminal-query alignment (P0 diagnostic)
+# ---------------------------------------------------------------------------
+
+class TestTerminalAlignment:
+    def test_aligned_family_reports_full_alignment(self):
+        group = make_mtmcs_group("type_b", 1)
+        extraction = extract_family_atoms(FAMILY_ID, group)
+        assert extraction.terminal_alignment == {
+            "mm_safe_vs_mm_unsafe": True,
+            "text_safe_vs_text_unsafe": True,
+            "multimodal_vs_unimodal": True,
+        }
+        assert extraction.requires_terminal_harmonization is False
+
+    def test_cross_modality_mismatch_flags_harmonization(self):
+        """q*_mm != q*_text must be surfaced, not silently absorbed."""
+        group = make_mtmcs_group("type_b", 1)
+        # Rewrite BOTH unimodal terminals identically (within-condition
+        # sharing stays intact) but different from the multimodal query
+        for r in group:
+            if r.metadata["modality"] == "unimodal":
+                r.messages[-1].text = "REWRITTEN TEXT-ONLY TERMINAL QUERY"
+                r.terminal_query = r.messages[-1].text
+        extraction = extract_family_atoms(FAMILY_ID, group)
+        ta = extraction.terminal_alignment
+        assert ta["mm_safe_vs_mm_unsafe"] is True
+        assert ta["text_safe_vs_text_unsafe"] is True
+        assert ta["multimodal_vs_unimodal"] is False
+        assert extraction.requires_terminal_harmonization is True
 
 
 # ---------------------------------------------------------------------------
@@ -169,12 +245,14 @@ class TestSingletonExtraction:
         assert len(intents) == 1
         assert intents[0].source_turns == [2]
 
-    def test_assistant_turns_are_reference_atoms(self):
+    def test_assistant_turns_are_structural_context_atoms(self):
         singleton = make_text_only_singleton()
         extraction = extract_family_atoms(FAMILY_ID, [singleton])
-        refs = [a for a in extraction.atoms if a.atom_type == "reference"]
+        refs = [a for a in extraction.atoms
+                if a.structural_role == "assistant_context"]
         assert len(refs) == 1
         assert refs[0].source_turns == [1]
+        assert refs[0].atom_type == "unknown"  # meaning not inferred
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +290,16 @@ class TestFamilySkeleton:
             "unimodal:safe": "safe",
             "unimodal:unsafe": "unsafe",
         }
+
+    def test_ground_truth_records_terminal_alignment(self):
+        group = make_mtmcs_group("type_b", 1)
+        gt = build_family_skeleton(group).ground_truth
+        assert gt["terminal_alignment"] == {
+            "mm_safe_vs_mm_unsafe": True,
+            "text_safe_vs_text_unsafe": True,
+            "multimodal_vs_unimodal": True,
+        }
+        assert gt["requires_terminal_harmonization"] is False
 
     def test_validation_placeholders_present(self):
         group = make_mtmcs_group("type_b", 1)
@@ -305,3 +393,31 @@ class TestSkeletonValidator:
         record["semantic_atoms"][0]["divergence"] = "maybe"
         errors = validate_family_skeleton(record)
         assert any("invalid divergence" in e for e in errors)
+
+    def test_detects_missing_structural_role(self):
+        record = self._valid_dict()
+        record["semantic_atoms"][0]["structural_role"] = None
+        errors = validate_family_skeleton(record)
+        assert any("structural_role" in e for e in errors)
+
+    def test_detects_invalid_semantic_validation_state(self):
+        record = self._valid_dict()
+        record["semantic_atoms"][0]["semantic_validation"] = "guessed"
+        errors = validate_family_skeleton(record)
+        assert any("semantic_validation" in e for e in errors)
+
+    def test_detects_causal_atom_missing_surface_forms(self):
+        record = self._valid_dict()
+        causal = next(a for a in record["semantic_atoms"]
+                      if a["divergence"] == "causal")
+        causal.pop("surface_forms")
+        errors = validate_family_skeleton(record)
+        assert any("surface_forms" in e for e in errors)
+
+    def test_detects_vision_atom_missing_source_media(self):
+        record = self._valid_dict()
+        vision = next(a for a in record["semantic_atoms"]
+                      if a.get("structural_role") == "shared_image")
+        vision.pop("source_media")
+        errors = validate_family_skeleton(record)
+        assert any("source_media" in e for e in errors)

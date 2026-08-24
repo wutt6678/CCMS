@@ -235,6 +235,20 @@ Pre-computed schema reports from programmatic inspection of all three source dat
 - [`cosafe_schema.json`](outputs/schema/cosafe_schema.json) — CoSafe structure analysis
 - [`mtid_schema.json`](outputs/schema/mtid_schema.json) — MTID trajectory analysis
 
+## Data Quality Diagnostics
+
+[`outputs/diagnostics/type_b_alignment.json`](outputs/diagnostics/type_b_alignment.json)
+measures cross-modality alignment across **all 752 Type-B rows** (reproduce with
+`python -m causal_mllm.cli.diagnose_type_b`):
+
+- Terminal query equality `q*_mm == q*_text`: **0/752 exact, 0/752 normalized**
+- Per-turn mm/text alignment: **0%** for every turn
+- Rows directly usable for the 2×2 factorial construction: **0**; requiring q\* harmonization: **752**
+
+The multimodal and unimodal Type-B dialogues are separately written paraphrases
+of the same scenario. Terminal-query harmonization is therefore a required
+Iteration-5 workstream for every family — it is never assumed away.
+
 ## Configuration
 
 Nothing is hard-coded. All paths, models, sample counts, and parameters live in YAML configs under `configs/`. See [`configs/generation/mvp.yaml`](configs/generation/mvp.yaml) for the main experiment config.

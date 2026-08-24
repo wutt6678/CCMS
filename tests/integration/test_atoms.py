@@ -56,15 +56,37 @@ class TestAtomsOnRealMTMCS:
             assert len(causal) == 1, skeleton.family_id
             assert causal[0].source_turns == [0]
             assert causal[0].safe_text != causal[0].unsafe_text
+            # Four-condition surface forms present and consistent
+            forms = causal[0].surface_forms
+            assert set(forms) == {
+                "multimodal_safe", "multimodal_unsafe",
+                "unimodal_safe", "unimodal_unsafe",
+            }
+            assert forms["multimodal_safe"]["text"] == causal[0].safe_text
+            # Structure known, meaning pending annotation
+            assert causal[0].structural_role == "divergent_history_turn"
+            assert causal[0].semantic_type == "unknown"
 
-            # q* shared and hash-consistent
+            # q* shared within conditions; cross-modality alignment measured
             assert skeleton.ground_truth["shared_terminal_query"] is True
             assert skeleton.ground_truth["divergent_turns"] == [0]
+            ta = skeleton.ground_truth["terminal_alignment"]
+            assert ta["mm_safe_vs_mm_unsafe"] is True
+            assert ta["text_safe_vs_text_unsafe"] is True
+            assert "multimodal_vs_unimodal" in ta
+            assert skeleton.ground_truth["requires_terminal_harmonization"] \
+                == (not ta["multimodal_vs_unimodal"])
 
-            # Vision atom present and shared across conditions
+            # Vision atom present, shared, with hashed media references
             vision = [a for a in skeleton.semantic_atoms
                       if "vision" in a.source_modalities]
             assert vision and all(a.divergence == "shared" for a in vision)
+            for atom in vision:
+                assert atom.source_media, "vision atom missing source_media"
+                for ref in atom.source_media:
+                    assert ref["path"]
+                    # Real adapter-saved media must be hashable
+                    assert ref["sha256"], f"missing hash for {ref['path']}"
 
     def test_family_ids_deterministic_across_runs(self):
         accepted = self._load_type_b_candidates(max_rows=2)
@@ -98,6 +120,57 @@ class TestAtomsOnRealMTMCS:
         assert atoms_report["n_families"] == 3
         assert atoms_report["n_causal_atoms"] == 3  # one per type_b family
         assert atoms_report["extraction_backend"] == "rule"
+
+
+# ---------------------------------------------------------------------------
+# Type-B cross-modality diagnostics on real data
+# ---------------------------------------------------------------------------
+
+@pytest.mark.integration
+@pytest.mark.slow
+class TestTypeBDiagnosticsOnRealData:
+    def test_diagnostic_structure_on_real_rows(self):
+        from causal_mllm.adapters.mtmcs import MTMCSAdapter
+        from causal_mllm.construction.diagnostics import diagnose_type_b_rows
+
+        adapter = MTMCSAdapter()
+        rows = []
+        for row in adapter.load("type_b"):
+            rows.append(row)
+            if len(rows) >= 20:
+                break
+
+        report = diagnose_type_b_rows(rows)
+        assert report["n_type_b"] == 20
+        assert report["n_rows_complete"] == 20
+        term = report["terminal_query_cross_modality"]
+        assert 0.0 <= term["fraction_exact_match"] <= 1.0
+        assert 0.0 <= term["fraction_normalized_match"] <= 1.0
+        assert set(report["per_turn_alignment"]) == {
+            "safe_r1", "unsafe_r1", "r2", "r3",
+        }
+        usable = report["directly_usable"]
+        assert (usable["n_exact"] + usable["n_requiring_rewrite_exact"]
+                == report["n_rows_complete"])
+
+    def test_real_type_b_requires_terminal_harmonization(self):
+        """Real-data finding: mm/text dialogues are separately written.
+
+        The 752-row diagnostic (outputs/diagnostics/type_b_alignment.json)
+        found 0% cross-modality terminal equality; every extracted family
+        must therefore carry requires_terminal_harmonization=True.
+        """
+        from causal_mllm.adapters.mtmcs import MTMCSAdapter
+        from causal_mllm.construction.atoms import extract_family_atoms
+        from causal_mllm.construction.select import group_into_family_units
+
+        adapter = MTMCSAdapter()
+        records = adapter.load_and_normalize(split="type_b", max_rows=3)
+        for _, unit_records in group_into_family_units(records):
+            extraction = extract_family_atoms("CMST_diag", unit_records)
+            assert extraction.terminal_alignment["mm_safe_vs_mm_unsafe"]
+            assert extraction.terminal_alignment["text_safe_vs_text_unsafe"]
+            assert extraction.requires_terminal_harmonization is True
 
 
 # ---------------------------------------------------------------------------

@@ -1,0 +1,47 @@
+{
+  "n_type_b": 752,
+  "n_rows_complete": 752,
+  "within_condition_fixed_q": {
+    "n_valid": 752,
+    "note": "Type-B rows carry one r3 field per modality, so safe/unsafe share q* by construction; non-emptiness verified instead."
+  },
+  "terminal_query_cross_modality": {
+    "n_exact_match": 0,
+    "fraction_exact_match": 0.0,
+    "n_normalized_match": 0,
+    "fraction_normalized_match": 0.0
+  },
+  "per_turn_alignment": {
+    "safe_r1": {
+      "n_exact": 0,
+      "fraction_exact": 0.0,
+      "n_normalized": 0,
+      "fraction_normalized": 0.0
+    },
+    "unsafe_r1": {
+      "n_exact": 0,
+      "fraction_exact": 0.0,
+      "n_normalized": 0,
+      "fraction_normalized": 0.0
+    },
+    "r2": {
+      "n_exact": 0,
+      "fraction_exact": 0.0,
+      "n_normalized": 0,
+      "fraction_normalized": 0.0
+    },
+    "r3": {
+      "n_exact": 0,
+      "fraction_exact": 0.0,
+      "n_normalized": 0,
+      "fraction_normalized": 0.0
+    }
+  },
+  "directly_usable": {
+    "n_exact": 0,
+    "n_normalized": 0,
+    "n_requiring_rewrite_exact": 752,
+    "n_requiring_rewrite_normalized": 752
+  },
+  "split": "type_b"
+}

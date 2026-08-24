@@ -49,6 +49,10 @@ class AtomType(str, Enum):
     CONSTRAINT = "constraint"
     REFERENCE = "reference"
     CONTEXTUAL_DISAMBIGUATOR = "contextual_disambiguator"
+    # Not yet semantically classified. Structural facts (image present,
+    # terminal query, divergence location) never imply semantic meaning;
+    # semantic_type stays 'unknown' until metadata/LLM/human annotation.
+    UNKNOWN = "unknown"
 
 
 class GeneratorType(str, Enum):
@@ -147,24 +151,66 @@ class CanonicalSourceExample:
 # Causal family schemas
 # ---------------------------------------------------------------------------
 
+# Structural roles an atom can occupy in the family, independent of its
+# semantic meaning (which requires annotation and stays 'unknown' until then)
+STRUCTURAL_ROLES = frozenset({
+    "divergent_history_turn",   # causal divergence between H_safe/H_unsafe
+    "shared_history_turn",      # identical content across conditions
+    "terminal_query",           # the final query q*
+    "shared_image",             # image shared across conditions
+    "assistant_context",        # assistant turn (singletons only)
+})
+
+# Provenance of a semantic annotation
+SEMANTIC_VALIDATION_STATES = frozenset({
+    "pending",    # not annotated yet
+    "metadata",   # derived from source metadata
+    "llm",        # LLM/VLM-assisted extractor
+    "human",      # human review
+})
+
+# The four MTMCS condition keys used in atom surface forms
+MTMCS_CONDITIONS = (
+    "multimodal_safe",
+    "multimodal_unsafe",
+    "unimodal_safe",
+    "unimodal_unsafe",
+)
+
+
 @dataclass
 class SemanticAtom:
     """An abstract semantic contribution from one or more turns.
 
     Atoms are extracted at the FAMILY level by comparing H_safe vs
-    H_unsafe (Iteration 4). ``divergence`` records whether the atom's
-    content is identical across conditions ("shared"), differs causally
-    ("causal"), or has no safe/unsafe counterpart ("not_applicable",
-    e.g. singletons). Causal atoms carry both surface forms.
+    H_unsafe (Iteration 4). Structural facts and semantic meaning are
+    kept strictly separate:
+
+      * ``divergence`` + ``structural_role`` — observable structure
+      * ``semantic_type`` — meaning; 'unknown' until annotated
+        (metadata / LLM / human). NEVER inferred from turn position.
+      * ``surface_forms`` — the turn's content in ALL four MTMCS
+        conditions ({text, images}); Iteration 5 consumes these directly
+      * ``source_media`` — explicit image assets ({path, sha256}) so no
+        downstream stage has to guess which file an atom refers to
+
+    ``safe_text``/``unsafe_text`` are retained for convenience (they are
+    the multimodal pair's forms) but are not the only available forms.
     """
     atom_id: str
     description: str
     source_turns: list[int]
     source_modalities: list[str]  # "text" | "vision"
-    atom_type: str = "entity_or_scene"  # AtomType value
+    atom_type: str = "unknown"  # AtomType value; 'unknown' until annotated
     divergence: str = "shared"  # shared | causal | not_applicable
-    safe_text: Optional[str] = None  # only for divergence == "causal"
-    unsafe_text: Optional[str] = None  # only for divergence == "causal"
+    structural_role: Optional[str] = None  # STRUCTURAL_ROLES value
+    semantic_type: str = "unknown"  # unknown until annotated
+    semantic_description: Optional[str] = None
+    semantic_validation: str = "pending"  # pending | metadata | llm | human
+    safe_text: Optional[str] = None  # multimodal safe form (convenience)
+    unsafe_text: Optional[str] = None  # multimodal unsafe form (convenience)
+    surface_forms: dict[str, dict] = field(default_factory=dict)
+    source_media: list[dict] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         result = {
@@ -174,11 +220,19 @@ class SemanticAtom:
             "source_modalities": list(self.source_modalities),
             "type": self.atom_type,
             "divergence": self.divergence,
+            "structural_role": self.structural_role,
+            "semantic_type": self.semantic_type,
+            "semantic_description": self.semantic_description,
+            "semantic_validation": self.semantic_validation,
         }
         if self.safe_text is not None:
             result["safe_text"] = self.safe_text
         if self.unsafe_text is not None:
             result["unsafe_text"] = self.unsafe_text
+        if self.surface_forms:
+            result["surface_forms"] = self.surface_forms
+        if self.source_media:
+            result["source_media"] = self.source_media
         return result
 
     @classmethod
@@ -188,10 +242,16 @@ class SemanticAtom:
             description=d["description"],
             source_turns=d["source_turns"],
             source_modalities=d["source_modalities"],
-            atom_type=d.get("type", "entity_or_scene"),
+            atom_type=d.get("type", "unknown"),
             divergence=d.get("divergence", "shared"),
+            structural_role=d.get("structural_role"),
+            semantic_type=d.get("semantic_type", "unknown"),
+            semantic_description=d.get("semantic_description"),
+            semantic_validation=d.get("semantic_validation", "pending"),
             safe_text=d.get("safe_text"),
             unsafe_text=d.get("unsafe_text"),
+            surface_forms=d.get("surface_forms", {}),
+            source_media=d.get("source_media", []),
         )
 
 

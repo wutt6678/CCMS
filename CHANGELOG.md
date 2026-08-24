@@ -4,6 +4,51 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.1] — 2026-08-24
+
+### Added — Iteration-4 review: four-condition atoms, terminal alignment,
+structure/meaning separation, media references
+
+- Atoms now record ALL FOUR condition surface forms per turn
+  (`surface_forms`: multimodal_safe/unimodal_.../... each {text, images}).
+  The MTMCS mm and text dialogues are separately written fields; their
+  equivalence is now explicit data, never assumed. `safe_text`/
+  `unsafe_text` retained as the multimodal pair convenience.
+- Cross-modality terminal-query alignment diagnostics on every family:
+  `terminal_alignment` (mm_safe_vs_mm_unsafe, text_safe_vs_text_unsafe,
+  multimodal_vs_unimodal) and `requires_terminal_harmonization` in the
+  skeleton ground truth. The factorial design needs one q* across
+  neutral/text_only/vision_only/cross_modal.
+- Structure vs meaning separated in `SemanticAtom`: `structural_role`
+  (divergent_history_turn, shared_history_turn, terminal_query,
+  shared_image, assistant_context) vs `semantic_type` (default
+  'unknown'), `semantic_description` (null) and `semantic_validation`
+  ('pending'). Semantic type is NEVER inferred from turn position —
+  an opening divergence may encode intent, relation, constraint,
+  reference, attribute/state, or scene framing.
+- Vision atoms carry explicit `source_media` ({path, sha256}) so
+  Iteration 5 never infers which image an atom refers to.
+- New diagnostic: `python -m causal_mllm.cli.diagnose_type_b` with pure
+  `diagnose_type_b_rows()` (7 unit tests). Reports within-condition
+  fixed-q validity, mm/text terminal equality (exact + normalized),
+  per-turn alignment, and directly-usable vs rewrite-needed counts.
+- Skeleton validator extended: structural_role required and valid,
+  semantic_validation state valid, causal atoms need all four surface
+  forms, vision atoms need source_media paths.
+
+### Diagnostic result — all 752 Type-B rows
+
+`outputs/diagnostics/type_b_alignment.json`:
+
+- n_type_b = 752 (all complete)
+- Cross-modality terminal q* equality: **0/752 exact, 0/752 normalized**
+- Per-turn mm/text alignment (safe_r1, unsafe_r1, r2, r3): **0%** each
+- Directly usable for 2x2 construction: **0**; requiring rewriting: **752**
+
+Conclusion: the multimodal and unimodal Type-B dialogues are separately
+written paraphrases on the same scenario. q* harmonization is a required
+workstream for Iteration 5 on every family (no row is directly usable).
+
 ## [0.4.0] — 2026-08-23
 
 ### Added — Iteration 4: Family-Level Comparative Atom Extraction

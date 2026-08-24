@@ -131,7 +131,12 @@ def validate_family_skeleton(record: dict) -> list[str]:
       * MTMCS families must contain at least one CAUSAL atom (the
         comparative H_safe-vs-H_unsafe decomposition is the point)
     """
-    from causal_mllm.data.schemas import AtomType
+    from causal_mllm.data.schemas import (
+        MTMCS_CONDITIONS,
+        SEMANTIC_VALIDATION_STATES,
+        STRUCTURAL_ROLES,
+        AtomType,
+    )
     from causal_mllm.seeds import sha256_text
 
     errors: list[str] = []
@@ -162,6 +167,7 @@ def validate_family_skeleton(record: dict) -> list[str]:
 
     valid_types = {v.value for v in AtomType}
     valid_divergences = {"shared", "causal", "not_applicable"}
+    is_mtmcs = isinstance(source, dict) and source.get("dataset") == "mtmcs"
     atoms = record.get("semantic_atoms")
     if not isinstance(atoms, list) or not atoms:
         errors.append("'semantic_atoms' must be a non-empty list")
@@ -188,6 +194,18 @@ def validate_family_skeleton(record: dict) -> list[str]:
                 errors.append(
                     f"semantic_atoms[{i}] invalid divergence '{divergence}'"
                 )
+            # Structure vs meaning: role must be explicit and valid
+            role = atom.get("structural_role")
+            if role not in STRUCTURAL_ROLES:
+                errors.append(
+                    f"semantic_atoms[{i}] invalid structural_role '{role}'"
+                )
+            if atom.get("semantic_validation", "pending") \
+                    not in SEMANTIC_VALIDATION_STATES:
+                errors.append(
+                    f"semantic_atoms[{i}] invalid semantic_validation "
+                    f"'{atom.get('semantic_validation')}'"
+                )
             if divergence == "causal":
                 n_causal += 1
                 if not atom.get("safe_text") or not atom.get("unsafe_text"):
@@ -195,13 +213,27 @@ def validate_family_skeleton(record: dict) -> list[str]:
                         f"semantic_atoms[{i}] causal atom missing "
                         f"safe_text/unsafe_text"
                     )
-        if isinstance(source, dict) and source.get("dataset") == "mtmcs":
-            if n_causal == 0:
-                errors.append(
-                    "MTMCS family has no causal atom: comparative "
-                    "H_safe-vs-H_unsafe decomposition found nothing "
-                    "that differs"
-                )
+                if is_mtmcs:
+                    forms = atom.get("surface_forms", {})
+                    missing = set(MTMCS_CONDITIONS) - set(forms)
+                    if missing:
+                        errors.append(
+                            f"semantic_atoms[{i}] causal atom missing "
+                            f"surface_forms for {sorted(missing)}"
+                        )
+            if role == "shared_image" and is_mtmcs:
+                media = atom.get("source_media", [])
+                if not media or not all(m.get("path") for m in media):
+                    errors.append(
+                        f"semantic_atoms[{i}] vision atom missing "
+                        f"source_media paths"
+                    )
+        if is_mtmcs and n_causal == 0:
+            errors.append(
+                "MTMCS family has no causal atom: comparative "
+                "H_safe-vs-H_unsafe decomposition found nothing "
+                "that differs"
+            )
 
     if not isinstance(record.get("ground_truth"), dict):
         errors.append("'ground_truth' must be a dict")
