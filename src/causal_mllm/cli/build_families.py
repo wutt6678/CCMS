@@ -66,19 +66,21 @@ def main(argv: list[str] | None = None) -> None:
     log.info("Building families: config=%s, max_families=%s, stage=%s",
              args.config, max_families, stage)
 
-    if stage in ("select", "all"):
+    output_dir = args.output_dir or config.get("output", {}).get(
+        "families_dir", "data/families/draft")
+    selection_result = None
+
+    if stage in ("select", "atoms", "all"):
         from causal_mllm.construction.pipeline import run_selection_stage
 
         if max_families is not None:
             selection_cfg["max_families"] = int(max_families)
         config["selection"] = selection_cfg
 
-        output_dir = args.output_dir or config.get("output", {}).get(
-            "families_dir", "data/families/draft")
-        result = run_selection_stage(
+        selection_result = run_selection_stage(
             config, output_dir, max_rows=args.max_rows,
         )
-        report = result.report
+        report = selection_result.report
         log.info(
             "Selection done: %d/%d records accepted (%d families), "
             "%d rejected. Rejected families by reason: %s",
@@ -91,10 +93,21 @@ def main(argv: list[str] | None = None) -> None:
         for warning in report["balance_warnings"]:
             log.warning("Balance check: %s", warning)
 
-    if stage in ("atoms", "variants") or stage == "all":
-        # TODO: Implement remaining stages (Iteration 4+)
-        log.warning("Stages beyond 'select' are stubs. "
-                    "Atom extraction begins at Iteration 4.")
+    if stage in ("atoms", "all"):
+        from causal_mllm.construction.pipeline import run_atoms_stage
+
+        skeletons = run_atoms_stage(
+            selection_result, output_dir,
+            seed=int(config.get("seed", 42)),
+        )
+        log.info("Atoms stage done: %d family skeletons "
+                 "(comparative H_safe-vs-H_unsafe decomposition)",
+                 len(skeletons))
+
+    if stage in ("variants",) or stage == "all":
+        # TODO: Implement remaining stages (Iteration 5+)
+        log.warning("Stages beyond 'atoms' are stubs. "
+                    "Variant generation begins at Iteration 5.")
 
     log.info("Done.")
 

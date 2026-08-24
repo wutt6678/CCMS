@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
-
 
 # ---------------------------------------------------------------------------
 # Enums
@@ -151,21 +149,37 @@ class CanonicalSourceExample:
 
 @dataclass
 class SemanticAtom:
-    """An abstract semantic contribution from one or more turns."""
+    """An abstract semantic contribution from one or more turns.
+
+    Atoms are extracted at the FAMILY level by comparing H_safe vs
+    H_unsafe (Iteration 4). ``divergence`` records whether the atom's
+    content is identical across conditions ("shared"), differs causally
+    ("causal"), or has no safe/unsafe counterpart ("not_applicable",
+    e.g. singletons). Causal atoms carry both surface forms.
+    """
     atom_id: str
     description: str
     source_turns: list[int]
     source_modalities: list[str]  # "text" | "vision"
     atom_type: str = "entity_or_scene"  # AtomType value
+    divergence: str = "shared"  # shared | causal | not_applicable
+    safe_text: Optional[str] = None  # only for divergence == "causal"
+    unsafe_text: Optional[str] = None  # only for divergence == "causal"
 
     def to_dict(self) -> dict:
-        return {
+        result = {
             "atom_id": self.atom_id,
             "description": self.description,
             "source_turns": list(self.source_turns),
             "source_modalities": list(self.source_modalities),
             "type": self.atom_type,
+            "divergence": self.divergence,
         }
+        if self.safe_text is not None:
+            result["safe_text"] = self.safe_text
+        if self.unsafe_text is not None:
+            result["unsafe_text"] = self.unsafe_text
+        return result
 
     @classmethod
     def from_dict(cls, d: dict) -> SemanticAtom:
@@ -175,6 +189,9 @@ class SemanticAtom:
             source_turns=d["source_turns"],
             source_modalities=d["source_modalities"],
             atom_type=d.get("type", "entity_or_scene"),
+            divergence=d.get("divergence", "shared"),
+            safe_text=d.get("safe_text"),
+            unsafe_text=d.get("unsafe_text"),
         )
 
 

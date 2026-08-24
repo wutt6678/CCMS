@@ -24,15 +24,21 @@ from pathlib import Path
 from typing import Any
 
 from causal_mllm.adapters import get_adapter
+from causal_mllm.construction.families import build_family_skeletons
 from causal_mllm.construction.select import (
     SelectionConfig,
     SelectionResult,
     build_family_review_flags,
+    group_into_family_units,
     run_selection,
 )
 from causal_mllm.data.io import write_jsonl
 from causal_mllm.data.logging import get_logger
 from causal_mllm.data.schemas import NormalizationRejection
+from causal_mllm.data.validate_schema import (
+    SchemaValidationError,
+    validate_family_skeleton,
+)
 
 log = get_logger("causal_mllm.construction.pipeline")
 
@@ -42,6 +48,10 @@ NORMALIZATION_REJECTIONS_FILE = "normalization_rejections.jsonl"
 SELECTION_REJECTIONS_FILE = "selection_rejections.jsonl"
 SELECTION_REPORT_FILE = "selection_report.json"
 FAMILY_REVIEW_FLAGS_FILE = "family_review_flags.jsonl"
+
+# Output file names produced by run_atoms_stage()
+FAMILY_SKELETONS_FILE = "family_skeletons.jsonl"
+ATOMS_REPORT_FILE = "atoms_report.json"
 
 
 def _load_normalized(config: dict, *, max_rows: int | None,
@@ -135,3 +145,71 @@ def run_selection_stage(
 
     log.info("Wrote selection artifacts to %s", output_dir)
     return result
+
+
+def run_atoms_stage(
+    selection_result: SelectionResult,
+    output_dir: str | Path,
+    *,
+    seed: int = 42,
+) -> list:
+    """Run the family-level comparative atom extraction stage.
+
+    Groups accepted candidates into family units, decomposes each unit
+    comparatively (H_safe vs H_unsafe for MTMCS), builds family skeletons,
+    validates every skeleton fail-loud, and persists them.
+
+    Args:
+        selection_result: Output of run_selection_stage().
+        output_dir: Artifact directory (same as the selection stage).
+        seed: Experiment seed for deterministic family IDs.
+
+    Returns:
+        List of validated CausalFamily skeletons (variants empty).
+
+    Raises:
+        SchemaValidationError: If any skeleton fails validation.
+    """
+    import datetime
+
+    from causal_mllm.seeds import get_git_commit
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    units = group_into_family_units(selection_result.accepted)
+    skeletons = build_family_skeletons(units, seed=seed)
+
+    # Fail loudly: no skeleton may persist if it violates the schema
+    for skeleton in skeletons:
+        errors = validate_family_skeleton(skeleton.to_dict())
+        if errors:
+            raise SchemaValidationError(
+                [f"{skeleton.family_id}: {e}" for e in errors]
+            )
+
+    write_jsonl(output_dir / FAMILY_SKELETONS_FILE,
+                [s.to_dict() for s in skeletons])
+
+    n_atoms = sum(len(s.semantic_atoms) for s in skeletons)
+    n_causal = sum(
+        1 for s in skeletons for a in s.semantic_atoms
+        if a.divergence == "causal"
+    )
+    report = {
+        "iteration": 4,
+        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "git_commit": get_git_commit(),
+        "seed": seed,
+        "extraction_backend": "rule",
+        "n_families": len(skeletons),
+        "n_atoms": n_atoms,
+        "n_causal_atoms": n_causal,
+        "family_ids": [s.family_id for s in skeletons],
+    }
+    with (output_dir / ATOMS_REPORT_FILE).open("w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2, ensure_ascii=False)
+
+    log.info("Built %d family skeletons (%d atoms, %d causal) -> %s",
+             len(skeletons), n_atoms, n_causal, output_dir)
+    return skeletons

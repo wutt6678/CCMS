@@ -219,7 +219,7 @@ python -m causal_mllm.cli.evaluate \
 - [x] **Iteration 1** — Source dataset inspection, schema reports, adapter `normalize()`, 18 integration tests
 - [x] **Iteration 2** — Full canonical adapters with golden fixture tests
 - [x] **Iteration 3** — Candidate selection with rejection reasons
-- [ ] **Iteration 4** — Semantic atom extraction
+- [x] **Iteration 4** — Family-level comparative semantic atom extraction
 - [ ] **Iteration 5** — Six independent variant generators
 - [ ] **Iteration 6** — Automatic validation layer
 - [ ] **Iteration 7** — 20-family research smoke dataset

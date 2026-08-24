@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from causal_mllm.data.schemas import (
     ALL_VARIANTS,
     CanonicalSourceExample,
     CausalFamily,
-    VariantName,
 )
 
 
@@ -120,6 +117,96 @@ def validate_causal_family(record: dict) -> list[str]:
         missing = required_names - present_names
         if missing:
             errors.append(f"Missing required variants: {sorted(missing)}")
+
+    return errors
+
+
+def validate_family_skeleton(record: dict) -> list[str]:
+    """Validate a family skeleton (Iteration 4 output).
+
+    Unlike validate_causal_family(), variants may still be empty — they
+    are generated in Iteration 5. Enforced here:
+      * identity, source provenance, and terminal query hash integrity
+      * non-empty atoms with unique IDs, valid types and divergence states
+      * MTMCS families must contain at least one CAUSAL atom (the
+        comparative H_safe-vs-H_unsafe decomposition is the point)
+    """
+    from causal_mllm.data.schemas import AtomType
+    from causal_mllm.seeds import sha256_text
+
+    errors: list[str] = []
+
+    fid = record.get("family_id")
+    if not isinstance(fid, str) or not fid.strip():
+        errors.append("Missing or invalid 'family_id'")
+
+    source = record.get("source")
+    if not isinstance(source, dict):
+        errors.append("Missing or invalid 'source'")
+    else:
+        if not source.get("dataset"):
+            errors.append("source missing 'dataset'")
+        if not source.get("source_id"):
+            errors.append("source missing 'source_id'")
+
+    tq = record.get("terminal_query")
+    if not isinstance(tq, dict):
+        errors.append("Missing or invalid 'terminal_query'")
+    else:
+        text = tq.get("text")
+        sha = tq.get("sha256")
+        if not isinstance(text, str) or not text.strip():
+            errors.append("terminal_query missing 'text'")
+        elif not isinstance(sha, str) or sha != sha256_text(text):
+            errors.append("terminal_query sha256 does not match its text")
+
+    valid_types = {v.value for v in AtomType}
+    valid_divergences = {"shared", "causal", "not_applicable"}
+    atoms = record.get("semantic_atoms")
+    if not isinstance(atoms, list) or not atoms:
+        errors.append("'semantic_atoms' must be a non-empty list")
+    else:
+        atom_ids = set()
+        n_causal = 0
+        for i, atom in enumerate(atoms):
+            if not isinstance(atom, dict):
+                errors.append(f"semantic_atoms[{i}] is not a dict")
+                continue
+            aid = atom.get("atom_id")
+            if not aid:
+                errors.append(f"semantic_atoms[{i}] missing 'atom_id'")
+            elif aid in atom_ids:
+                errors.append(f"Duplicate atom_id: '{aid}'")
+            else:
+                atom_ids.add(aid)
+            if not atom.get("source_turns"):
+                errors.append(f"semantic_atoms[{i}] missing 'source_turns'")
+            if atom.get("type") not in valid_types:
+                errors.append(f"semantic_atoms[{i}] invalid type '{atom.get('type')}'")
+            divergence = atom.get("divergence", "shared")
+            if divergence not in valid_divergences:
+                errors.append(
+                    f"semantic_atoms[{i}] invalid divergence '{divergence}'"
+                )
+            if divergence == "causal":
+                n_causal += 1
+                if not atom.get("safe_text") or not atom.get("unsafe_text"):
+                    errors.append(
+                        f"semantic_atoms[{i}] causal atom missing "
+                        f"safe_text/unsafe_text"
+                    )
+        if isinstance(source, dict) and source.get("dataset") == "mtmcs":
+            if n_causal == 0:
+                errors.append(
+                    "MTMCS family has no causal atom: comparative "
+                    "H_safe-vs-H_unsafe decomposition found nothing "
+                    "that differs"
+                )
+
+    if not isinstance(record.get("ground_truth"), dict):
+        errors.append("'ground_truth' must be a dict")
+    if not isinstance(record.get("variants"), dict):
+        errors.append("'variants' must be a dict (may be empty pre-Iteration 5)")
 
     return errors
 

@@ -214,6 +214,18 @@ def _build_units(examples: Sequence[CanonicalSourceExample]) -> list[_FamilyUnit
     return units
 
 
+def group_into_family_units(
+    examples: Sequence[CanonicalSourceExample],
+) -> list[tuple[str, list[CanonicalSourceExample]]]:
+    """Public grouping helper: (family_key, records) per family unit.
+
+    MTMCS records are grouped by ``metadata['pair_id']``; every other
+    record forms its own singleton unit. Used by downstream construction
+    stages (atom extraction, family skeletons).
+    """
+    return [(unit.key, list(unit.records)) for unit in _build_units(examples)]
+
+
 # ---------------------------------------------------------------------------
 # Per-record filters
 # ---------------------------------------------------------------------------

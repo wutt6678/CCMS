@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.4.0] — 2026-08-23
+
+### Added — Iteration 4: Family-Level Comparative Atom Extraction
+
+- Core architectural decision: atoms are extracted at the FAMILY level,
+  not per record. A Type-B family is decomposed comparatively —
+  H_safe vs H_unsafe with shared q* — so extraction identifies which
+  semantic content differs CAUSALLY between the histories
+- `construction/atoms.py`: deterministic rule-based extractor producing
+  `shared` atoms (identical across conditions), `causal` atoms (differing
+  turns, carrying both `safe_text`/`unsafe_text` surface forms), and
+  `not_applicable` atoms for singletons without a safe/unsafe pair
+- Integrity enforced loudly: divergent-turn sets must agree between the
+  multimodal and text-only pairs, image paths must match across
+  conditions, and turns must align 1:1 (`AtomExtractionError`)
+- `construction/families.py`: family skeletons binding deterministic
+  family_id + atoms + invariant q* (sha256) + ground-truth provenance
+  (divergent turns, condition labels, causal atom IDs); variants remain
+  empty until Iteration 5; standalone-risk placeholders carried forward
+- `SemanticAtom` gains `divergence`, `safe_text`, `unsafe_text` fields
+- `validate_family_skeleton()`: hash integrity, unique atom IDs, valid
+  types/divergences, and MTMCS families MUST contain >= 1 causal atom
+- `run_atoms_stage()` + `build_families --stage atoms`; persists
+  `family_skeletons.jsonl` and `atoms_report.json`
+- 36 new tests (32 unit + 4 integration), incl. real-data checks that
+  each type_b family has exactly one causal divergence at turn 0
+
 ## [0.3.1] — 2026-08-23
 
 ### Fixed — Selection report granularity
