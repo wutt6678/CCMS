@@ -72,3 +72,6 @@ htmlcov/
 
 # Conda
 .conda/
+
+# Local CI-reproduction venv
+.ci-venv/

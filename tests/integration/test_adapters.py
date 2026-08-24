@@ -81,6 +81,14 @@ class TestMTMCSAdapter:
 class TestCoSafeAdapter:
     """Integration tests for CoSafe adapter."""
 
+    @pytest.fixture(autouse=True)
+    def _require_cosafe_data(self):
+        """CoSafe comes from a git-ignored local clone; skip when absent."""
+        from pathlib import Path
+        data_dir = Path("data/raw/cosafe/CoSafe-Dataset/CoSafe datasets")
+        if not data_dir.exists():
+            pytest.skip("CoSafe data not available (clone required)")
+
     def test_load_and_normalize_5_examples(self):
         from causal_mllm.adapters.cosafe import CoSafeAdapter
         adapter = CoSafeAdapter()
