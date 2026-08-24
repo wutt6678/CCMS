@@ -86,8 +86,8 @@ def main(argv: list[str] | None = None) -> None:
             report["n_families_accepted"], report["n_rejected"],
             report["rejected_families_by_reason"],
         )
-        log.info("Accepted families by category: %s | by safety: %s",
-                 report["families_by_category"], report["families_by_safety"])
+        log.info("Accepted families by source intent: %s | by safety: %s",
+                 report["families_by_source_intent"], report["families_by_safety"])
         for warning in report["balance_warnings"]:
             log.warning("Balance check: %s", warning)
 

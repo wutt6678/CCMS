@@ -154,6 +154,7 @@ class TestSelectionOnRealMTMCS:
         candidates = read_jsonl(tmp_path / "candidates.jsonl")
         sel_rejections = read_jsonl(tmp_path / "selection_rejections.jsonl")
         norm_rejections = read_jsonl(tmp_path / "normalization_rejections.jsonl")
+        flags = read_jsonl(tmp_path / "family_review_flags.jsonl")
         report = json.loads((tmp_path / "selection_report.json").read_text())
 
         # 3 rows x 4 = 12 input records; 2 families kept, 1 not sampled
@@ -161,8 +162,14 @@ class TestSelectionOnRealMTMCS:
         assert len(sel_rejections) == 4
         assert all(r["reason"] == "not_sampled" for r in sel_rejections)
         assert norm_rejections == []
+        # One flag record per accepted family, all pending risk validation
+        assert len(flags) == 2
+        assert all(f["requires_standalone_risk_validation"] for f in flags)
+        assert all(f["standalone_terminal_risk"] is None for f in flags)
+        assert all(f["strict_causal_candidate"] is None for f in flags)
         assert report["n_input"] == 12
         assert report["n_families_accepted"] == 2
+        assert report["n_families_pending_risk_validation"] == 2
         assert len(result.accepted) == 8
 
         # Candidates roundtrip through the canonical schema
@@ -204,6 +211,7 @@ class TestBuildFamiliesSelectCli:
         assert (output_dir / "selection_rejections.jsonl").exists()
         assert (output_dir / "normalization_rejections.jsonl").exists()
         assert (output_dir / "selection_report.json").exists()
+        assert (output_dir / "family_review_flags.jsonl").exists()
 
         candidates = read_jsonl(output_dir / "candidates.jsonl")
         assert len(candidates) == 8  # 2 rows x 4, all eligible

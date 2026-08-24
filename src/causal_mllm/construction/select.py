@@ -285,16 +285,47 @@ _GROUP_CONDITIONS = frozenset({
 
 
 def _group_invariant_reasons(records: list[CanonicalSourceExample]) -> list[str]:
-    """Verify MTMCS group-level causal invariants.
+    """Verify MTMCS group-level invariants.
 
+    Homogeneity guards (defensive — the adapter constructs groups this way,
+    but selection must not trust it silently). All members must share:
+    pair_id, source_dataset, source_split, source_setting; source IDs must
+    be unique. Only after these hold does the first record's setting safely
+    represent the whole group.
+
+    Causal invariants:
     - Group must contain all four conditions exactly once.
     - type_b: safe/unsafe terminal queries must be IDENTICAL per modality
       (shared terminal query = the causal experiment gold standard).
     - type_a: safe/unsafe terminal queries must DIFFER (divergence at the
       terminal turn is what defines type_a).
+
+    NOTE: a shared type_b terminal query is NOT assumed to be
+    history-dependent. Standalone terminal-risk validation happens later
+    (see build_family_review_flags / Iteration 6).
     """
     reasons: list[str] = []
 
+    # ---- Homogeneity guards ----
+    datasets = {r.source_dataset for r in records}
+    if len(datasets) > 1:
+        reasons.append(f"group_inconsistent:dataset:{sorted(datasets)}")
+    splits = {r.source_split for r in records}
+    if len(splits) > 1:
+        reasons.append(f"group_inconsistent:split:{sorted(map(str, splits))}")
+    settings = {r.source_setting for r in records}
+    if len(settings) > 1:
+        reasons.append(f"group_inconsistent:setting:{sorted(settings)}")
+    pair_ids = {str(r.metadata.get("pair_id")) for r in records}
+    if len(pair_ids) > 1:
+        reasons.append(f"group_inconsistent:pair_id:{sorted(pair_ids)}")
+    source_ids = [r.source_id for r in records]
+    if len(source_ids) != len(set(source_ids)):
+        reasons.append("duplicate_source_ids")
+    if reasons:
+        return reasons  # heterogeneous group: causal invariants undefined
+
+    # ---- Completeness ----
     conditions = {}
     for r in records:
         cond = f"{r.metadata.get('modality')}:{r.metadata.get('safety')}"
@@ -303,7 +334,8 @@ def _group_invariant_reasons(records: list[CanonicalSourceExample]) -> list[str]
         reasons.append(f"group_incomplete:{sorted(conditions)}")
         return reasons  # cannot evaluate invariants on a partial group
 
-    setting = records[0].source_setting
+    # ---- Terminal-query causal invariants ----
+    setting = records[0].source_setting  # safe: homogeneity verified above
     for modality, field_name in (("multimodal", "mm"), ("unimodal", "text")):
         safe_q = conditions[f"{modality}:safe"].terminal_query
         unsafe_q = conditions[f"{modality}:unsafe"].terminal_query
@@ -514,24 +546,29 @@ def build_selection_report(
 
     dataset_counts: dict[str, int] = {}
     setting_counts: dict[str, int] = {}
-    category_counts: dict[str, int] = {}
+    intent_counts: dict[str, int] = {}
     label_counts: dict[str, int] = {}
-    family_categories: dict[str, str] = {}
+    family_intents: dict[str, str] = {}
     family_labels: dict[str, set] = {}
     for ex in result.accepted:
         dataset_counts[ex.source_dataset] = dataset_counts.get(ex.source_dataset, 0) + 1
         setting_counts[ex.source_setting] = setting_counts.get(ex.source_setting, 0) + 1
-        category = ex.source_category or "(none)"
-        category_counts[category] = category_counts.get(category, 0) + 1
+        # NOTE: source_category currently derives from MTMCS unsafe_intent,
+        # i.e. it is a scenario/intent description, NOT a stable safety
+        # taxonomy. Reported as *_by_source_intent to avoid overstating
+        # category diversity. A normalized taxonomy (cyber, privacy,
+        # physical_harm, fraud, ...) arrives with the annotation work.
+        intent = ex.source_category or "(none)"
+        intent_counts[intent] = intent_counts.get(intent, 0) + 1
         label_counts[ex.label] = label_counts.get(ex.label, 0) + 1
         # Family-level distributions (for the 20-family balance check)
         fkey = _family_key_of(ex)
-        family_categories[fkey] = category
+        family_intents[fkey] = intent
         family_labels.setdefault(fkey, set()).add(ex.label)
 
-    family_category_counts: dict[str, int] = {}
-    for category in family_categories.values():
-        family_category_counts[category] = family_category_counts.get(category, 0) + 1
+    family_intent_counts: dict[str, int] = {}
+    for intent in family_intents.values():
+        family_intent_counts[intent] = family_intent_counts.get(intent, 0) + 1
     # A family's safety mix: balanced (has both labels), or its single label
     family_safety_counts: dict[str, int] = {}
     for labels in family_labels.values():
@@ -541,7 +578,7 @@ def build_selection_report(
     n_families = len({_family_key_of(ex) for ex in result.accepted})
 
     balance_warnings = (
-        _concentration_warnings(family_category_counts, "source_category")
+        _concentration_warnings(family_intent_counts, "source_intent")
         # 'mixed' families contain both safe and unsafe records and are
         # balanced by construction — only single-label families can
         # concentrate a safety category.
@@ -562,17 +599,58 @@ def build_selection_report(
         "n_rejected": len(result.rejections),
         "n_families_accepted": n_families,
         "n_families_rejected": len(family_reasons),
+        # Every accepted family still needs standalone terminal-risk
+        # validation before it may be called a strict causal candidate.
+        "n_families_pending_risk_validation": n_families,
         "accounting_ok": True,
         "rejected_records_by_reason": dict(sorted(record_counts.items())),
         "rejected_families_by_reason": dict(sorted(family_counts.items())),
         "accepted_by_dataset": dict(sorted(dataset_counts.items())),
         "accepted_by_setting": dict(sorted(setting_counts.items())),
-        "accepted_by_category": dict(sorted(category_counts.items())),
+        "accepted_by_source_intent": dict(sorted(intent_counts.items())),
         "accepted_by_label": dict(sorted(label_counts.items())),
-        "families_by_category": dict(sorted(family_category_counts.items())),
+        "families_by_source_intent": dict(sorted(family_intent_counts.items())),
         "families_by_safety": dict(sorted(family_safety_counts.items())),
         "balance_warnings": balance_warnings,
     }
+
+
+def build_family_review_flags(result: SelectionResult) -> list[dict]:
+    """Per-family review flags for standalone terminal-risk validation.
+
+    A terminal query that is identical across a type_b pair is NOT
+    automatically history-dependent: Risk(q*) alone may already be high
+    (an obviously unsafe query needs no history). Until a judge estimates
+    P(Y_unsafe | q*) — Iteration 6 — every family carries:
+
+        standalone_terminal_risk: null
+        strict_causal_candidate: null
+        requires_standalone_risk_validation: true
+
+    The strict causal subset later requires Risk(q*) low/ambiguous while
+    P(Y_unsafe | H_unsafe, q*) changes materially.
+    """
+    flags: list[dict] = []
+    for unit in _build_units(result.accepted):
+        ref = unit.records[0]
+        # Prefer the multimodal safe record's terminal when available
+        terminal = next(
+            (r.terminal_query for r in unit.records
+             if r.metadata.get("modality") == "multimodal"
+             and r.metadata.get("safety") == "safe"),
+            ref.terminal_query,
+        )
+        flags.append({
+            "family_key": unit.key,
+            "source_dataset": ref.source_dataset,
+            "source_setting": ref.source_setting,
+            "n_records": len(unit.records),
+            "terminal_query_sha256": sha256_text(terminal),
+            "standalone_terminal_risk": None,
+            "strict_causal_candidate": None,
+            "requires_standalone_risk_validation": True,
+        })
+    return flags
 
 
 def run_selection(

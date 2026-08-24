@@ -17,10 +17,12 @@ from causal_mllm.construction.select import (
     SelectionConfig,
     SelectionRejection,
     assert_canonical,
+    build_family_review_flags,
     run_selection,
     select_candidates,
 )
 from causal_mllm.data.schemas import CanonicalSourceExample, Message
+from causal_mllm.seeds import sha256_text
 
 # ---------------------------------------------------------------------------
 # Synthetic builders
@@ -340,12 +342,14 @@ class TestBalanceReporting:
         report = run_selection(group).report
         assert report["accepted_by_label"] == {"safe": 2, "unsafe": 2}
         assert report["families_by_safety"] == {"mixed": 1}
-        assert report["families_by_category"] == {"(none)": 1}
-        assert report["accepted_by_category"] == {"(none)": 4}
+        assert report["families_by_source_intent"] == {"(none)": 1}
+        assert report["accepted_by_source_intent"] == {"(none)": 4}
+        # Every accepted family is pending standalone-risk validation
+        assert report["n_families_pending_risk_validation"] == 1
         # Below BALANCE_MIN_FAMILIES -> never warn
         assert report["balance_warnings"] == []
 
-    def test_concentrated_categories_and_safety_warned(self):
+    def test_concentrated_intents_and_safety_warned(self):
         singletons = [
             make_text_only_singleton(source_id=f"cosafe:test:{i:06d}")
             for i in range(6)
@@ -353,9 +357,9 @@ class TestBalanceReporting:
         report = run_selection(
             singletons, SelectionConfig(require_images=False)
         ).report
-        assert report["families_by_category"] == {"(none)": 6}
+        assert report["families_by_source_intent"] == {"(none)": 6}
         assert report["families_by_safety"] == {"unsafe": 6}
-        assert any("source_category" in w for w in report["balance_warnings"])
+        assert any("source_intent" in w for w in report["balance_warnings"])
         assert any("safety" in w for w in report["balance_warnings"])
 
     def test_mixed_families_do_not_trigger_safety_warning(self):
@@ -365,7 +369,7 @@ class TestBalanceReporting:
         assert report["families_by_safety"] == {"mixed": 6}
         assert all("safety" not in w for w in report["balance_warnings"])
 
-    def test_balanced_categories_no_warning(self):
+    def test_balanced_intents_no_warning(self):
         inputs = []
         for i in range(1, 7):
             group = make_mtmcs_group("type_b", i)
@@ -373,8 +377,102 @@ class TestBalanceReporting:
                 ex.source_category = f"intent_{i % 2}"
             inputs.extend(group)
         report = run_selection(inputs).report
-        assert report["families_by_category"] == {"intent_0": 3, "intent_1": 3}
+        assert report["families_by_source_intent"] == {"intent_0": 3, "intent_1": 3}
         assert report["balance_warnings"] == []
+
+
+# ---------------------------------------------------------------------------
+# Group-homogeneity guards (defensive validation)
+# ---------------------------------------------------------------------------
+
+class TestGroupHomogeneityGuards:
+    def test_mixed_settings_rejected(self):
+        group = make_mtmcs_group("type_b", 1)
+        group[1].source_setting = "type_a"
+        accepted, rejections = select_candidates(group)
+        assert accepted == []
+        assert len(rejections) == 4
+        assert all("group_inconsistent" in r.reason for r in rejections)
+        assert all("setting" in r.detail for r in rejections)
+
+    def test_mixed_datasets_rejected(self):
+        """Direct guard check: grouping itself is keyed on mtmcs, so the
+        dataset guard is verified at the invariant-function level."""
+        from causal_mllm.construction.select import _group_invariant_reasons
+        group = make_mtmcs_group("type_b", 1)
+        group[2].source_dataset = "cosafe"
+        reasons = _group_invariant_reasons(group)
+        assert any(r.startswith("group_inconsistent:dataset") for r in reasons)
+
+    def test_mixed_splits_rejected(self):
+        group = make_mtmcs_group("type_b", 1)
+        group[3].source_split = "type_a"
+        accepted, rejections = select_candidates(group)
+        assert accepted == []
+        assert all("group_inconsistent" in r.reason for r in rejections)
+        assert all("split" in r.detail for r in rejections)
+
+    def test_mixed_pair_ids_rejected(self):
+        """Direct guard check for pair_id homogeneity."""
+        from causal_mllm.construction.select import _group_invariant_reasons
+        group = make_mtmcs_group("type_b", 1)
+        group[0].metadata["pair_id"] = "mtmcs:type_b:999999"
+        # select_candidates re-groups by pair_id, so test the guard directly
+        reasons = _group_invariant_reasons(group)
+        assert any(r.startswith("group_inconsistent:pair_id") for r in reasons)
+
+    def test_duplicate_source_ids_rejected(self):
+        group = make_mtmcs_group("type_b", 1)
+        group[1].source_id = group[0].source_id
+        accepted, rejections = select_candidates(group)
+        assert accepted == []
+        assert all("duplicate_source_ids" in r.reason for r in rejections)
+
+    def test_homogeneous_group_still_passes(self):
+        group = make_mtmcs_group("type_b", 1)
+        accepted, rejections = select_candidates(group)
+        assert len(accepted) == 4
+        assert rejections == []
+
+
+# ---------------------------------------------------------------------------
+# Standalone terminal-risk review flags (placeholders for Iteration 6)
+# ---------------------------------------------------------------------------
+
+class TestFamilyReviewFlags:
+    def test_flags_are_placeholders(self):
+        group = make_mtmcs_group("type_b", 1)
+        result = run_selection(group)
+        flags = build_family_review_flags(result)
+        assert len(flags) == 1
+        flag = flags[0]
+        assert flag["family_key"] == "mtmcs:type_b:000001"
+        assert flag["standalone_terminal_risk"] is None
+        assert flag["strict_causal_candidate"] is None
+        assert flag["requires_standalone_risk_validation"] is True
+        assert flag["n_records"] == 4
+
+    def test_type_b_flag_uses_shared_terminal(self):
+        """Flag hash must equal the shared type_b terminal query hash."""
+        group = make_mtmcs_group("type_b", 1)
+        result = run_selection(group)
+        flags = build_family_review_flags(result)
+        mm_safe = next(ex for ex in group
+                       if ex.metadata["modality"] == "multimodal"
+                       and ex.metadata["safety"] == "safe")
+        mm_unsafe = next(ex for ex in group
+                         if ex.metadata["modality"] == "multimodal"
+                         and ex.metadata["safety"] == "unsafe")
+        assert flags[0]["terminal_query_sha256"] == sha256_text(mm_safe.terminal_query)
+        assert sha256_text(mm_safe.terminal_query) == sha256_text(mm_unsafe.terminal_query)
+
+    def test_singleton_flags(self):
+        singleton = make_text_only_singleton()
+        result = run_selection([singleton], SelectionConfig(require_images=False))
+        flags = build_family_review_flags(result)
+        assert len(flags) == 1
+        assert flags[0]["family_key"] == singleton.source_id
+        assert flags[0]["requires_standalone_risk_validation"] is True
 
 
 # ---------------------------------------------------------------------------

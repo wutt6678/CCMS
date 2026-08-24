@@ -27,6 +27,7 @@ from causal_mllm.adapters import get_adapter
 from causal_mllm.construction.select import (
     SelectionConfig,
     SelectionResult,
+    build_family_review_flags,
     run_selection,
 )
 from causal_mllm.data.io import write_jsonl
@@ -40,6 +41,7 @@ CANDIDATES_FILE = "candidates.jsonl"
 NORMALIZATION_REJECTIONS_FILE = "normalization_rejections.jsonl"
 SELECTION_REJECTIONS_FILE = "selection_rejections.jsonl"
 SELECTION_REPORT_FILE = "selection_report.json"
+FAMILY_REVIEW_FLAGS_FILE = "family_review_flags.jsonl"
 
 
 def _load_normalized(config: dict, *, max_rows: int | None,
@@ -123,6 +125,11 @@ def run_selection_stage(
                 [r.to_dict() for r in norm_rejections])
     write_jsonl(output_dir / SELECTION_REJECTIONS_FILE,
                 [r.to_dict() for r in result.rejections])
+    # Standalone terminal-risk review flags: placeholders until a judge
+    # estimates Risk(q*) in Iteration 6. No family is treated as a strict
+    # causal candidate before that validation.
+    write_jsonl(output_dir / FAMILY_REVIEW_FLAGS_FILE,
+                build_family_review_flags(result))
     with (output_dir / SELECTION_REPORT_FILE).open("w", encoding="utf-8") as f:
         json.dump(result.report, f, indent=2, ensure_ascii=False)
 
