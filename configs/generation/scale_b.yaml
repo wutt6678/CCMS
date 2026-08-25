@@ -1,0 +1,12 @@
+# Scale-B research smoke configuration (Iteration 7).
+# 61 Type-B rows = exactly the 20 human-reviewed eligible families
+# (rows 0-60) plus 41 decided-but-ineligible negative controls.
+experiment_name: scale_b_human_review
+seed: 42
+source:
+  dataset: mtmcs
+  split: type_b
+  max_rows: 61
+selection:
+  settings: [type_b]
+  max_text_length: 100000

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "causal-mllm"
-version = "0.6.0"
+version = "0.7.0"
 description = "Causal Cross-Modal Safety-State Dataset and Evaluation Pipeline"
 readme = "README.md"
 license = { text = "MIT" }

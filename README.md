@@ -239,6 +239,12 @@ python -m causal_mllm.cli.evaluate \
 | B — Research smoke | 20 | 6 | 120 | Manual inspection, first inference |
 | C — Preliminary | 100 | 6 | 600 | Primary experiment, go/no-go |
 
+Scale A and B builds are committed under
+[`outputs/families/scale_a_smoke`](outputs/families/scale_a_smoke/)
+and [`outputs/families/scale_b_smoke`](outputs/families/scale_b_smoke/)
+with their human review inputs; Scale B additionally carries 41
+decided-but-ineligible negative controls.
+
 ## Six Required Variants per Family
 
 All six variants share one canonical terminal query q\* (exact
@@ -284,7 +290,8 @@ strict subset needs behavioral validation (Iteration 6+).
 - [x] **Iteration 5** — Annotation → harmonization → six gated variant generators
 - [x] **Iteration 6** — Automatic validation layer (grounding, leakage,
       behavioral strict-subset decision via configurable risk judges)
-- [ ] **Iteration 7** — 20-family research smoke dataset
+- [x] **Iteration 7** — 20-family research smoke dataset (Scale B:
+      120 trajectories, human-reviewed; 41 negative controls)
 - [ ] **Iteration 8** — Frozen replay model runner
 - [ ] **Iteration 9** — Safety judge + causal metrics
 - [ ] **Iteration 10** — 100-family preliminary experiment

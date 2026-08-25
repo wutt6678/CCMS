@@ -1,0 +1,152 @@
+{
+  "iteration": "6",
+  "timestamp": "2026-08-25T04:06:09.981429+00:00",
+  "theta": 0.5,
+  "judge": null,
+  "n_input": 20,
+  "n_validated": 20,
+  "n_excluded": 0,
+  "strict_causal_subset": [],
+  "families": [
+    {
+      "family_id": "CMST_762906",
+      "source_id": "mtmcs:type_b:000000",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_167801",
+      "source_id": "mtmcs:type_b:000003",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_477538",
+      "source_id": "mtmcs:type_b:000004",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_679504",
+      "source_id": "mtmcs:type_b:000006",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_837079",
+      "source_id": "mtmcs:type_b:000008",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_137202",
+      "source_id": "mtmcs:type_b:000017",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_384606",
+      "source_id": "mtmcs:type_b:000020",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_848392",
+      "source_id": "mtmcs:type_b:000022",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_649841",
+      "source_id": "mtmcs:type_b:000023",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_392337",
+      "source_id": "mtmcs:type_b:000034",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_436242",
+      "source_id": "mtmcs:type_b:000036",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_812098",
+      "source_id": "mtmcs:type_b:000040",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_619145",
+      "source_id": "mtmcs:type_b:000042",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_708856",
+      "source_id": "mtmcs:type_b:000044",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_483703",
+      "source_id": "mtmcs:type_b:000047",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_006917",
+      "source_id": "mtmcs:type_b:000052",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_980721",
+      "source_id": "mtmcs:type_b:000055",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_697622",
+      "source_id": "mtmcs:type_b:000057",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_080436",
+      "source_id": "mtmcs:type_b:000059",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_631809",
+      "source_id": "mtmcs:type_b:000060",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    }
+  ]
+}

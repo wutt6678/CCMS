@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.0] — 2026-08-25
+
+### Added — Iteration 7: 20-family research smoke dataset (Scale B)
+
+- Human review extended to rows 0-60 of MTMCS Type-B: all four
+  condition dialogues read per row, images inspected, cross-modality
+  equivalence judged per atom, one deictic-free canonical q* per
+  eligible family. Review inputs committed under
+  `outputs/families/scale_b_smoke/review/` with the generator
+  (`scripts/gen_scale_b_review.py`) as provenance.
+- 20 factorially eligible families (rows 0,3,4,6,8,17,20,22,23,34,36,
+  40,42,44,47,52,55,57,59,60) x 6 variants = 120 trajectories; all
+  pass the Iteration-6 automatic validation with zero exclusions.
+- 41 reviewed rows stored as DECIDED negative controls
+  (`not_equivalent` terminals or shared turns), keeping the causal
+  subset clean while documenting why most of MTMCS Type-B cannot
+  serve as modality counterfactuals.
+- `configs/generation/scale_b.yaml` (max_rows=61 cuts exactly at the
+  20th eligible family); pinned evidence tests for the committed
+  Scale-B build (20 families, 120 trajectories flag-free, 41 decided
+  controls disjoint from the research set).
+- Strict causal subset remains empty until the frozen-replay model
+  judge (Iteration 8+).
+
 ## [0.6.0] — 2026-08-25
 
 ### Added — Iteration 6: automatic validation layer

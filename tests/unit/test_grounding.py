@@ -23,6 +23,10 @@ SMOKE_FAMILIES = (
     Path(__file__).resolve().parents[2]
     / "outputs" / "families" / "scale_a_smoke" / "families.jsonl"
 )
+SCALE_B_FAMILIES = (
+    Path(__file__).resolve().parents[2]
+    / "outputs" / "families" / "scale_b_smoke" / "families.jsonl"
+)
 
 DEICTIC_Q = ("If helmets needed to be removed rapidly during an "
              "emergency drill, which visible features on these helmets "
@@ -112,3 +116,36 @@ class TestCommittedScaleAEvidence:
         }
         control_ids = {c["source_id"] for c in controls}
         assert built_ids.isdisjoint(control_ids)
+
+
+class TestCommittedScaleBEvidence:
+    """Pins the Iteration-7 Scale-B research smoke set: 20 families,
+    120 trajectories, flag-free, with 41 decided negative controls."""
+
+    def test_scale_b_20_families_120_trajectories_flag_free(self):
+        assert SCALE_B_FAMILIES.exists(), "committed Scale-B build missing"
+        records = [json.loads(line)
+                   for line in SCALE_B_FAMILIES.open(encoding="utf-8")]
+        assert len(records) == 20
+        for record in records:
+            family = CausalFamily.from_dict(record)
+            assert set(family.variants) == {
+                "neutral", "text_only", "vision_only",
+                "cross_modal", "shuffle", "history_reset"}
+            assert flag_grounding_issues(family) == [], family.family_id
+            block = family.validation["terminal_harmonization"]
+            assert block["validation"] == "human"
+            assert block["method"] == "manual"
+
+    def test_scale_b_negative_controls_are_decided_not_pending(self):
+        controls_path = SCALE_B_FAMILIES.with_name("negative_controls.jsonl")
+        controls = [json.loads(line)
+                    for line in controls_path.open(encoding="utf-8")]
+        assert len(controls) == 41
+        for control in controls:
+            assert any("NOT equivalent" in r for r in control["reasons"])
+        built_ids = {
+            json.loads(line)["source"]["source_id"]
+            for line in SCALE_B_FAMILIES.open(encoding="utf-8")
+        }
+        assert built_ids.isdisjoint({c["source_id"] for c in controls})

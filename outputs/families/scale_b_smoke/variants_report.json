@@ -1,0 +1,298 @@
+{
+  "iteration": "5C",
+  "timestamp": "2026-08-25T04:06:09.961012+00:00",
+  "seed": 42,
+  "n_families": 20,
+  "n_trajectories": 120,
+  "n_negative_controls": 41,
+  "negative_controls": [
+    {
+      "family_id": "CMST_266940",
+      "reasons": [
+        "CMST_266940:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_266940:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_187874",
+      "reasons": [
+        "CMST_187874:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_187874:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_671059",
+      "reasons": [
+        "CMST_671059:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_448420",
+      "reasons": [
+        "CMST_448420:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_669237",
+      "reasons": [
+        "CMST_669237:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_451314",
+      "reasons": [
+        "CMST_451314:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_259262",
+      "reasons": [
+        "CMST_259262:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_252688",
+      "reasons": [
+        "CMST_252688:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_252688:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_274229",
+      "reasons": [
+        "CMST_274229:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_061866",
+      "reasons": [
+        "CMST_061866:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_387898",
+      "reasons": [
+        "CMST_387898:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_434371",
+      "reasons": [
+        "CMST_434371:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_029807",
+      "reasons": [
+        "CMST_029807:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_528306",
+      "reasons": [
+        "CMST_528306:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_115648",
+      "reasons": [
+        "CMST_115648:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_579891",
+      "reasons": [
+        "CMST_579891:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_579891:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_350051",
+      "reasons": [
+        "CMST_350051:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_350051:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_610146",
+      "reasons": [
+        "CMST_610146:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_673484",
+      "reasons": [
+        "CMST_673484:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_673484:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_476906",
+      "reasons": [
+        "CMST_476906:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_736698",
+      "reasons": [
+        "CMST_736698:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_110403",
+      "reasons": [
+        "CMST_110403:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_780691",
+      "reasons": [
+        "CMST_780691:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_853648",
+      "reasons": [
+        "CMST_853648:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_574139",
+      "reasons": [
+        "CMST_574139:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_164285",
+      "reasons": [
+        "CMST_164285:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_164285:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_085280",
+      "reasons": [
+        "CMST_085280:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_456850",
+      "reasons": [
+        "CMST_456850:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_456850:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_088059",
+      "reasons": [
+        "CMST_088059:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_233784",
+      "reasons": [
+        "CMST_233784:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_776254",
+      "reasons": [
+        "CMST_776254:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_766591",
+      "reasons": [
+        "CMST_766591:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_766591:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_038904",
+      "reasons": [
+        "CMST_038904:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_038904:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_598393",
+      "reasons": [
+        "CMST_598393:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_908336",
+      "reasons": [
+        "CMST_908336:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_193448",
+      "reasons": [
+        "CMST_193448:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_171968",
+      "reasons": [
+        "CMST_171968:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_960102",
+      "reasons": [
+        "CMST_960102:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_995170",
+      "reasons": [
+        "CMST_995170:t1:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)",
+        "CMST_995170:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_285886",
+      "reasons": [
+        "CMST_285886:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    },
+    {
+      "family_id": "CMST_893128",
+      "reasons": [
+        "CMST_893128:t2:text: annotated NOT equivalent across modalities — cannot construct a modality counterfactual (family belongs with negative controls)"
+      ]
+    }
+  ],
+  "variant_names": [
+    "cross_modal",
+    "history_reset",
+    "neutral",
+    "shuffle",
+    "text_only",
+    "vision_only"
+  ],
+  "family_ids": [
+    "CMST_762906",
+    "CMST_167801",
+    "CMST_477538",
+    "CMST_679504",
+    "CMST_837079",
+    "CMST_137202",
+    "CMST_384606",
+    "CMST_848392",
+    "CMST_649841",
+    "CMST_392337",
+    "CMST_436242",
+    "CMST_812098",
+    "CMST_619145",
+    "CMST_708856",
+    "CMST_483703",
+    "CMST_006917",
+    "CMST_980721",
+    "CMST_697622",
+    "CMST_080436",
+    "CMST_631809"
+  ],
+  "cross_modal_status": "candidate"
+}

@@ -1,0 +1,253 @@
+{
+  "iteration": "5A",
+  "timestamp": "2026-08-25T04:06:09.610417+00:00",
+  "annotator": "ManualFileAnnotator",
+  "n_families": 61,
+  "n_l1_semantic": 61,
+  "readiness": {
+    "CMST_762906": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_266940": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_187874": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_167801": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_477538": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_671059": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_679504": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_448420": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_837079": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_669237": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_451314": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_259262": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_252688": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_274229": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_061866": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_387898": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_434371": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_137202": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_029807": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_528306": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_384606": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_115648": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_848392": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_649841": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_579891": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_350051": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_610146": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_673484": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_476906": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_736698": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_110403": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_780691": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_853648": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_574139": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_392337": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_164285": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_436242": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_085280": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_456850": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_088059": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_812098": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_233784": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_619145": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_776254": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_708856": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_766591": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_038904": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_483703": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_598393": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_908336": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_193448": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_171968": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_006917": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_960102": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_995170": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_980721": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_285886": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_697622": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_893128": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_080436": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    },
+    "CMST_631809": {
+      "level": "L1_semantic",
+      "L1_semantic_gaps": []
+    }
+  }
+}
