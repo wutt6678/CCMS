@@ -37,6 +37,7 @@ jobs:
         run: |
           ruff check src/causal_mllm/construction/ \
                      src/causal_mllm/validation/ \
+                     src/causal_mllm/replay/ \
                      src/causal_mllm/adapters/__init__.py \
                      src/causal_mllm/cli/build_families.py \
                      tests/unit/test_select.py \

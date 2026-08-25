@@ -52,6 +52,8 @@ outputs/inference/*
 !outputs/inference/.gitkeep
 outputs/evaluation/*
 !outputs/evaluation/.gitkeep
+# Replay runs are tracked evidence; GPU-wait logs are not
+outputs/replay_runs/*.log
 
 # Keep schema reports (small, useful for reference)
 # outputs/schema/ is tracked

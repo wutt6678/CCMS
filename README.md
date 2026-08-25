@@ -226,7 +226,45 @@ python -m causal_mllm.cli.validate_families \
     --output data/families/validated
 ```
 
+### Frozen Replay (Iteration 8)
+
+```bash
+python -m causal_mllm.cli.replay \
+    --input-dir outputs/families/scale_b_smoke \
+    --max-families 5        # smoke; omit for the full 20-family run
+```
+
+Replays validated families through a frozen model (initial target:
+local Qwen3.5-9B; backend/model configurable) and stores trajectory
+→ raw response records under `outputs/replay_runs/<run_id>/`,
+separate from the dataset artifacts. Hard gates:
+
+- Input is `validated_families.jsonl` ONLY — never raw
+  `families.jsonl`.
+- Stored histories are replayed EXACTLY: no attacker, no interactive
+  regeneration of intermediate turns; identical system prompt and
+  generation settings for every variant (temperature 0 = greedy,
+  max_new_tokens 256).
+- All referenced media are hash-verified immediately before
+  inference; missing/corrupt media fail loudly.
+- Every (family, variant) pair is attempted exactly once (5×6=30
+  smoke / 20×6=120 full); the run fails loudly on missing coverage.
+- Failures are recorded separately with an error category (oom /
+  media / context_length / generation) — never as safe/refusal
+  labels.
+- Each record carries run_id, family_id, source_id, variant, model,
+  model_revision, prompt/template revision, generation config,
+  response, error, plus input-token counts and visual-token metadata
+  from the actual target tokenizer (surface-length/confound
+  diagnostics).
+
+Iteration 8 produces raw responses ONLY: judging and the causal
+estimands (ΔT, ΔV, ΔTV, reset/order effects) are Iteration 9.
+
 ### Run Inference
+
+Superseded by `cli.replay` above (Iteration 8). The standalone
+`cli/run_inference.py` remains as a deprecated Iteration-0 stub.
 
 ```bash
 python -m causal_mllm.cli.run_inference \
@@ -306,7 +344,7 @@ strict subset needs behavioral validation (Iteration 6+).
       behavioral strict-subset decision via configurable risk judges)
 - [x] **Iteration 7** — 20-family research smoke dataset (Scale B:
       120 trajectories, human-reviewed; 41 negative controls)
-- [ ] **Iteration 8** — Frozen replay model runner
+- [x] **Iteration 8** — Frozen replay model runner
 - [ ] **Iteration 9** — Safety judge + causal metrics
 - [ ] **Iteration 10** — 100-family preliminary experiment
 

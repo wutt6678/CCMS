@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0] — 2026-08-25
+
+### Added — Iteration 8: frozen replay model runner
+
+Trajectory → raw model response ONLY; judging and the causal
+estimands (ΔT, ΔV, ΔTV, reset/order effects) stay in Iteration 9.
+
+- `causal_mllm.replay` package: `ReplayConfig` (frozen, fingerprinted),
+  swappable backends (`HFLocalBackend` for the local Qwen3.5-9B,
+  `CallableBackend` for tests), and `run_replay_stage`.
+- Hard gates:
+  * Input is `validated_families.jsonl` ONLY — a directory without it
+    is rejected outright (raw `families.jsonl` is never replayed).
+  * Stored histories replayed EXACTLY: no attacker, no interactive
+    regeneration of intermediate turns.
+  * Identical system prompt and generation settings for every variant:
+    temperature 0 (greedy), max_new_tokens 256, thinking suppressed.
+  * All referenced media hash-verified immediately before inference;
+    missing/corrupt media fail loudly per family (every variant of the
+    family is recorded as a media failure — coverage preserved).
+  * Every (family, variant) pair attempted exactly once; the run fails
+    loudly on missing coverage.
+- Failures recorded separately with stable categories (oom / media /
+  context_length / generation) — an OOM/media/context error never
+  becomes a safe/refusal label.
+- Output separation: `outputs/replay_runs/<run_id>/` holds
+  `replay_outputs.jsonl`, `replay_failures.jsonl`,
+  `replay_report.json`; dataset artifacts are untouched.
+- Per-record provenance: run_id, family_id, source_id, variant, model,
+  model_revision (resolved hub commit hash), prompt_template_revision,
+  system_prompt_sha256, generation_config, terminal_sha256, response,
+  error.
+- Token diagnostics from the ACTUAL target tokenizer (surface-length/
+  confound diagnostics for free): input_token_count and
+  image_token_count per record; totals/means in the report.
+- CLI: `python -m causal_mllm.cli.replay --input-dir ... [--max-families
+  N] [--device cuda:k]`.
+
+### Evidence — Scale-B replay (Qwen/Qwen3.5-9B)
+
+- Smoke: 5 families × 6 variants = 30 trajectories, 30/30 succeeded.
+- Full: 20 families × 6 variants = 120 trajectories, 120/120 succeeded.
+- Both runs pinned by `tests/unit/test_replay_evidence.py` (provenance
+  completeness, deterministic settings, coverage, token diagnostics,
+  validated-only inputs).
+
 ## [0.7.2] — 2026-08-25
 
 ### Added — semantic-eligibility re-derivation in the Iteration-6 firewall
