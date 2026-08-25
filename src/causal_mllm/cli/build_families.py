@@ -1,7 +1,7 @@
 """CLI: Build causal families from source datasets.
 
 Stage chain (each stage runs all predecessors):
-    select -> atoms -> annotate -> harmonize -> variants
+    select -> atoms -> annotate -> harmonize -> variants -> validate
 
 Usage:
     python -m causal_mllm.cli.build_families \
@@ -49,7 +49,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=str,
         default=None,
         choices=["select", "atoms", "annotate", "harmonize", "variants",
-                 "all"],
+                 "validate", "all"],
         help="Run the pipeline up to this stage (default: all).",
     )
     parser.add_argument(
@@ -65,6 +65,20 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         default=None,
         help="Manual harmonization JSON ({family_key: canonical_q}) "
              "for the harmonize stage.",
+    )
+    parser.add_argument(
+        "--judge",
+        type=str,
+        default=None,
+        help="Manual risk-judge JSON ({family_key: {variant: score}}) "
+             "for the validate stage; without it behavioral fields "
+             "stay null (candidates only).",
+    )
+    parser.add_argument(
+        "--theta",
+        type=float,
+        default=0.5,
+        help="Strict cross-modal causal-subset threshold.",
     )
     parser.add_argument(
         "--output-dir",
@@ -94,8 +108,9 @@ def main(argv: list[str] | None = None) -> None:
     seed = int(config.get("seed", 42))
 
     # The stage chain: every stage runs all of its predecessors.
-    chain = ["select", "atoms", "annotate", "harmonize", "variants"]
-    target = chain.index("variants" if stage == "all" else stage)
+    chain = ["select", "atoms", "annotate", "harmonize", "variants",
+             "validate"]
+    target = chain.index("validate" if stage == "all" else stage)
     run_through = chain[:target + 1]
 
     selection_result = None
@@ -167,6 +182,19 @@ def main(argv: list[str] | None = None) -> None:
                  "(%d trajectories; cross_modal = CANDIDATE until "
                  "behavioral validation in Iteration 6+)",
                  len(complete), 6 * len(complete))
+
+    if "validate" in run_through:
+        from causal_mllm.validation import (
+            ManualFileJudge,
+            run_validation_stage,
+        )
+
+        judge = ManualFileJudge(args.judge) if args.judge else None
+        validated = run_validation_stage(
+            output_dir, judge=judge, theta=args.theta)
+        log.info("Validation stage done: %d validated families "
+                 "(judge=%s, theta=%.2f)",
+                 len(validated), "manual" if judge else "none", args.theta)
 
     log.info("Done.")
 

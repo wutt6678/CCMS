@@ -180,7 +180,31 @@ The annotation and harmonization JSONs are human/LLM-produced inputs
 LLM/VLM backends are wired via the `CallableAnnotator` /
 `CallableHarmonizer` APIs, which record mandatory provenance.
 
+### Validate Families (Iteration 6)
+
+```bash
+python -m causal_mllm.cli.build_families \
+    --config configs/generation/mvp.yaml \
+    --stage validate --max-families 5 \
+    --annotations ... --harmonization ... \
+    --judge data/families/risk_judge.json --theta 0.5
+```
+
+The validation layer re-checks every built family automatically
+(schema, per-variant trajectory checks, canonical-q grounding flags,
+safe-vs-unsafe shared-part leakage) and EXCLUDES failures. With a risk
+judge (`ManualFileJudge` JSON or `CallableJudge` / the future
+frozen-replay model judge), it scores Risk(q*), Risk(T), Risk(V),
+Risk(T,V) and decides strict cross-modal causal-subset membership
+(Risk(q*)<θ, Risk(T)<θ, Risk(V)<θ, Risk(T,V)≥θ), filling the
+`standalone_terminal_risk` / `strict_causal_candidate` placeholders.
+Without a judge these stay null: candidates only.
+
 ### Validate Families
+
+Superseded by `build_families --stage validate` above (Iteration 6).
+The standalone `cli/validate_families.py` remains as a deprecated
+Iteration-0 stub.
 
 ```bash
 python -m causal_mllm.cli.validate_families \
@@ -258,7 +282,8 @@ strict subset needs behavioral validation (Iteration 6+).
 - [x] **Iteration 3** — Candidate selection with rejection reasons
 - [x] **Iteration 4** — Family-level comparative semantic atom extraction
 - [x] **Iteration 5** — Annotation → harmonization → six gated variant generators
-- [ ] **Iteration 6** — Automatic validation layer
+- [x] **Iteration 6** — Automatic validation layer (grounding, leakage,
+      behavioral strict-subset decision via configurable risk judges)
 - [ ] **Iteration 7** — 20-family research smoke dataset
 - [ ] **Iteration 8** — Frozen replay model runner
 - [ ] **Iteration 9** — Safety judge + causal metrics

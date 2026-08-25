@@ -23,6 +23,8 @@ Evidence status:
 | File | Content |
 |------|---------|
 | `families.jsonl` | 5 complete families, six variants each |
+| `validated_families.jsonl` | Iteration-6 automatic validation: 5/5 pass |
+| `validation_report.json` | Automatic checks + strict subset (empty until a behavioral judge exists) |
 | `negative_controls.jsonl` | 5 ineligible families + gate reasons |
 | `variants_report.json` | Stage-5C report (30 trajectories, 5 controls) |
 | `annotation_report.json` | Per-family readiness after human annotation |

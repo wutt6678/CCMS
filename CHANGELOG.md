@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.6.0] — 2026-08-25
+
+### Added — Iteration 6: automatic validation layer
+
+- `validation/judges.py`: `RiskJudge` interface with `ManualFileJudge`
+  (JSON {family_key: {variant: score}}) and `CallableJudge` (any
+  LLM/VLM/model callable; mandatory model provenance). Scores are
+  validated fail-loud in [0, 1]; missing required scores raise
+  `JudgeError`. The frozen-replay model judge (Iteration 8+) plugs in
+  through the same interface.
+- `validation/stage.py`: `run_validation_stage()` re-checks every
+  built family automatically — full schema, per-variant trajectory
+  checks, canonical-q grounding flags, and safe-vs-unsafe shared-part
+  leakage (the `safe_vs_unsafe_shared_parts` axis is auto-resolved at
+  confidence 1.0 for shared atoms; the causal atom and the vision
+  atom's image channel are compared on the right content). Failures
+  are EXCLUDED (excluded_families.jsonl).
+- Behavioral strict-subset decision with a judge:
+  Risk(q*)<θ and Risk(T)<θ and Risk(V)<θ and Risk(T,V)>=θ fills the
+  Iteration-3 placeholders (`standalone_terminal_risk`,
+  `strict_causal_candidate`, `requires_standalone_risk_validation`)
+  and upgrades `cross_modal_candidate` -> `cross_modal_required`.
+  Without a judge these stay null: candidates only.
+- CLI: `--stage validate`, `--judge`, `--theta`.
+- Evidence: the committed human-reviewed Scale-A build validates 5/5
+  automatically with zero exclusions; strict subset empty until a
+  behavioral judge exists. Placeholder builds are fully excluded by
+  the grounding checks (integration test).
+- 330+ tests (227 unit + integration).
+
 ## [0.5.2] — 2026-08-25
 
 ### Added — persistent canonical-q grounding validator

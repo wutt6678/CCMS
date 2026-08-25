@@ -1,0 +1,47 @@
+{
+  "iteration": "6",
+  "timestamp": "2026-08-25T02:49:02.895505+00:00",
+  "theta": 0.5,
+  "judge": null,
+  "n_input": 5,
+  "n_validated": 5,
+  "n_excluded": 0,
+  "strict_causal_subset": [],
+  "families": [
+    {
+      "family_id": "CMST_762906",
+      "source_id": "mtmcs:type_b:000000",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_167801",
+      "source_id": "mtmcs:type_b:000003",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_477538",
+      "source_id": "mtmcs:type_b:000004",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_679504",
+      "source_id": "mtmcs:type_b:000006",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_837079",
+      "source_id": "mtmcs:type_b:000008",
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    }
+  ]
+}
