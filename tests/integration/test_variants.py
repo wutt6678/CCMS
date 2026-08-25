@@ -24,6 +24,7 @@ import pytest
 import yaml
 
 from causal_mllm.construction.annotation import CallableAnnotator
+from causal_mllm.construction.grounding import flag_grounding_issues
 from causal_mllm.construction.harmonize import (
     CallableHarmonizer,
     apply_terminal_harmonization,
@@ -205,6 +206,18 @@ class TestScaleASmokeBuild:
         report = json.loads((tmp_path / "variants_report.json").read_text())
         assert report["n_families"] == 0
         assert report["n_negative_controls"] == 1
+
+    def test_placeholder_harmonization_is_flagged_not_research_valid(
+            self, tmp_path):
+        """The placeholder backend adopts the mm terminal verbatim; the
+        grounding flagger must catch its image-deictic references,
+        keeping placeholder evidence separated from research evidence."""
+        complete, _ = self._run_pipeline(tmp_path)
+        row2 = next(f for f in complete
+                    if f.source["source_id"] == "mtmcs:type_b:000002")
+        flags = flag_grounding_issues(row2)
+        assert any(f["scope"] == "canonical_q" for f in flags)
+        assert any(f["scope"] == "history_reset" for f in flags)
 
     def test_stage_artifacts_and_reports(self, tmp_path):
         complete, out = self._run_pipeline(tmp_path)

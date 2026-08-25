@@ -24,6 +24,7 @@ from causal_mllm.construction.families import (
     build_family_skeleton,
     build_family_skeletons,
 )
+from causal_mllm.construction.grounding import flag_grounding_issues
 from causal_mllm.construction.harmonize import (
     CallableHarmonizer,
     ManualHarmonizer,
@@ -89,6 +90,7 @@ __all__ = [
     "canonical_terminal",
     "extract_family_atoms",
     "family_readiness",
+    "flag_grounding_issues",
     "group_into_family_units",
     "run_selection",
     "select_candidates",

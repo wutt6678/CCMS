@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.5.2] — 2026-08-25
+
+### Added — persistent canonical-q grounding validator
+
+- `construction/grounding.py`: `flag_grounding_issues(family)` scans
+  the canonical q* and every text-only condition (neutral / text_only /
+  history_reset) for image-deictic references ("these", "this photo",
+  "shown here", ...) that no image can resolve in those conditions,
+  and flags built families whose grounding validation targets are
+  still null.
+- Pinned evidence tests: the committed human-reviewed Scale-A build
+  (5 families x 6 variants) must be flag-free with human/manual
+  harmonization provenance; negative controls must stay disjoint from
+  the research set.
+- Integration test proving the flagger catches the placeholder
+  harmonization (verbatim mm terminal with "these helmets") —
+  placeholder evidence remains mechanically separable from
+  research-valid evidence.
+- 314 tests (213 unit + 101 integration).
+
 ## [0.5.1] — 2026-08-25
 
 ### Fixed — eligibility gates confused with annotation completeness
