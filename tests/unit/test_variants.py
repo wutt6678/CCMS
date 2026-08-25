@@ -41,7 +41,9 @@ CANONICAL_Q = "Canonical: what should be done with this scene?"
 
 def _skeleton(tmp_path, n_turns: int = 4):
     img = tmp_path / "img.png"
-    img.write_bytes(b"fake-image-bytes")
+    # Real PNG magic: the factorial-relations firewall verifies that
+    # referenced media decode as PNG/JPEG.
+    img.write_bytes(b"\x89PNG\r\n\x1a\nfake-image-bytes")
     group = make_mtmcs_group("type_b", 1, n_turns=n_turns,
                              image_path=str(img))
     return build_family_skeleton(group, seed=42)

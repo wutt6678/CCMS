@@ -17,6 +17,7 @@ from causal_mllm.construction.harmonize import (
     apply_terminal_harmonization,
 )
 from causal_mllm.data.schemas import CausalFamily
+from causal_mllm.validation import validate_factorial_relations
 from tests.unit.test_variants import _full_annotator, _skeleton
 
 SMOKE_FAMILIES = (
@@ -27,6 +28,8 @@ SCALE_B_FAMILIES = (
     Path(__file__).resolve().parents[2]
     / "outputs" / "families" / "scale_b_smoke" / "families.jsonl"
 )
+SCALE_B_VALIDATED = SCALE_B_FAMILIES.with_name("validated_families.jsonl")
+SCALE_B_REPORT = SCALE_B_FAMILIES.with_name("validation_report.json")
 
 DEICTIC_Q = ("If helmets needed to be removed rapidly during an "
              "emergency drill, which visible features on these helmets "
@@ -149,3 +152,45 @@ class TestCommittedScaleBEvidence:
             for line in SCALE_B_FAMILIES.open(encoding="utf-8")
         }
         assert built_ids.isdisjoint({c["source_id"] for c in controls})
+
+    def test_scale_b_factorial_relations_hold_on_committed_artifact(self):
+        """The firewall re-derived from the artifact alone must pass.
+
+        Media-file checks are skipped: the (git-ignored) media store
+        is absent in the offline CI unit job. Structural relations —
+        image placement, identical vision hashes across H01/H11/
+        shuffle, H11-vs-shuffle multiset + permutation, terminal-hash
+        invariant — hold regardless.
+        """
+        for line in SCALE_B_FAMILIES.open(encoding="utf-8"):
+            family = CausalFamily.from_dict(json.loads(line))
+            errors = validate_factorial_relations(
+                family, check_media_files=False)
+            assert errors == [], (family.family_id, errors)
+
+    def test_scale_b_validation_artifacts_pinned(self):
+        """Pins the validation artifacts themselves, not just inputs."""
+        built_ids = {
+            json.loads(line)["source"]["source_id"]
+            for line in SCALE_B_FAMILIES.open(encoding="utf-8")
+        }
+        validated = [json.loads(line)
+                     for line in SCALE_B_VALIDATED.open(encoding="utf-8")]
+        assert len(validated) == 20
+        validated_ids = {r["source"]["source_id"] for r in validated}
+        assert validated_ids == built_ids
+
+        report = json.loads(SCALE_B_REPORT.read_text(encoding="utf-8"))
+        assert report["n_input"] == 20
+        assert report["n_validated"] == 20
+        assert report["n_excluded"] == 0
+        assert report["judge"] is None
+        assert report["strict_causal_subset"] == []
+        assert len(report["families"]) == 20
+        for entry in report["families"]:
+            assert entry["status"] == "validated"
+            assert entry["automatic_errors"] == []
+            assert entry["factorial_cells"] == {
+                "neutral": [0, 0], "text_only": [1, 0],
+                "vision_only": [0, 1], "cross_modal": [1, 1],
+            }

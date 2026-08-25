@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.1] — 2026-08-25
+
+### Added — Iteration 6 hardening: factorial-relations firewall
+
+The Iteration-6 validator previously trusted relations created by the
+variant generators. `validate_factorial_relations()` now re-derives
+every structural relation from the persisted artifact alone, so a
+corrupted `families.jsonl` is caught even when the generators are
+correct:
+
+- H00 / H10 / history_reset carry no images; H01 / H11 / shuffle do.
+- H01, H11 and shuffle reference the same source-image hashes.
+- Every referenced media path is recorded in `source_media`, exists,
+  decodes (PNG/JPEG magic bytes), and hashes to its recorded sha256
+  (file checks skippable via `check_media_files=False` for the
+  offline CI unit job, where the git-ignored media store is absent).
+- H11 and shuffle contain exactly the same history multiset of
+  (role, text, image hashes); only order changes, and the order
+  matches `shuffle_permutation` applied to the H11 history.
+- `shuffle_permutation` is a valid, non-identity permutation.
+- All six variants end with the identical canonical terminal hash,
+  matching the recorded `canonical_sha256`.
+- The four primary factorial cells are recorded explicitly in every
+  validation-report entry: H00=(0,0), H10=(1,0), H01=(0,1), H11=(1,1).
+
+### Added — mutation tests
+
+`tests/unit/test_relations.py`: a clean family passes; each deliberate
+corruption — changing an H11 image, deleting a shuffle message,
+altering a shuffle message, corrupting a recorded media hash,
+replacing a media file on disk, an identity permutation, an image in a
+text-only condition, a divergent recorded terminal hash — produces
+errors, and the validation stage EXCLUDES corrupted artifacts.
+
+### Fixed
+
+- Scale-B `REVIEW_NOTES.md` listed rows 62-64 under the negative
+  controls even though the committed artifact contains exactly the 41
+  controls from rows 0-60. Those judgments now sit in a separate,
+  explicitly marked "future-review notes" section; the annotations and
+  harmonization inputs are byte-identical, and the artifact is
+  unchanged.
+- The Scale-B pinned-evidence test now pins the validation artifacts
+  themselves: `validated_families.jsonl` == 20 with the same
+  family-ID set as `families.jsonl`, and `validation_report.json` has
+  `n_input=20`, `n_validated=20`, `n_excluded=0`, `judge=null`,
+  `strict_causal_subset=[]`, and explicit factorial cells per entry.
+- Both committed smoke builds re-validated with the new firewall
+  (media-hash checks included): Scale-A 5/5, Scale-B 20/20, zero
+  exclusions. Report changes are additive (`factorial_cells` and
+  timestamps) only; `validated_families.jsonl` is byte-identical.
+
 ## [0.7.0] — 2026-08-25
 
 ### Added — Iteration 7: 20-family research smoke dataset (Scale B)

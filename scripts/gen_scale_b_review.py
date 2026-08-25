@@ -226,7 +226,17 @@ for row in sorted(set(SCALE_A_ROWS) | set(NEW)):
     tag = " (Scale-A)" if row in SCALE_A_ROWS else ""
     notes.append(f"- row {row:06d}{tag}")
 notes += ["", "## Negative controls (41 rows, decided-but-ineligible)", ""]
-for row in sorted(NEG):
+for row in sorted(r for r in NEG if r <= 60):
+    notes.append(f"- row {row:06d}: {NEG[row]}")
+notes += ["",
+ "## Reviewed outside the Scale-B window (future-review notes)",
+ "",
+ "The rows below were inspected during the same review pass but fall",
+ "OUTSIDE the rows 0-60 window selected by max_rows=61. They are NOT",
+ "part of the committed negative-control artifact (which contains",
+ "exactly the 41 controls from rows 0-60); the judgments are recorded",
+ "here only to seed a future scaling round.", ""]
+for row in sorted(r for r in NEG if r > 60):
     notes.append(f"- row {row:06d}: {NEG[row]}")
 notes += ["",
  "## Grounding",

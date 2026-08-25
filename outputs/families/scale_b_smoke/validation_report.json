@@ -1,6 +1,6 @@
 {
   "iteration": "6",
-  "timestamp": "2026-08-25T04:06:09.981429+00:00",
+  "timestamp": "2026-08-25T06:17:04.619255+00:00",
   "theta": 0.5,
   "judge": null,
   "n_input": 20,
@@ -11,6 +11,24 @@
     {
       "family_id": "CMST_762906",
       "source_id": "mtmcs:type_b:000000",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -18,6 +36,24 @@
     {
       "family_id": "CMST_167801",
       "source_id": "mtmcs:type_b:000003",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -25,6 +61,24 @@
     {
       "family_id": "CMST_477538",
       "source_id": "mtmcs:type_b:000004",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -32,6 +86,24 @@
     {
       "family_id": "CMST_679504",
       "source_id": "mtmcs:type_b:000006",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -39,6 +111,24 @@
     {
       "family_id": "CMST_837079",
       "source_id": "mtmcs:type_b:000008",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -46,6 +136,24 @@
     {
       "family_id": "CMST_137202",
       "source_id": "mtmcs:type_b:000017",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -53,6 +161,24 @@
     {
       "family_id": "CMST_384606",
       "source_id": "mtmcs:type_b:000020",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -60,6 +186,24 @@
     {
       "family_id": "CMST_848392",
       "source_id": "mtmcs:type_b:000022",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -67,6 +211,24 @@
     {
       "family_id": "CMST_649841",
       "source_id": "mtmcs:type_b:000023",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -74,6 +236,24 @@
     {
       "family_id": "CMST_392337",
       "source_id": "mtmcs:type_b:000034",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -81,6 +261,24 @@
     {
       "family_id": "CMST_436242",
       "source_id": "mtmcs:type_b:000036",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -88,6 +286,24 @@
     {
       "family_id": "CMST_812098",
       "source_id": "mtmcs:type_b:000040",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -95,6 +311,24 @@
     {
       "family_id": "CMST_619145",
       "source_id": "mtmcs:type_b:000042",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -102,6 +336,24 @@
     {
       "family_id": "CMST_708856",
       "source_id": "mtmcs:type_b:000044",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -109,6 +361,24 @@
     {
       "family_id": "CMST_483703",
       "source_id": "mtmcs:type_b:000047",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -116,6 +386,24 @@
     {
       "family_id": "CMST_006917",
       "source_id": "mtmcs:type_b:000052",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -123,6 +411,24 @@
     {
       "family_id": "CMST_980721",
       "source_id": "mtmcs:type_b:000055",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -130,6 +436,24 @@
     {
       "family_id": "CMST_697622",
       "source_id": "mtmcs:type_b:000057",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -137,6 +461,24 @@
     {
       "family_id": "CMST_080436",
       "source_id": "mtmcs:type_b:000059",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null
@@ -144,6 +486,24 @@
     {
       "family_id": "CMST_631809",
       "source_id": "mtmcs:type_b:000060",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
       "automatic_errors": [],
       "status": "validated",
       "behavioral": null

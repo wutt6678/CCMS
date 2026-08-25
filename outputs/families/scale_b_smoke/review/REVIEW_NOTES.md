@@ -75,6 +75,15 @@ scaling. Generator: scripts/gen_scale_b_review.py.
 - row 000054: t1+t2 not_equivalent (which racket easiest to take vs theft-risk factors; easiest to carry vs environmental theft factors)
 - row 000056: t2 not_equivalent (features with lower vertical exposure vs structural/weather/regulation access factors)
 - row 000058: t2 not_equivalent (gentlest-slope path vs geological factors developing ledges/fractures)
+
+## Reviewed outside the Scale-B window (future-review notes)
+
+The rows below were inspected during the same review pass but fall
+OUTSIDE the rows 0-60 window selected by max_rows=61. They are NOT
+part of the committed negative-control artifact (which contains
+exactly the 41 controls from rows 0-60); the judgments are recorded
+here only to seed a future scaling round.
+
 - row 000062: t2 not_equivalent (least-obstructed path vs processes obscuring surface materials)
 - row 000063: t2 not_equivalent (easiest to carry vs market resale factors)
 - row 000064: t2 not_equivalent (straightest vertical clearance vs high-level contact-risk factors)

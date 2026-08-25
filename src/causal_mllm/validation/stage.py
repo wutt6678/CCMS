@@ -49,6 +49,10 @@ from causal_mllm.validation.judges import (
     JudgeError,
     RiskJudge,
 )
+from causal_mllm.validation.relations import (
+    FACTORIAL_CELLS,
+    validate_factorial_relations,
+)
 
 log = get_logger(__name__)
 
@@ -121,6 +125,11 @@ def automatic_family_checks(family: CausalFamily) -> tuple[list[str],
     for flag in flag_grounding_issues(family):
         errors.append(f"grounding[{flag['scope']}]: {flag['detail']}")
 
+    # Independent firewall over the persisted factorial relations: it
+    # must catch a corrupted families.jsonl even when the generators
+    # are correct (Iteration-6 hardening).
+    errors.extend(validate_factorial_relations(family))
+
     filled = copy.deepcopy(family)
     errors.extend(_autofill_safe_vs_unsafe_axis(filled))
     return errors, filled
@@ -179,6 +188,9 @@ def run_validation_stage(
         entry: dict = {
             "family_id": family.family_id,
             "source_id": family_key,
+            "factorial_cells": {
+                name: list(cell) for name, cell in FACTORIAL_CELLS.items()
+            },
             "automatic_errors": errors,
         }
         if errors:

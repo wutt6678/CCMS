@@ -192,7 +192,16 @@ python -m causal_mllm.cli.build_families \
 
 The validation layer re-checks every built family automatically
 (schema, per-variant trajectory checks, canonical-q grounding flags,
-safe-vs-unsafe shared-part leakage) and EXCLUDES failures. With a risk
+safe-vs-unsafe shared-part leakage) and EXCLUDES failures. It also
+runs `validate_factorial_relations()`, an independent firewall that
+re-derives the factorial structure from the persisted artifact alone
+(image placement per cell, identical vision hashes across H01/H11/
+shuffle, media files existing and hashing to their recorded
+`source_media.sha256`, H11-vs-shuffle history multiset plus
+non-identity permutation, identical canonical terminal hash) so a
+corrupted `families.jsonl` is caught even if the generators are
+correct; each validation-report entry records the explicit factorial
+cells H00=(0,0), H10=(1,0), H01=(0,1), H11=(1,1). With a risk
 judge (`ManualFileJudge` JSON or `CallableJudge` / the future
 frozen-replay model judge), it scores Risk(q*), Risk(T), Risk(V),
 Risk(T,V) and decides strict cross-modal causal-subset membership
