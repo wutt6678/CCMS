@@ -14,6 +14,7 @@ from causal_mllm.validation.judges import (
 from causal_mllm.validation.relations import (
     FACTORIAL_CELLS,
     validate_factorial_relations,
+    validate_factorial_semantic_eligibility,
 )
 from causal_mllm.validation.stage import (
     DEFAULT_THETA,
@@ -34,4 +35,5 @@ __all__ = [
     "run_validation_stage",
     "strict_causal_decision",
     "validate_factorial_relations",
+    "validate_factorial_semantic_eligibility",
 ]

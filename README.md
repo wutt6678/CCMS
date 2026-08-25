@@ -201,7 +201,12 @@ shuffle, media files existing and hashing to their recorded
 non-identity permutation, identical canonical terminal hash) so a
 corrupted `families.jsonl` is caught even if the generators are
 correct; each validation-report entry records the explicit factorial
-cells H00=(0,0), H10=(1,0), H01=(0,1), H11=(1,1). With a risk
+cells H00=(0,0), H10=(1,0), H01=(0,1), H11=(1,1). It further
+re-derives the Iteration-5 SEMANTIC eligibility from the persisted
+annotations (`validate_factorial_semantic_eligibility`): a built
+family must still carry `equivalent` / `relevant` /
+`required_for_joint_interpretation==True` for the variants it holds —
+decided-but-negative annotations are excluded here too. With a risk
 judge (`ManualFileJudge` JSON or `CallableJudge` / the future
 frozen-replay model judge), it scores Risk(q*), Risk(T), Risk(V),
 Risk(T,V) and decides strict cross-modal causal-subset membership

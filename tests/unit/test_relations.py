@@ -17,6 +17,7 @@ from causal_mllm.validation import (
     automatic_family_checks,
     run_validation_stage,
     validate_factorial_relations,
+    validate_factorial_semantic_eligibility,
 )
 from tests.unit.test_grounding import CLEAN_Q, _built_family
 
@@ -33,6 +34,7 @@ class TestCleanFamilyPasses:
     def test_no_errors_on_intact_family(self, tmp_path):
         family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
         assert validate_factorial_relations(family) == []
+        assert validate_factorial_semantic_eligibility(family) == []
         errors, _ = automatic_family_checks(family)
         assert errors == []
 
@@ -147,6 +149,98 @@ class TestMutations:
         Path(media_path).write_bytes(b"\x89PNG\r\n\x1a\nreplaced content")
         errors = validate_factorial_relations(family)
         assert any("content hash differs" in e for e in errors)
+
+
+class TestSemanticEligibilityMutations:
+    """Flip the POSITIVE Iteration-5 annotations on an already-built
+    family: the firewall must re-derive eligibility from the persisted
+    artifact and EXCLUDE it, before any scaling beyond reviewed sets.
+    """
+
+    def _family(self, tmp_path):
+        return _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+
+    def test_equivalent_flipped_to_not_equivalent(self, tmp_path):
+        family = self._family(tmp_path)
+
+        def mutate(record):
+            for atom in record["semantic_atoms"]:
+                axis = atom["semantic_equivalence"].get(
+                    "multimodal_vs_unimodal")
+                if isinstance(axis, dict) and axis.get("state") == \
+                        "equivalent":
+                    axis["state"] = "not_equivalent"
+                    return
+
+        mutated = _mutate(family, mutate)
+        errors = validate_factorial_semantic_eligibility(mutated)
+        assert any("NOT equivalent" in e for e in errors)
+        check_errors, _ = automatic_family_checks(mutated)
+        assert any("semantic eligibility" in e for e in check_errors)
+
+    def test_relevant_flipped_to_irrelevant(self, tmp_path):
+        family = self._family(tmp_path)
+
+        def mutate(record):
+            for atom in record["semantic_atoms"]:
+                if atom["structural_role"] == "shared_image":
+                    atom["risk_relevance"] = "irrelevant"
+                    return
+
+        mutated = _mutate(family, mutate)
+        errors = validate_factorial_semantic_eligibility(mutated)
+        assert any("annotated irrelevant" in e for e in errors)
+
+    def test_joint_interpretation_flipped_to_false(self, tmp_path):
+        family = self._family(tmp_path)
+
+        def mutate(record):
+            for atom in record["semantic_atoms"]:
+                if atom["structural_role"] == "shared_image":
+                    atom["required_for_joint_interpretation"] = False
+                    return
+
+        mutated = _mutate(family, mutate)
+        errors = validate_factorial_semantic_eligibility(mutated)
+        assert any("required_for_joint_interpretation=False" in e
+                   for e in errors)
+
+    def test_semantic_mutations_cause_stage_exclusion(self, tmp_path):
+        family = self._family(tmp_path)
+
+        def mutate(record):
+            for atom in record["semantic_atoms"]:
+                if atom["structural_role"] == "shared_image":
+                    atom["risk_relevance"] = "irrelevant"
+                    return
+
+        mutated = _mutate(family, mutate)
+        write_jsonl(tmp_path / "families.jsonl", [mutated.to_dict()])
+        assert run_validation_stage(tmp_path) == []
+        excluded = read_jsonl(tmp_path / "excluded_families.jsonl")
+        assert len(excluded) == 1
+        assert any("semantic eligibility" in r
+                   for r in excluded[0]["reasons"])
+
+    def test_negative_control_never_passes_as_eligible(self, tmp_path):
+        """A decided-but-negative family is structurally buildable yet
+        semantically ineligible: the firewall must reject it."""
+        family = self._family(tmp_path)
+
+        def mutate(record):
+            for atom in record["semantic_atoms"]:
+                axis = atom["semantic_equivalence"].get(
+                    "multimodal_vs_unimodal")
+                if isinstance(axis, dict):
+                    axis["state"] = "not_equivalent"
+
+        mutated = _mutate(family, mutate)
+        errors = validate_factorial_semantic_eligibility(mutated)
+        # Every gated variant (vision_only, cross_modal, shuffle)
+        # reports the negative annotation.
+        assert any(e.startswith("vision_only:") for e in errors)
+        assert any(e.startswith("cross_modal:") for e in errors)
+        assert any(e.startswith("shuffle:") for e in errors)
 
 
 class TestMutationsCauseExclusion:

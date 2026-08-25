@@ -16,6 +16,11 @@ between the six variants from the artifact alone:
   * shuffle_permutation is a valid, non-identity permutation.
   * All six variants end with the identical canonical terminal hash.
 
+``validate_factorial_semantic_eligibility`` additionally re-derives
+the Iteration-5 SEMANTIC eligibility from the persisted annotations
+(equivalent / relevant / required_for_joint_interpretation==True per
+variant), reusing the exact gate tables from construction.readiness.
+
 Cross-cell TEXT equality is deliberately NOT checked literally: H00/H10
 draw unimodal surface forms while H01/H11 draw multimodal forms, whose
 equivalence is a semantic annotation, not a string identity. The
@@ -32,6 +37,11 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
+from causal_mllm.construction.readiness import (
+    _VARIANT_REQUIREMENTS,
+    _variant_semantic_reasons,
+    harmonization_gaps,
+)
 from causal_mllm.data.schemas import CausalFamily, VariantData
 from causal_mllm.seeds import sha256_text
 
@@ -191,4 +201,38 @@ def validate_factorial_relations(family: CausalFamily, *,
             "terminal hash does not match the recorded canonical q* hash"
         )
 
+    return errors
+
+
+def validate_factorial_semantic_eligibility(family: CausalFamily) -> list[str]:
+    """Re-derive Iteration-5 semantic eligibility from the artifact.
+
+    ``validate_causal_family`` is structural: it permits semantically
+    valid-but-negative states such as ``not_equivalent`` or
+    ``irrelevant``. A persisted family that CARRIES the vision-bearing
+    variants (H01/H11/shuffle) must still hold the POSITIVE evidence
+    that justified building them:
+
+      * multimodal_vs_unimodal == "equivalent" on every atom that
+        crosses modalities,
+      * risk_relevance == "relevant" on the vision atom,
+      * required_for_joint_interpretation == True for cross_modal /
+        shuffle.
+
+    The exact gate tables are REUSED from ``construction.readiness``
+    so the firewall and the build-time gates can never drift apart.
+    This must catch an artifact whose annotations were edited after
+    construction (or a persisted negative control mistakenly built).
+    """
+    errors: list[str] = []
+    errors.extend(
+        f"L2: {gap}" for gap in harmonization_gaps(family)
+    )
+    for name in family.variants:
+        requirements = _VARIANT_REQUIREMENTS.get(name)
+        if requirements is None:
+            errors.append(f"unknown variant '{name}' in persisted artifact")
+            continue
+        reasons = _variant_semantic_reasons(family, requirements)
+        errors.extend(f"{name}: semantic eligibility: {r}" for r in reasons)
     return errors

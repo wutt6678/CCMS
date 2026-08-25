@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.7.2] — 2026-08-25
+
+### Added — semantic-eligibility re-derivation in the Iteration-6 firewall
+
+The firewall previously re-checked only STRUCTURAL relations; the
+schema validator legitimately permits decided-but-negative states
+(`not_equivalent`, `irrelevant`). `validate_factorial_semantic_
+eligibility()` now re-derives the Iteration-5 eligibility from the
+persisted annotations for every variant present:
+
+- `multimodal_vs_unimodal == "equivalent"` on every atom crossing
+  modalities (vision_only, cross_modal, shuffle),
+- `risk_relevance == "relevant"` on the vision atom,
+- `required_for_joint_interpretation == True` for cross_modal /
+  shuffle,
+- canonical q* still established (L2).
+
+The exact gate tables are REUSED from `construction.readiness`, so
+the firewall and the build-time gates cannot drift. Mutation tests
+flip `equivalent -> not_equivalent`, `relevant -> irrelevant`, and
+`joint True -> False` on already-built families and assert exclusion;
+a decided-but-negative family is rejected by every gated variant.
+Scale-B pinned test additionally asserts semantic eligibility for all
+20 committed families. Committed Scale-A/B builds re-validated:
+5/5 and 20/20, zero exclusions.
+
+### Noted (P2)
+
+`_decodes_as_image` checks PNG/JPEG magic bytes rather than a full
+PIL decode. The adapter verifies media earlier and the file hash is
+pinned, so this is deferred, not a blocker.
+
 ## [0.7.1] — 2026-08-25
 
 ### Added — Iteration 6 hardening: factorial-relations firewall

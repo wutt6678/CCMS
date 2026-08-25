@@ -52,6 +52,7 @@ from causal_mllm.validation.judges import (
 from causal_mllm.validation.relations import (
     FACTORIAL_CELLS,
     validate_factorial_relations,
+    validate_factorial_semantic_eligibility,
 )
 
 log = get_logger(__name__)
@@ -129,6 +130,12 @@ def automatic_family_checks(family: CausalFamily) -> tuple[list[str],
     # must catch a corrupted families.jsonl even when the generators
     # are correct (Iteration-6 hardening).
     errors.extend(validate_factorial_relations(family))
+
+    # Re-derive Iteration-5 semantic eligibility from the persisted
+    # annotations: a built family must still carry the POSITIVE
+    # evidence (equivalent / relevant / joint==True) that justified
+    # its vision-bearing variants.
+    errors.extend(validate_factorial_semantic_eligibility(family))
 
     filled = copy.deepcopy(family)
     errors.extend(_autofill_safe_vs_unsafe_axis(filled))

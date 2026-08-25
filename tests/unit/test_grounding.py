@@ -17,7 +17,10 @@ from causal_mllm.construction.harmonize import (
     apply_terminal_harmonization,
 )
 from causal_mllm.data.schemas import CausalFamily
-from causal_mllm.validation import validate_factorial_relations
+from causal_mllm.validation import (
+    validate_factorial_relations,
+    validate_factorial_semantic_eligibility,
+)
 from tests.unit.test_variants import _full_annotator, _skeleton
 
 SMOKE_FAMILIES = (
@@ -167,6 +170,10 @@ class TestCommittedScaleBEvidence:
             errors = validate_factorial_relations(
                 family, check_media_files=False)
             assert errors == [], (family.family_id, errors)
+            # The persisted annotations must still carry the POSITIVE
+            # Iteration-5 evidence that justified the built variants.
+            semantic = validate_factorial_semantic_eligibility(family)
+            assert semantic == [], (family.family_id, semantic)
 
     def test_scale_b_validation_artifacts_pinned(self):
         """Pins the validation artifacts themselves, not just inputs."""
