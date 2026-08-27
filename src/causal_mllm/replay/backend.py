@@ -40,6 +40,9 @@ class CallableBackend:
             result = {"response": result}
         result.setdefault("input_token_count", 0)
         result.setdefault("image_token_count", 0)
+        result.setdefault("output_token_count", 0)
+        result.setdefault("finish_reason", "eos")
+        result.setdefault("hit_max_new_tokens", False)
         return result
 
     def model_revision(self) -> str | None:
@@ -55,7 +58,15 @@ class HFLocalBackend:
     Loads lazily via :meth:`load`; ``generate`` applies the chat
     template with ``enable_thinking`` from the config, decodes
     greedy/sample per config, and reports token counts including the
-    number of image pad tokens (visual-token metadata).
+    number of image pad tokens (visual-token metadata) and OUTPUT
+    diagnostics (output_token_count, finish_reason,
+    hit_max_new_tokens) so truncation is visible per condition.
+
+    Reproducibility: if ``config.model_revision`` is set it is passed
+    to BOTH ``from_pretrained`` calls, so the recorded revision is the
+    revision actually loaded. The config seed is applied via
+    ``transformers.set_seed`` at load time — honest provenance even if
+    sampling is ever enabled.
     """
 
     def __init__(self, config: ReplayConfig):
@@ -64,17 +75,35 @@ class HFLocalBackend:
         self.processor = None
         self._revision = config.model_revision
 
+    def _pretrained_kwargs(self) -> dict:
+        """Pin the recorded revision into the actual load."""
+        kwargs = {}
+        if self.config.model_revision is not None:
+            kwargs["revision"] = self.config.model_revision
+        return kwargs
+
     def load(self) -> "HFLocalBackend":
         import torch
-        from transformers import AutoModelForImageTextToText, AutoProcessor
+        from transformers import (
+            AutoModelForImageTextToText,
+            AutoProcessor,
+            set_seed,
+        )
 
-        self.processor = AutoProcessor.from_pretrained(self.config.model_name)
+        kwargs = self._pretrained_kwargs()
+        self.processor = AutoProcessor.from_pretrained(
+            self.config.model_name, **kwargs)
         self.model = AutoModelForImageTextToText.from_pretrained(
             self.config.model_name,
             torch_dtype=getattr(torch, self.config.torch_dtype),
             device_map=self.config.device,
+            **kwargs,
         )
         self.model.eval()
+        # Apply the recorded seed so the provenance is never a lie
+        # (no-op for greedy decoding today, meaningful if sampling is
+        # ever enabled).
+        set_seed(self.config.seed)
         if self._revision is None:
             self._revision = self._resolve_revision()
         return self
@@ -110,6 +139,32 @@ class HFLocalBackend:
 
     def model_revision(self) -> str | None:
         return self._revision
+
+    def _eos_token_ids(self) -> set:
+        """All EOS ids of the loaded stack, defensively collected.
+
+        Composite VLM configs may not expose ``eos_token_id`` at the
+        top level (Qwen3.5 keeps it in ``text_config``), so probe
+        every plausible location and tolerate missing attributes.
+        """
+        eos_ids: set = set()
+
+        def add(value):
+            if isinstance(value, int):
+                eos_ids.add(value)
+            elif isinstance(value, list):
+                for item in value:
+                    if isinstance(item, int):
+                        eos_ids.add(item)
+
+        config = self.model.config
+        add(getattr(config, "eos_token_id", None))
+        add(getattr(getattr(config, "text_config", None),
+                    "eos_token_id", None))
+        add(getattr(self.processor, "eos_token_id", None))
+        add(getattr(getattr(self.processor, "tokenizer", None),
+                    "eos_token_id", None))
+        return eos_ids
 
     def model_name(self) -> str:
         return self.config.model_name
@@ -152,6 +207,18 @@ class HFLocalBackend:
         response = self.processor.batch_decode(
             new_tokens, skip_special_tokens=True)[0].strip()
 
+        # OUTPUT diagnostics: truncation is not condition-independent
+        # (refusals are short, compliant answers are long), so every
+        # record must say how generation stopped.
+        output_count = int(new_tokens.shape[1])
+        hit_cap = output_count >= config.max_new_tokens
+        if hit_cap:
+            finish_reason = "length"
+        else:
+            last = int(new_tokens[0, -1])
+            finish_reason = "eos" if last in self._eos_token_ids() \
+                else "stop"
+
         input_ids = inputs["input_ids"][0]
         image_token_id = getattr(self.processor, "image_token_id", None)
         image_tokens = (
@@ -162,4 +229,7 @@ class HFLocalBackend:
             "response": response,
             "input_token_count": int(input_ids.shape[0]),
             "image_token_count": image_tokens,
+            "output_token_count": output_count,
+            "finish_reason": finish_reason,
+            "hit_max_new_tokens": hit_cap,
         }

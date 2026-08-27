@@ -23,6 +23,7 @@ from causal_mllm.replay.errors import (
 )
 from causal_mllm.replay.runner import (
     build_chat_messages,
+    resolved_fingerprint,
     run_replay_stage,
     verify_family_media,
 )
@@ -39,6 +40,7 @@ __all__ = [
     "ReplayMediaError",
     "build_chat_messages",
     "classify_error",
+    "resolved_fingerprint",
     "run_replay_stage",
     "verify_family_media",
 ]

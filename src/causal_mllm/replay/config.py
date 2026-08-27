@@ -64,7 +64,14 @@ class ReplayConfig:
         return asdict(self)
 
     def fingerprint(self) -> str:
-        """Content hash of the full config (provenance anchor)."""
+        """Content hash of the full config (provenance anchor).
+
+        Note: this covers the REQUESTED config and may contain
+        ``model_revision=None`` (resolved at load time). The replay
+        report additionally records ``resolved_sha256``, which binds
+        the RESOLVED model revision to the prompt and generation
+        settings.
+        """
         payload = json.dumps(self.to_dict(), sort_keys=True,
                              ensure_ascii=False)
         return hashlib.sha256(payload.encode("utf-8")).hexdigest()

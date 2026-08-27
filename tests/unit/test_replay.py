@@ -16,10 +16,13 @@ import pytest
 from causal_mllm.data.io import read_jsonl, write_jsonl
 from causal_mllm.replay import (
     CallableBackend,
+    ReplayConfig,
     ReplayError,
+    resolved_fingerprint,
     run_replay_stage,
     verify_family_media,
 )
+from causal_mllm.replay.backend import HFLocalBackend
 from tests.unit.test_grounding import CLEAN_Q, _built_family
 
 
@@ -224,3 +227,121 @@ class TestReplayStage:
         assert prov["system_prompt_sha256"]
         assert prov["config_sha256"]
         assert prov["generation_config"]["temperature"] == 0.0
+
+
+class TestOutputDiagnostics:
+    """P0: every record must say HOW generation stopped, and the report
+    must expose truncation BY VARIANT (a global rate can hide the
+    refusal-short / compliance-long imbalance)."""
+
+    def _cross_modal_seq(self, family):
+        return [(m.role, m.text, list(m.images))
+                for m in family.variants["cross_modal"].messages]
+
+    def _replayed(self, chat_messages):
+        return [
+            (message["role"],
+             next((p["text"] for p in message["content"]
+                   if p["type"] == "text"), None),
+             [p["image"] for p in message["content"]
+              if p["type"] == "image"])
+            for message in chat_messages[1:]
+        ]
+
+    def test_truncation_reported_by_variant(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+        cross_seq = self._cross_modal_seq(family)
+
+        def fn(chat_messages):
+            truncated = self._replayed(chat_messages) == cross_seq
+            return {
+                "response": "x",
+                "input_token_count": 10,
+                "image_token_count": 0,
+                "output_token_count": 256 if truncated else 83,
+                "finish_reason": "length" if truncated else "eos",
+                "hit_max_new_tokens": truncated,
+            }
+
+        _write_validated(tmp_path, family)
+        report = run_replay_stage(
+            tmp_path, tmp_path / "runs",
+            backend=CallableBackend(fn), run_id="trunc")
+        by_variant = report["truncation"]["by_variant"]
+        assert by_variant["cross_modal"] == {
+            "n": 1, "n_truncated": 1, "truncation_rate": 1.0}
+        for variant in ("neutral", "text_only", "vision_only",
+                        "shuffle", "history_reset"):
+            assert by_variant[variant]["n_truncated"] == 0
+            assert by_variant[variant]["truncation_rate"] == 0.0
+        assert report["truncation"]["n_truncated"] == 1
+        assert report["truncation"]["truncation_rate"] == 1 / 6
+
+        outputs = read_jsonl(
+            tmp_path / "runs" / "trunc" / "replay_outputs.jsonl")
+        truncated = next(r for r in outputs
+                         if r["variant"] == "cross_modal")
+        assert truncated["finish_reason"] == "length"
+        assert truncated["hit_max_new_tokens"] is True
+        assert truncated["output_token_count"] == 256
+        completed = next(r for r in outputs if r["variant"] == "neutral")
+        assert completed["finish_reason"] == "eos"
+        assert completed["hit_max_new_tokens"] is False
+        assert completed["output_token_count"] == 83
+
+    def test_stub_backend_defaults_are_complete(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+        _write_validated(tmp_path, family)
+        run_replay_stage(tmp_path, tmp_path / "runs",
+                         backend=CallableBackend(lambda c: "ok"),
+                         run_id="d")
+        outputs = read_jsonl(tmp_path / "runs" / "d" / "replay_outputs.jsonl")
+        for record in outputs:
+            assert record["output_token_count"] is not None
+            assert record["finish_reason"] == "eos"
+            assert record["hit_max_new_tokens"] is False
+
+
+class TestReproducibilityPinning:
+    def test_revision_kwarg_passed_to_load(self):
+        pinned = ReplayConfig(model_revision="abc123")
+        backend = HFLocalBackend(pinned)
+        assert backend._pretrained_kwargs() == {"revision": "abc123"}
+        unpinned = HFLocalBackend(ReplayConfig())
+        assert unpinned._pretrained_kwargs() == {}
+
+    def test_resolved_fingerprint_binds_revision(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+        _write_validated(tmp_path, family)
+        backend = CallableBackend(lambda c: "ok", model_revision="rev-A")
+        report = run_replay_stage(
+            tmp_path, tmp_path / "runs", backend=backend, run_id="fp")
+        prov = report["provenance"]
+        assert prov["resolved_sha256"]
+        assert prov["resolved_sha256"] == resolved_fingerprint(
+            backend, ReplayConfig())
+        # A different resolved revision changes the fingerprint while
+        # the requested-config fingerprint stays put.
+        backend_b = CallableBackend(lambda c: "ok", model_revision="rev-B")
+        assert resolved_fingerprint(backend_b, ReplayConfig()) \
+            != prov["resolved_sha256"]
+        assert backend_b.model_revision() != backend.model_revision()
+
+    def test_output_token_stats_in_report(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+
+        def fn(chat_messages):
+            return {"response": "ok", "input_token_count": 10,
+                    "image_token_count": 0, "output_token_count": 42,
+                    "finish_reason": "eos", "hit_max_new_tokens": False}
+
+        _write_validated(tmp_path, family)
+        report = run_replay_stage(
+            tmp_path, tmp_path / "runs",
+            backend=CallableBackend(fn), run_id="tok")
+        assert report["token_stats"]["total_output_tokens"] == 42 * 6
+        assert report["token_stats"]["mean_output_tokens"] == 42

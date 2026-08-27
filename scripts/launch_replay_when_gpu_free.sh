@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
 # Wait for a GPU with enough free memory, then launch the CCMS replay.
-# Usage: launch_replay_when_gpu_free.sh <min_free_gib> <mode>
+# Usage: launch_replay_when_gpu_free.sh <min_free_gib> <mode> [max_new_tokens]
 #   mode: smoke (5 families) | full (all 20 families)
 set -u
 MIN_GIB="${1:-24}"
 MODE="${2:-smoke}"
+TOKENS="${3:-256}"
 source /scratch/wutiantong/miniconda3/etc/profile.d/conda.sh
 conda activate midp-qwen35
 cd /scratch/wutiantong/CCMS || exit 1
@@ -27,15 +28,22 @@ while true; do
 done
 
 DATESTAMP=$(date +%Y-%m-%d)
-if [ "$MODE" = "smoke" ]; then
-  RUN_ID="smoke-${DATESTAMP}-qwen35-9b"
-  python -m causal_mllm.cli.replay \
-    --input-dir outputs/families/scale_b_smoke \
-    --max-families 5 --device "cuda:${GPU}" --run-id "$RUN_ID"
+if [ "$TOKENS" != "256" ]; then
+  TOK_TAG="-t${TOKENS}"
 else
-  RUN_ID="scale-b-${DATESTAMP}-qwen35-9b"
+  TOK_TAG=""
+fi
+if [ "$MODE" = "smoke" ]; then
+  RUN_ID="smoke-${DATESTAMP}${TOK_TAG}-qwen35-9b"
   python -m causal_mllm.cli.replay \
     --input-dir outputs/families/scale_b_smoke \
+    --max-families 5 --max-new-tokens "$TOKENS" \
+    --device "cuda:${GPU}" --run-id "$RUN_ID"
+else
+  RUN_ID="scale-b-${DATESTAMP}${TOK_TAG}-qwen35-9b"
+  python -m causal_mllm.cli.replay \
+    --input-dir outputs/families/scale_b_smoke \
+    --max-new-tokens "$TOKENS" \
     --device "cuda:${GPU}" --run-id "$RUN_ID"
 fi
 echo "[done] exit=$? run_id=${RUN_ID}"

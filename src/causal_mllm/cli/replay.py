@@ -28,11 +28,18 @@ def main() -> None:
     parser.add_argument("--max-families", type=int, default=None,
                         help="Limit families (smoke runs)")
     parser.add_argument("--model-name", default=ReplayConfig.model_name)
+    parser.add_argument("--model-revision", default=None,
+                        help="Pin the weights revision actually loaded")
+    parser.add_argument("--max-new-tokens", type=int,
+                        default=ReplayConfig.max_new_tokens)
     parser.add_argument("--device", default=ReplayConfig.device)
     parser.add_argument("--run-id", default=None)
     args = parser.parse_args()
 
-    config = ReplayConfig(model_name=args.model_name, device=args.device)
+    config = ReplayConfig(model_name=args.model_name,
+                          model_revision=args.model_revision,
+                          max_new_tokens=args.max_new_tokens,
+                          device=args.device)
     report = run_replay_stage(
         args.input_dir, args.output_root, config=config,
         max_families=args.max_families, run_id=args.run_id)

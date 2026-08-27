@@ -26,6 +26,13 @@ REPLAY_ROOT = (
 )
 SMOKE_RUN = REPLAY_ROOT / "smoke-2026-08-25-qwen35-9b"
 FULL_RUN = REPLAY_ROOT / "scale-b-2026-08-25-qwen35-9b"
+# Iteration-9 primary panel: the 256-token cap truncated
+# condition-dependently (cross_modal 85% vs text_only 40%
+# mid-sentence); escalation evidence: 512 truncated 8/27, 768 4/30,
+# 1024 3/30 smoke completions (longest complete 847), so the panel
+# was generated at 1536 tokens with output diagnostics
+# (finish_reason / hit_max_new_tokens).
+PANEL_RUN = REPLAY_ROOT / "scale-b-2026-08-27-t1536-qwen35-9b"
 
 VARIANTS = ("neutral", "text_only", "vision_only",
             "cross_modal", "shuffle", "history_reset")
@@ -137,3 +144,42 @@ class TestCommittedFullRun:
             rec["family_id"] for rec in read_jsonl(SCALE_B_FAMILIES)
         }
         assert {r["family_id"] for r in outputs} <= validated_ids
+
+
+class TestCommittedIteration9Panel:
+    """20-family / 120-generation panel at max_new_tokens=1536 with
+    output diagnostics; the primary evidence base for Iteration 9.
+
+    Requirement: approximately zero finish_reason=length — a truncated
+    compliant answer vs a complete refusal would bias Delta_V,
+    Delta_TV and Delta_order.
+    """
+
+    def test_panel_complete_with_output_diagnostics(self):
+        assert PANEL_RUN.exists(), "committed 1536-token panel missing"
+        outputs, failures, report = _load(PANEL_RUN)
+        assert report["expected_attempts"] == 120
+        assert report["n_succeeded"] == 120 and report["n_failed"] == 0
+        assert failures == [] and len(outputs) == 120
+        for record in outputs:
+            assert record["generation_config"]["max_new_tokens"] == 1536
+            assert record["generation_config"]["temperature"] == 0.0
+            assert record["generation_config"]["do_sample"] is False
+            assert record["output_token_count"] is not None
+            assert record["finish_reason"] in {"eos", "stop", "length"}
+            assert record["hit_max_new_tokens"] is not None
+            assert record["model_revision"] == \
+                "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+        prov = report["provenance"]
+        assert prov["resolved_sha256"]
+        assert prov["config_sha256"]
+        assert {r["source_id"] for r in outputs} == _validated_source_ids()
+
+    def test_panel_truncation_near_zero_by_variant(self):
+        _, _, report = _load(PANEL_RUN)
+        truncation = report["truncation"]
+        assert truncation["n_truncated"] == 0, truncation
+        for variant, stats in truncation["by_variant"].items():
+            assert stats["n"] == 20, variant
+            assert stats["n_truncated"] == 0, (variant, stats)
+            assert stats["truncation_rate"] == 0.0, variant

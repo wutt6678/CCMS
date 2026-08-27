@@ -256,10 +256,20 @@ separate from the dataset artifacts. Hard gates:
   model_revision, prompt/template revision, generation config,
   response, error, plus input-token counts and visual-token metadata
   from the actual target tokenizer (surface-length/confound
-  diagnostics).
+  diagnostics), and OUTPUT diagnostics (`output_token_count`,
+  `finish_reason`, `hit_max_new_tokens`); the report exposes
+  truncation BY VARIANT because it is not condition-independent.
+- `--model-revision` pins the weights actually loaded; the report
+  records `resolved_sha256` binding resolved revision + prompt +
+  generation settings.
 
 Iteration 8 produces raw responses ONLY: judging and the causal
-estimands (ΔT, ΔV, ΔTV, reset/order effects) are Iteration 9.
+estimands (ΔT, ΔV, ΔTV, reset/order effects) are Iteration 9. The
+Iteration-9 primary panel is the 1536-token re-run
+(`scale-b-2026-08-27-t1536-qwen35-9b`, ~zero truncation; measured
+smoke truncation at lower caps: 512→8/27, 768→4/30, 1024→3/30); the
+256-token v0.8.0 runs are retained as evidence of the truncation bias
+(cross_modal 85% vs text_only 40% mid-sentence at the 256 cap).
 
 ### Run Inference
 

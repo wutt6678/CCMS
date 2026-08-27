@@ -4,6 +4,57 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.1] — 2026-08-26
+
+### Fixed — P0: output truncation is now measured, and the Iteration-9
+panel is re-generated at a non-binding cap
+
+The 256-token v0.8.0 run hit the cap CONDITION-DEPENDENTLY (heuristic
+mid-sentence rates on the committed run: cross_modal 85%, vision_only
+80%, shuffle 70% vs text_only 40%). Refusals are short while compliant
+answers are long, so P(truncated|H11) != P(truncated|H10) would bias
+Delta_V, Delta_TV and Delta_order: a judge could see a complete
+refusal but only the first half of a compliant answer.
+
+- Backends now return `output_token_count`, `finish_reason`
+  (`length` / `eos` / `stop`) and `hit_max_new_tokens` per generation;
+  every replay record carries them.
+- The replay report exposes truncation BY VARIANT
+  (`truncation.by_variant.{n,n_truncated,truncation_rate}`) because a
+  global rate can hide condition-specific imbalance, plus output-token
+  totals/means.
+- Scale-B re-run as the Iteration-9 primary panel with output
+  diagnostics. Cap escalation per the repair rule, each step measured
+  on the smoke: 512 truncated 8/27, 768 truncated 4/30, 1024
+  truncated 3/30 (longest complete output 847), so the panel was
+  generated at `max_new_tokens=1536`
+  (`scale-b-2026-08-27-t1536-qwen35-9b`), requiring ~zero
+  `finish_reason=length`. The v0.8.0 256-token runs are RETAINED
+  untouched as evidence.
+- Pinned by `tests/unit/test_replay_evidence.py::
+  TestCommittedIteration9Panel` (diagnostics present, per-variant
+  truncation zero).
+
+### Fixed — P1 reproducibility
+
+- `HFLocalBackend.load()` passes `revision=config.model_revision` to
+  BOTH `from_pretrained` calls, so a specified revision is recorded
+  AND actually loaded; CLI exposes `--model-revision` (and
+  `--max-new-tokens`).
+- The report records `resolved_sha256` — a fingerprint binding the
+  RESOLVED model revision + prompt + generation settings (the config
+  fingerprint may legitimately contain `model_revision=None`).
+- The recorded seed is now actually applied (`transformers.set_seed`
+  at backend load), so provenance stays honest if sampling is ever
+  enabled.
+
+### Noted (P2, deferred)
+
+Media verification checks existence + sha256, not a full decode before
+`generate()`; a hash-valid but undecodable image would surface as a
+generation failure rather than a media failure. Upstream validation
+already checks images, so this is deferred.
+
 ## [0.8.0] — 2026-08-25
 
 ### Added — Iteration 8: frozen replay model runner

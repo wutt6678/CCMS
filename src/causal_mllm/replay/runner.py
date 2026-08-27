@@ -34,6 +34,7 @@ belong to Iteration 9.
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 from pathlib import Path
 
@@ -56,6 +57,25 @@ def _backend_model_name(backend: ReplayBackend, config: ReplayConfig) -> str:
     if callable(name):
         return name()
     return config.model_name
+
+
+def resolved_fingerprint(backend: ReplayBackend,
+                         config: ReplayConfig) -> str:
+    """One hash identifying what ACTUALLY produced the responses.
+
+    The config fingerprint may contain ``model_revision=None`` (resolve
+    at load time); this fingerprint binds the RESOLVED model revision
+    to the prompt and generation settings, so one value uniquely
+    identifies model revision + prompt + generation settings.
+    """
+    payload = json.dumps({
+        "model": _backend_model_name(backend, config),
+        "model_revision": backend.model_revision(),
+        "prompt_template_revision": config.prompt_template_revision,
+        "system_prompt_sha256": sha256_text(config.system_prompt),
+        "generation_config": config.generation_settings(),
+    }, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
 REPLAY_OUTPUTS_FILE = "replay_outputs.jsonl"
@@ -139,6 +159,9 @@ def _base_record(run_id: str, family: CausalFamily, variant: str,
         "n_images": n_images,
         "input_token_count": None,
         "image_token_count": None,
+        "output_token_count": None,
+        "finish_reason": None,
+        "hit_max_new_tokens": None,
         "response": None,
         "error": None,
     }
@@ -176,6 +199,9 @@ def _replay_family(run_id: str, family: CausalFamily, config: ReplayConfig,
         record["response"] = result["response"]
         record["input_token_count"] = result.get("input_token_count")
         record["image_token_count"] = result.get("image_token_count")
+        record["output_token_count"] = result.get("output_token_count")
+        record["finish_reason"] = result.get("finish_reason")
+        record["hit_max_new_tokens"] = result.get("hit_max_new_tokens")
         outputs.append(record)
     return outputs, failures
 
@@ -258,6 +284,25 @@ def run_replay_stage(
                     if r["input_token_count"] is not None]
     image_tokens = [r["image_token_count"] for r in outputs
                     if r["image_token_count"] is not None]
+    output_tokens = [r["output_token_count"] for r in outputs
+                     if r["output_token_count"] is not None]
+
+    # Truncation BY VARIANT: a global rate can hide condition-specific
+    # imbalance (refusals are short, compliant answers are long), so
+    # P(truncated | H11) vs P(truncated | H10) must be visible.
+    truncation_by_variant: dict[str, dict] = {}
+    for variant in ALL_VARIANT_NAMES:
+        records = [r for r in outputs if r["variant"] == variant]
+        truncated = [r for r in records if r["hit_max_new_tokens"] is True]
+        truncation_by_variant[variant] = {
+            "n": len(records),
+            "n_truncated": len(truncated),
+            "truncation_rate": (len(truncated) / len(records)
+                                if records else None),
+        }
+    n_truncated = sum(v["n_truncated"]
+                      for v in truncation_by_variant.values())
+
     report = {
         "iteration": "8",
         "timestamp": datetime.datetime.now(
@@ -278,6 +323,7 @@ def run_replay_stage(
             "system_prompt_sha256": sha256_text(config.system_prompt),
             "generation_config": config.generation_settings(),
             "config_sha256": config.fingerprint(),
+            "resolved_sha256": resolved_fingerprint(backend, config),
         },
         "token_stats": {
             "total_input_tokens": sum(input_tokens),
@@ -286,6 +332,15 @@ def run_replay_stage(
             "total_image_tokens": sum(image_tokens),
             "mean_image_tokens": (sum(image_tokens) / len(image_tokens)
                                   if image_tokens else None),
+            "total_output_tokens": sum(output_tokens),
+            "mean_output_tokens": (sum(output_tokens) / len(output_tokens)
+                                   if output_tokens else None),
+        },
+        "truncation": {
+            "n_truncated": n_truncated,
+            "truncation_rate": (n_truncated / len(outputs)
+                                if outputs else None),
+            "by_variant": truncation_by_variant,
         },
     }
     with (run_dir / REPLAY_REPORT_FILE).open(
