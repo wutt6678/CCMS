@@ -23,6 +23,12 @@ class ReplayBackend(Protocol):
     def model_revision(self) -> str | None:
         """Resolved content revision of the loaded weights."""
 
+    def processor_revision(self) -> str | None:
+        """Resolved revision of the loaded processor."""
+
+    def transformers_version(self) -> str | None:
+        """transformers library version used at load time."""
+
 
 class CallableBackend:
     """Backend from a plain function (tests, dry runs)."""
@@ -47,6 +53,12 @@ class CallableBackend:
 
     def model_revision(self) -> str | None:
         return self._model_revision
+
+    def processor_revision(self) -> str | None:
+        return self._model_revision
+
+    def transformers_version(self) -> str | None:
+        return None
 
     def model_name(self) -> str:
         return self._model_name
@@ -74,6 +86,8 @@ class HFLocalBackend:
         self.model = None
         self.processor = None
         self._revision = config.model_revision
+        self._transformers_version: str | None = None
+        self._processor_revision: str | None = None
 
     def _pretrained_kwargs(self) -> dict:
         """Pin the recorded revision into the actual load."""
@@ -84,15 +98,18 @@ class HFLocalBackend:
 
     def load(self) -> "HFLocalBackend":
         import torch
+        import transformers
         from transformers import (
             AutoModelForImageTextToText,
             AutoProcessor,
             set_seed,
         )
 
+        self._transformers_version = transformers.__version__
         kwargs = self._pretrained_kwargs()
         self.processor = AutoProcessor.from_pretrained(
             self.config.model_name, **kwargs)
+        self._processor_revision = self._resolve_revision_from_cache()
         self.model = AutoModelForImageTextToText.from_pretrained(
             self.config.model_name,
             torch_dtype=getattr(torch, self.config.torch_dtype),
@@ -115,6 +132,11 @@ class HFLocalBackend:
         ``org/name`` model ids; falls back to the snapshot directory
         actually loaded from; finally the model name itself.
         """
+        return self._resolve_revision_from_cache() or \
+            self._resolve_revision_from_model()
+
+    def _resolve_revision_from_cache(self) -> str | None:
+        """Read refs/main from the HF hub cache for the model repo."""
         import os
 
         cache_root = os.environ.get("HF_HOME")
@@ -126,9 +148,15 @@ class HFLocalBackend:
             refs_dir = repo_dir / "refs"
             if refs_dir.exists():
                 for ref_file in sorted(refs_dir.glob("*")):
-                    commit = ref_file.read_text(encoding="utf-8").strip()
+                    commit = ref_file.read_text(
+                        encoding="utf-8").strip()
                     if commit:
                         return commit
+        return None
+
+    def _resolve_revision_from_model(self) -> str:
+        """Fallback: extract revision from the loaded model path."""
+        import os
         name_or_path = getattr(self.model.config, "_name_or_path", "")
         model_path = Path(getattr(self.model, "name_or_path", "")
                           or name_or_path)
@@ -139,6 +167,12 @@ class HFLocalBackend:
 
     def model_revision(self) -> str | None:
         return self._revision
+
+    def processor_revision(self) -> str | None:
+        return self._processor_revision
+
+    def transformers_version(self) -> str | None:
+        return self._transformers_version
 
     def _eos_token_ids(self) -> set:
         """All EOS ids of the loaded stack, defensively collected.

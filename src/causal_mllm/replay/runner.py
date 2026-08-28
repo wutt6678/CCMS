@@ -45,7 +45,7 @@ from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.replay.backend import HFLocalBackend, ReplayBackend
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.errors import ReplayError, ReplayMediaError, classify_error
-from causal_mllm.seeds import sha256_text
+from causal_mllm.seeds import sha256_text, get_git_commit
 from causal_mllm.validation.relations import _file_sha256
 
 log = get_logger(__name__)
@@ -59,28 +59,43 @@ def _backend_model_name(backend: ReplayBackend, config: ReplayConfig) -> str:
     return config.model_name
 
 
-def resolved_fingerprint(backend: ReplayBackend,
-                         config: ReplayConfig) -> str:
-    """One hash identifying what ACTUALLY produced the responses.
-
-    The config fingerprint may contain ``model_revision=None`` (resolve
-    at load time); this fingerprint binds the RESOLVED model revision
-    to the prompt and generation settings, so one value uniquely
-    identifies model revision + prompt + generation settings.
-    """
-    payload = json.dumps({
-        "model": _backend_model_name(backend, config),
-        "model_revision": backend.model_revision(),
-        "prompt_template_revision": config.prompt_template_revision,
-        "system_prompt_sha256": sha256_text(config.system_prompt),
-        "generation_config": config.generation_settings(),
-    }, sort_keys=True, ensure_ascii=False)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
-
 VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
 REPLAY_OUTPUTS_FILE = "replay_outputs.jsonl"
 REPLAY_FAILURES_FILE = "replay_failures.jsonl"
 REPLAY_REPORT_FILE = "replay_report.json"
+
+
+def resolved_fingerprint(backend: ReplayBackend,
+                         config: ReplayConfig,
+                         input_dir: str | Path | None = None) -> str:
+    """One hash identifying what ACTUALLY produced the responses.
+
+    Binds: backend, model + revision, processor revision,
+    enable_thinking, torch_dtype, generation settings, system-prompt
+    hash, validated_families.jsonl SHA256 (when input_dir is given),
+    transformers version, and repository commit.  The config
+    fingerprint may contain ``model_revision=None`` (resolved at load
+    time); this fingerprint uses the RESOLVED values.
+    """
+    validated_families_sha256 = None
+    if input_dir is not None:
+        vf_path = Path(input_dir) / VALIDATED_FAMILIES_FILE
+        if vf_path.exists():
+            validated_families_sha256 = _file_sha256(vf_path)
+    payload = json.dumps({
+        "backend": config.backend,
+        "model": _backend_model_name(backend, config),
+        "model_revision": backend.model_revision(),
+        "processor_revision": backend.processor_revision(),
+        "enable_thinking": config.enable_thinking,
+        "torch_dtype": config.torch_dtype,
+        "generation_config": config.generation_settings(),
+        "system_prompt_sha256": sha256_text(config.system_prompt),
+        "validated_families_sha256": validated_families_sha256,
+        "transformers_version": backend.transformers_version(),
+        "git_commit": get_git_commit(),
+    }, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def default_run_id(config: ReplayConfig) -> str:
@@ -151,6 +166,10 @@ def _base_record(run_id: str, family: CausalFamily, variant: str,
         "source_id": family.source.get("source_id"),
         "variant": variant,
         "model": config.model_name,
+        "requested_model_revision": config.model_revision,
+        "resolved_model_revision": backend.model_revision(),
+        "revision_pinned": config.model_revision is not None,
+        # Legacy alias for backward compatibility
         "model_revision": backend.model_revision(),
         "prompt_template_revision": config.prompt_template_revision,
         "system_prompt_sha256": sha256_text(config.system_prompt),
@@ -247,6 +266,15 @@ def run_replay_stage(
         else:
             raise ReplayError(f"Unknown backend '{config.backend}'")
 
+    # Fail loudly if the requested revision doesn't match what was
+    # actually loaded — provenance integrity.
+    if (config.model_revision is not None
+            and backend.model_revision() != config.model_revision):
+        raise ReplayError(
+            f"revision mismatch: requested "
+            f"{config.model_revision!r} but loaded "
+            f"{backend.model_revision()!r}")
+
     run_id = run_id or default_run_id(config)
     run_dir = Path(output_root) / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -318,12 +346,23 @@ def run_replay_stage(
         "provenance": {
             "backend": config.backend,
             "model": _backend_model_name(backend, config),
+            "requested_model_revision": config.model_revision,
+            "resolved_model_revision": backend.model_revision(),
+            "revision_pinned": config.model_revision is not None,
+            # Legacy alias for backward compatibility
             "model_revision": backend.model_revision(),
+            "processor_revision": backend.processor_revision(),
             "prompt_template_revision": config.prompt_template_revision,
             "system_prompt_sha256": sha256_text(config.system_prompt),
             "generation_config": config.generation_settings(),
+            "enable_thinking": config.enable_thinking,
+            "torch_dtype": config.torch_dtype,
+            "validated_families_sha256": _file_sha256(source_path),
+            "transformers_version": backend.transformers_version(),
+            "git_commit": get_git_commit(),
             "config_sha256": config.fingerprint(),
-            "resolved_sha256": resolved_fingerprint(backend, config),
+            "resolved_sha256": resolved_fingerprint(
+                backend, config, input_dir),
         },
         "token_stats": {
             "total_input_tokens": sum(input_tokens),

@@ -2,10 +2,11 @@
 # Wait for a GPU with enough free memory, then launch the CCMS replay.
 # Usage: launch_replay_when_gpu_free.sh <min_free_gib> <mode> [max_new_tokens]
 #   mode: smoke (5 families) | full (all 20 families)
-set -u
+set -euo pipefail
 MIN_GIB="${1:-24}"
 MODE="${2:-smoke}"
 TOKENS="${3:-256}"
+REVISION="c202236235762e1c871ad0ccb60c8ee5ba337b9a"
 source /scratch/wutiantong/miniconda3/etc/profile.d/conda.sh
 conda activate midp-qwen35
 cd /scratch/wutiantong/CCMS || exit 1
@@ -38,12 +39,14 @@ if [ "$MODE" = "smoke" ]; then
   python -m causal_mllm.cli.replay \
     --input-dir outputs/families/scale_b_smoke \
     --max-families 5 --max-new-tokens "$TOKENS" \
+    --model-revision "$REVISION" \
     --device "cuda:${GPU}" --run-id "$RUN_ID"
 else
   RUN_ID="scale-b-${DATESTAMP}${TOK_TAG}-qwen35-9b"
   python -m causal_mllm.cli.replay \
     --input-dir outputs/families/scale_b_smoke \
     --max-new-tokens "$TOKENS" \
+    --model-revision "$REVISION" \
     --device "cuda:${GPU}" --run-id "$RUN_ID"
 fi
-echo "[done] exit=$? run_id=${RUN_ID}"
+echo "[done] exit=0 run_id=${RUN_ID}"

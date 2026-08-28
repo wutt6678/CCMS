@@ -3,9 +3,10 @@
 # smoke completions). LITERAL run ids: no date-rollover races between
 # the smoke and the full panel. The full panel launches only after a
 # complete, failure-free smoke.
-set -u
+set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
+REVISION="c202236235762e1c871ad0ccb60c8ee5ba337b9a"
 SMOKE_ID="smoke-2026-08-27-t768-qwen35-9b"
 FULL_ID="scale-b-2026-08-27-t768-qwen35-9b"
 source /scratch/wutiantong/miniconda3/etc/profile.d/conda.sh
@@ -38,7 +39,8 @@ echo "[chain] smoke: 5 families x 6 @ 768 on cuda:${GPU}"
 python -m causal_mllm.cli.replay \
   --input-dir outputs/families/scale_b_smoke \
   --max-families 5 --max-new-tokens 768 \
-  --device "cuda:${GPU}" --run-id "$SMOKE_ID" || exit 1
+  --model-revision "$REVISION" \
+  --device "cuda:${GPU}" --run-id "$SMOKE_ID"
 
 SMOKE_DIR="outputs/replay_runs/${SMOKE_ID}"
 if [ "$(wc -l < "$SMOKE_DIR/replay_outputs.jsonl")" -ne 30 ] \
@@ -52,5 +54,6 @@ echo "[chain] full panel: 20 families x 6 @ 768 on cuda:${GPU}"
 python -m causal_mllm.cli.replay \
   --input-dir outputs/families/scale_b_smoke \
   --max-new-tokens 768 \
+  --model-revision "$REVISION" \
   --device "cuda:${GPU}" --run-id "$FULL_ID"
-echo "[chain] done exit=$?"
+echo "[chain] done"

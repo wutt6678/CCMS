@@ -1,0 +1,57 @@
+{
+  "model": "Qwen/Qwen3.5-9B",
+  "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "input_dataset": "outputs/families/scale_b_smoke/validated_families.jsonl",
+  "n_families_full": 20,
+  "n_variants": 6,
+  "escalation_ladder": [
+    {
+      "max_new_tokens": 256,
+      "run_id": "scale-b-2026-08-25-qwen35-9b",
+      "n_responses": 120,
+      "n_truncated": null,
+      "truncation_rate": null,
+      "note": "v0.8.0 primary run; truncation not measured at the time but later estimated heuristically (cross_modal ~85%, text_only ~40% mid-sentence)"
+    },
+    {
+      "max_new_tokens": 512,
+      "run_id": null,
+      "n_responses": 27,
+      "n_truncated": 8,
+      "truncation_rate": 0.296,
+      "note": "smoke only (5 families x 6 variants = 30 attempted, 27 completed, 8 truncated); report not committed"
+    },
+    {
+      "max_new_tokens": 768,
+      "run_id": null,
+      "n_responses": 30,
+      "n_truncated": 4,
+      "truncation_rate": 0.133,
+      "note": "smoke only; report not committed"
+    },
+    {
+      "max_new_tokens": 1024,
+      "run_id": null,
+      "n_responses": 30,
+      "n_truncated": 3,
+      "truncation_rate": 0.1,
+      "note": "smoke only; longest complete output 847 tokens; report not committed"
+    },
+    {
+      "max_new_tokens": 1536,
+      "run_id": "scale-b-2026-08-27-t1536-qwen35-9b",
+      "n_responses": 120,
+      "n_truncated": 0,
+      "truncation_rate": 0.0,
+      "note": "v0.8.1 primary panel; all 120 finish_reason=eos, max output 1209 tokens"
+    }
+  ],
+  "selected_cap": 1536,
+  "selection_rationale": "First cap in the escalation ladder achieving zero truncation across all 120 responses (all finish_reason=eos).",
+  "v0.8.2_repair": {
+    "description": "Provenance repair: all replay commands now pass --model-revision explicitly; requested vs resolved revision checked; expanded resolved_sha256 fingerprint.",
+    "pinned_smoke_run_id": "smoke-2026-08-28-pinned-qwen35-9b",
+    "pinned_full_run_id": "scale-b-2026-08-28-pinned-qwen35-9b",
+    "note": "Pinned smoke reproduces v0.8.1 smoke byte-for-byte (0 divergences, 0 input/output count mismatches). Full panel at same cap with revision explicitly passed."
+  }
+}

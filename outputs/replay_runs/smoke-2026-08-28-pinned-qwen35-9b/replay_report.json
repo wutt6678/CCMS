@@ -1,0 +1,81 @@
+{
+  "iteration": "8",
+  "timestamp": "2026-08-28T11:36:11.997607+00:00",
+  "run_id": "smoke-2026-08-28-pinned-qwen35-9b",
+  "dataset": "scale_b_smoke",
+  "n_families": 5,
+  "expected_attempts": 30,
+  "n_attempted": 30,
+  "n_succeeded": 30,
+  "n_failed": 0,
+  "missing_variants": [],
+  "provenance": {
+    "backend": "hf_local",
+    "model": "Qwen/Qwen3.5-9B",
+    "requested_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "resolved_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "revision_pinned": true,
+    "model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "processor_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "prompt_template_revision": "v1",
+    "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+    "generation_config": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "do_sample": false,
+      "max_new_tokens": 1536,
+      "seed": 42
+    },
+    "enable_thinking": false,
+    "torch_dtype": "bfloat16",
+    "validated_families_sha256": "773594a91f1a06cff66b8296007817a21487dba9414a28d24d1214d7d5526c26",
+    "transformers_version": "5.14.1",
+    "git_commit": "e5f1c8a55075d8f2932df06720689274752475a2",
+    "config_sha256": "63c2c4a4e494c08be2e7127796da1f1e472c73d326760dd48ec5d94602bb8209",
+    "resolved_sha256": "438d73606ddd649528b74ebec4512351dd263e7a959ae2cd015d56d8f1cf11df"
+  },
+  "token_stats": {
+    "total_input_tokens": 46471,
+    "mean_input_tokens": 1549.0333333333333,
+    "total_image_tokens": 42000,
+    "mean_image_tokens": 1400.0,
+    "total_output_tokens": 13788,
+    "mean_output_tokens": 459.6
+  },
+  "truncation": {
+    "n_truncated": 0,
+    "truncation_rate": 0.0,
+    "by_variant": {
+      "neutral": {
+        "n": 5,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      },
+      "text_only": {
+        "n": 5,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      },
+      "vision_only": {
+        "n": 5,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      },
+      "cross_modal": {
+        "n": 5,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      },
+      "shuffle": {
+        "n": 5,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      },
+      "history_reset": {
+        "n": 5,
+        "n_truncated": 0,
+        "truncation_rate": 0.0
+      }
+    }
+  }
+}

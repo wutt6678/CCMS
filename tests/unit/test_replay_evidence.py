@@ -33,6 +33,11 @@ FULL_RUN = REPLAY_ROOT / "scale-b-2026-08-25-qwen35-9b"
 # was generated at 1536 tokens with output diagnostics
 # (finish_reason / hit_max_new_tokens).
 PANEL_RUN = REPLAY_ROOT / "scale-b-2026-08-27-t1536-qwen35-9b"
+# v0.8.2 provenance repair: revision explicitly passed to every
+# replay command. The smoke reproduces v0.8.1 byte-for-byte.
+PINNED_SMOKE_RUN = REPLAY_ROOT / "smoke-2026-08-28-pinned-qwen35-9b"
+PINNED_PANEL_RUN = REPLAY_ROOT / "scale-b-2026-08-28-pinned-qwen35-9b"
+CAP_ESCALATION_SUMMARY = REPLAY_ROOT / "cap_escalation_summary.json"
 
 VARIANTS = ("neutral", "text_only", "vision_only",
             "cross_modal", "shuffle", "history_reset")
@@ -183,3 +188,105 @@ class TestCommittedIteration9Panel:
             assert stats["n"] == 20, variant
             assert stats["n_truncated"] == 0, (variant, stats)
             assert stats["truncation_rate"] == 0.0, variant
+
+
+class TestV082PinnedSmoke:
+    """5-family smoke with --model-revision passed explicitly.
+    Must reproduce the v0.8.1 smoke byte-for-byte (same model
+    weights, same prompt, same greedy decoding)."""
+
+    def test_pinned_smoke_complete(self):
+        assert PINNED_SMOKE_RUN.exists(), \
+            "pinned v0.8.2 smoke run missing"
+        outputs, failures, report = _load(PINNED_SMOKE_RUN)
+        assert report["expected_attempts"] == 30
+        assert report["n_succeeded"] == 30 and report["n_failed"] == 0
+        assert failures == [] and len(outputs) == 30
+
+    def test_pinned_smoke_revision_pinned(self):
+        _, _, report = _load(PINNED_SMOKE_RUN)
+        prov = report["provenance"]
+        assert prov["revision_pinned"] is True
+        assert prov["requested_model_revision"] == \
+            "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+        assert prov["resolved_model_revision"] == \
+            "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+        for record in read_jsonl(PINNED_SMOKE_RUN / "replay_outputs.jsonl"):
+            assert record["requested_model_revision"] == \
+                "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+            assert record["resolved_model_revision"] == \
+                "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+            assert record["revision_pinned"] is True
+
+    def test_pinned_smoke_reproduces_v081_byte_for_byte(self):
+        """Same model weights + same prompt + greedy == same text."""
+        pinned = read_jsonl(PINNED_SMOKE_RUN / "replay_outputs.jsonl")
+        v081 = read_jsonl(
+            REPLAY_ROOT / "smoke-2026-08-27-t1536-qwen35-9b" /
+            "replay_outputs.jsonl")
+        assert len(pinned) == len(v081) == 30
+        for pinned_rec, v081_rec in zip(
+                sorted(pinned, key=lambda r: (r["family_id"], r["variant"])),
+                sorted(v081, key=lambda r: (r["family_id"], r["variant"]))):
+            assert pinned_rec["family_id"] == v081_rec["family_id"]
+            assert pinned_rec["variant"] == v081_rec["variant"]
+            assert pinned_rec["response"] == v081_rec["response"], (
+                f"response diverged for "
+                f"{pinned_rec['family_id']}:{pinned_rec['variant']}")
+            assert pinned_rec["input_token_count"] == \
+                v081_rec["input_token_count"]
+            assert pinned_rec["output_token_count"] == \
+                v081_rec["output_token_count"]
+
+
+class TestV082PinnedPanel:
+    """120-response panel with --model-revision passed explicitly.
+    New run id (does NOT overwrite the v0.8.1 panel)."""
+
+    def test_pinned_panel_complete(self):
+        assert PINNED_PANEL_RUN.exists(), \
+            "pinned v0.8.2 panel run missing"
+        outputs, failures, report = _load(PINNED_PANEL_RUN)
+        assert report["expected_attempts"] == 120
+        assert report["n_succeeded"] == 120 and report["n_failed"] == 0
+        assert failures == [] and len(outputs) == 120
+
+    def test_pinned_panel_revision_pinned_and_zero_truncation(self):
+        outputs, _, report = _load(PINNED_PANEL_RUN)
+        prov = report["provenance"]
+        assert prov["revision_pinned"] is True
+        assert prov["requested_model_revision"] == \
+            "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+        assert prov["resolved_model_revision"] == \
+            "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+        assert prov["validated_families_sha256"]
+        assert prov["transformers_version"]
+        assert prov["git_commit"]
+        assert prov["resolved_sha256"]
+        # Expanded fingerprint fields
+        assert prov["processor_revision"]
+        assert prov["enable_thinking"] is False
+        assert prov["torch_dtype"] == "bfloat16"
+        assert report["truncation"]["n_truncated"] == 0
+        for record in outputs:
+            assert record["revision_pinned"] is True
+            assert record["finish_reason"] in {"eos", "stop"}
+            assert record["hit_max_new_tokens"] is False
+
+
+class TestCapEscalationSummary:
+    """Machine-readable cap escalation summary."""
+
+    def test_summary_exists_and_valid(self):
+        assert CAP_ESCALATION_SUMMARY.exists(), \
+            "cap escalation summary missing"
+        summary = json.loads(CAP_ESCALATION_SUMMARY.read_text(
+            encoding="utf-8"))
+        assert summary["selected_cap"] == 1536
+        ladder = summary["escalation_ladder"]
+        assert len(ladder) >= 4
+        # Final step must show zero truncation
+        final = ladder[-1]
+        assert final["max_new_tokens"] == 1536
+        assert final["n_truncated"] == 0
+        assert final["truncation_rate"] == 0.0

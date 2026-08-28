@@ -223,10 +223,19 @@ class TestReplayStage:
         prov = report["provenance"]
         assert prov["model"] == "stub-model"
         assert prov["model_revision"] == "stub-rev"
+        assert prov["requested_model_revision"] is None
+        assert prov["resolved_model_revision"] == "stub-rev"
+        assert prov["revision_pinned"] is False
+        assert prov["processor_revision"] == "stub-rev"
         assert prov["prompt_template_revision"] == "v1"
         assert prov["system_prompt_sha256"]
         assert prov["config_sha256"]
         assert prov["generation_config"]["temperature"] == 0.0
+        assert prov["enable_thinking"] is False
+        assert prov["torch_dtype"] == "bfloat16"
+        assert prov["validated_families_sha256"]
+        assert prov["resolved_sha256"]
+        assert prov["git_commit"]  # running inside git repo
 
 
 class TestOutputDiagnostics:
@@ -322,11 +331,11 @@ class TestReproducibilityPinning:
         prov = report["provenance"]
         assert prov["resolved_sha256"]
         assert prov["resolved_sha256"] == resolved_fingerprint(
-            backend, ReplayConfig())
+            backend, ReplayConfig(), tmp_path)
         # A different resolved revision changes the fingerprint while
         # the requested-config fingerprint stays put.
         backend_b = CallableBackend(lambda c: "ok", model_revision="rev-B")
-        assert resolved_fingerprint(backend_b, ReplayConfig()) \
+        assert resolved_fingerprint(backend_b, ReplayConfig(), tmp_path) \
             != prov["resolved_sha256"]
         assert backend_b.model_revision() != backend.model_revision()
 
@@ -345,3 +354,40 @@ class TestReproducibilityPinning:
             backend=CallableBackend(fn), run_id="tok")
         assert report["token_stats"]["total_output_tokens"] == 42 * 6
         assert report["token_stats"]["mean_output_tokens"] == 42
+
+    def test_revision_pinned_records_requested_and_resolved(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+        _write_validated(tmp_path, family)
+        config = ReplayConfig(model_revision="abc123")
+        backend = CallableBackend(
+            lambda c: "ok", model_revision="abc123",
+            model_name="stub-model")
+        report = run_replay_stage(
+            tmp_path, tmp_path / "runs", config=config,
+            backend=backend, run_id="pinned")
+        prov = report["provenance"]
+        assert prov["requested_model_revision"] == "abc123"
+        assert prov["resolved_model_revision"] == "abc123"
+        assert prov["revision_pinned"] is True
+        outputs = read_jsonl(
+            tmp_path / "runs" / "pinned" / "replay_outputs.jsonl")
+        for record in outputs:
+            assert record["requested_model_revision"] == "abc123"
+            assert record["resolved_model_revision"] == "abc123"
+            assert record["revision_pinned"] is True
+            assert record["model_revision"] == "abc123"
+
+    def test_revision_mismatch_fails_run(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+        _write_validated(tmp_path, family)
+        config = ReplayConfig(model_revision="requested-sha")
+        # Backend resolves to a DIFFERENT revision
+        backend = CallableBackend(
+            lambda c: "ok", model_revision="different-sha",
+            model_name="stub-model")
+        with pytest.raises(ReplayError, match="revision mismatch"):
+            run_replay_stage(
+                tmp_path, tmp_path / "runs", config=config,
+                backend=backend, run_id="mismatch")

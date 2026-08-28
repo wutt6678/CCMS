@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Iteration-9 panel chain: 512-token smoke (5 families), then — only
 # if the smoke succeeded — the full 20-family panel at the same cap.
-set -u
+set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
+
+REVISION="c202236235762e1c871ad0ccb60c8ee5ba337b9a"
 bash scripts/launch_replay_when_gpu_free.sh 24 smoke 512 || exit 1
 
 # Gate the full panel on a COMPLETE smoke: 5 families x 6 variants,

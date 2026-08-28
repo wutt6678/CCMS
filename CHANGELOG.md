@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.2] — 2026-08-28
+
+### Fixed — provenance closure: revision pinning + expanded fingerprint
+
+The v0.8.1 replay scripts never passed `--model-revision`, so the
+committed primary run's revision was discovered AFTER loading rather
+than supplied to `from_pretrained`. The code supported pinning, but
+the committed primary run was not demonstrably pinned.
+
+- Every replay command now passes `--model-revision
+  c202236235762e1c871ad0ccb60c8ee5ba337b9a` (chain scripts, launch
+  wrapper).
+- Records carry explicit provenance fields:
+  `requested_model_revision`, `resolved_model_revision`,
+  `revision_pinned`. The run FAILS if the requested and resolved
+  revisions differ.
+- `resolved_sha256` expanded to bind: backend, model/revision,
+  processor revision, enable_thinking, torch_dtype, generation
+  settings, system-prompt hash, validated_families.jsonl SHA256,
+  transformers version, repository commit.
+- Chain scripts use `set -euo pipefail`; the final full-run command
+  can no longer fail silently before the succeeding echo.
+- Machine-readable cap-escalation summary
+  (`outputs/replay_runs/cap_escalation_summary.json`): the 512/768/
+  1024 measurements previously appeared only in documentation.
+- Pinned v0.8.2 runs (revision explicitly passed): 5-family smoke
+  `smoke-2026-08-28-pinned-qwen35-9b` + 120-response panel
+  `scale-b-2026-08-28-pinned-qwen35-9b`. The smoke reproduces the
+  v0.8.1 smoke byte-for-byte (same model weights, same prompt, same
+  greedy decoding).
+
 ## [0.8.1] — 2026-08-26
 
 ### Fixed — P0: output truncation is now measured, and the Iteration-9
