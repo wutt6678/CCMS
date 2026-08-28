@@ -52,6 +52,16 @@
     "description": "Provenance repair: all replay commands now pass --model-revision explicitly; requested vs resolved revision checked; expanded resolved_sha256 fingerprint.",
     "pinned_smoke_run_id": "smoke-2026-08-28-pinned-qwen35-9b",
     "pinned_full_run_id": "scale-b-2026-08-28-pinned-qwen35-9b",
-    "note": "Pinned smoke reproduces v0.8.1 smoke byte-for-byte (0 divergences, 0 input/output count mismatches). Full panel at same cap with revision explicitly passed."
+    "note": "Pinned smoke reproduces v0.8.1 smoke byte-for-byte (0 divergences, 0 input/output count mismatches). Full panel at same cap with revision explicitly passed. NOTE: git_commit recorded the base commit (e5f1c8a), not the actual code tree."
+  },
+  "v0.8.3_final": {
+    "description": "Clean-tree rerun: git_commit now identifies the EXACT code tree (git_dirty=False). resolved_sha256 restored prompt_template_revision and added torch/CUDA versions. Processor revision set directly from requested revision when pinned. Runner refuses to overwrite existing evidence.",
+    "final_smoke_run_id": "smoke-2026-08-28-t1536-final-qwen35-9b",
+    "final_panel_run_id": "scale-b-2026-08-28-t1536-final-qwen35-9b",
+    "git_commit": "e3b8db0e738c8c401a7e44f9f50a54baf2f41711",
+    "git_dirty": false,
+    "torch_version": "2.8.0+cu128",
+    "cuda_version": "12.8",
+    "note": "120/120 outputs match v0.8.1 panel byte-for-byte (0 divergences). All finish_reason=eos, zero truncation."
   }
 }
