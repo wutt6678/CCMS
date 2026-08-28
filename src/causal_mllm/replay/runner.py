@@ -45,7 +45,7 @@ from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.replay.backend import HFLocalBackend, ReplayBackend
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.errors import ReplayError, ReplayMediaError, classify_error
-from causal_mllm.seeds import sha256_text, get_git_commit
+from causal_mllm.seeds import get_git_commit, sha256_text
 from causal_mllm.validation.relations import _file_sha256
 
 log = get_logger(__name__)

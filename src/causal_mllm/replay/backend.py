@@ -156,7 +156,6 @@ class HFLocalBackend:
 
     def _resolve_revision_from_model(self) -> str:
         """Fallback: extract revision from the loaded model path."""
-        import os
         name_or_path = getattr(self.model.config, "_name_or_path", "")
         model_path = Path(getattr(self.model, "name_or_path", "")
                           or name_or_path)
