@@ -2,13 +2,14 @@
 # Iteration-9 panel at max_new_tokens=1536 (1024 still truncated 3/30
 # smoke completions). LITERAL run ids: no date-rollover races between
 # the smoke and the full panel. The full panel launches only after a
-# complete, failure-free smoke.
+# complete, failure-free smoke. The runner refuses to overwrite
+# existing evidence by default; use new run ids for each fresh run.
 set -euo pipefail
 cd "$(dirname "$0")/.." || exit 1
 
 REVISION="c202236235762e1c871ad0ccb60c8ee5ba337b9a"
-SMOKE_ID="smoke-2026-08-27-t1536-qwen35-9b"
-FULL_ID="scale-b-2026-08-27-t1536-qwen35-9b"
+SMOKE_ID="smoke-2026-08-28-t1536-final-qwen35-9b"
+FULL_ID="scale-b-2026-08-28-t1536-final-qwen35-9b"
 source /scratch/wutiantong/miniconda3/etc/profile.d/conda.sh
 conda activate midp-qwen35
 

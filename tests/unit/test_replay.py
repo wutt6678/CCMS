@@ -236,6 +236,10 @@ class TestReplayStage:
         assert prov["validated_families_sha256"]
         assert prov["resolved_sha256"]
         assert prov["git_commit"]  # running inside git repo
+        assert prov["git_dirty"] is not None  # inside git, may be dirty
+        # Stub backend returns None for torch/CUDA (no real load)
+        assert "torch_version" in prov
+        assert "cuda_version" in prov
 
 
 class TestOutputDiagnostics:
@@ -391,3 +395,36 @@ class TestReproducibilityPinning:
             run_replay_stage(
                 tmp_path, tmp_path / "runs", config=config,
                 backend=backend, run_id="mismatch")
+
+
+class TestOverwriteGuard:
+    """The runner must refuse to overwrite existing evidence unless
+    overwrite=True is explicitly passed."""
+
+    def test_existing_evidence_blocked_without_overwrite(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+        _write_validated(tmp_path, family)
+        backend = CallableBackend(lambda c: "ok", model_revision="r")
+        # First run succeeds
+        run_replay_stage(
+            tmp_path, tmp_path / "runs", backend=backend,
+            run_id="guarded")
+        # Second run without overwrite must fail
+        with pytest.raises(ReplayError, match="already contains evidence"):
+            run_replay_stage(
+                tmp_path, tmp_path / "runs", backend=backend,
+                run_id="guarded")
+
+    def test_overwrite_flag_allows_rerun(self, tmp_path):
+        family = _built_family(tmp_path, CLEAN_Q, fill_grounding=True)
+        family.family_id = "fam000"
+        _write_validated(tmp_path, family)
+        backend = CallableBackend(lambda c: "ok", model_revision="r")
+        run_replay_stage(
+            tmp_path, tmp_path / "runs", backend=backend,
+            run_id="rerun")
+        # With overwrite=True, the rerun succeeds
+        run_replay_stage(
+            tmp_path, tmp_path / "runs", backend=backend,
+            run_id="rerun", overwrite=True)

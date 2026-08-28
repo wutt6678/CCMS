@@ -93,3 +93,26 @@ def get_git_commit() -> Optional[str]:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     return None
+
+
+def is_git_dirty() -> Optional[bool]:
+    """Return True if the git working tree has uncommitted changes to
+    tracked files.  Untracked files (e.g. newly created replay output
+    directories) are NOT counted — they are normal side effects of
+    running the pipeline and become evidence once committed.
+
+    Returns None if not inside a git repo (provenance unknown).
+    """
+    import subprocess
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain", "--untracked-files=no"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            return bool(result.stdout.strip())
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        pass
+    return None

@@ -45,7 +45,7 @@ from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.replay.backend import HFLocalBackend, ReplayBackend
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.errors import ReplayError, ReplayMediaError, classify_error
-from causal_mllm.seeds import get_git_commit, sha256_text
+from causal_mllm.seeds import get_git_commit, is_git_dirty, sha256_text
 from causal_mllm.validation.relations import _file_sha256
 
 log = get_logger(__name__)
@@ -71,11 +71,12 @@ def resolved_fingerprint(backend: ReplayBackend,
     """One hash identifying what ACTUALLY produced the responses.
 
     Binds: backend, model + revision, processor revision,
-    enable_thinking, torch_dtype, generation settings, system-prompt
-    hash, validated_families.jsonl SHA256 (when input_dir is given),
-    transformers version, and repository commit.  The config
-    fingerprint may contain ``model_revision=None`` (resolved at load
-    time); this fingerprint uses the RESOLVED values.
+    enable_thinking, torch_dtype, generation settings, prompt template
+    revision, system-prompt hash, validated_families.jsonl SHA256
+    (when input_dir is given), transformers version, torch version,
+    CUDA version, and repository commit.  The config fingerprint may
+    contain ``model_revision=None`` (resolved at load time); this
+    fingerprint uses the RESOLVED values.
     """
     validated_families_sha256 = None
     if input_dir is not None:
@@ -90,9 +91,12 @@ def resolved_fingerprint(backend: ReplayBackend,
         "enable_thinking": config.enable_thinking,
         "torch_dtype": config.torch_dtype,
         "generation_config": config.generation_settings(),
+        "prompt_template_revision": config.prompt_template_revision,
         "system_prompt_sha256": sha256_text(config.system_prompt),
         "validated_families_sha256": validated_families_sha256,
         "transformers_version": backend.transformers_version(),
+        "torch_version": backend.torch_version(),
+        "cuda_version": backend.cuda_version(),
         "git_commit": get_git_commit(),
     }, sort_keys=True, ensure_ascii=False)
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
@@ -232,6 +236,7 @@ def run_replay_stage(
     backend: ReplayBackend | None = None,
     max_families: int | None = None,
     run_id: str | None = None,
+    overwrite: bool = False,
 ) -> dict:
     """Replay validated families; persist outputs/failures/report.
 
@@ -242,10 +247,14 @@ def run_replay_stage(
         backend: Injectable backend; defaults per config.backend.
         max_families: Optional limit (smoke runs).
         run_id: Override the generated run id.
+        overwrite: If False (default), fail when the run directory
+            already contains evidence files.  This prevents accidental
+            overwriting of retained evidence.
 
     Raises:
-        ReplayError: On missing validated_families.jsonl or missing
-            (family, variant) coverage.
+        ReplayError: On missing validated_families.jsonl, missing
+            (family, variant) coverage, or an existing run directory
+            when overwrite is False.
     """
     config = config or ReplayConfig()
     input_dir = Path(input_dir)
@@ -277,6 +286,18 @@ def run_replay_stage(
 
     run_id = run_id or default_run_id(config)
     run_dir = Path(output_root) / run_id
+    # Evidence-protection guard: refuse to overwrite existing evidence
+    # unless the caller explicitly opts in.
+    if run_dir.exists() and not overwrite:
+        evidence_files = [REPLAY_OUTPUTS_FILE, REPLAY_FAILURES_FILE,
+                         REPLAY_REPORT_FILE]
+        existing = [f for f in evidence_files
+                    if (run_dir / f).exists()]
+        if existing:
+            raise ReplayError(
+                f"run directory {run_dir} already contains evidence "
+                f"{existing}; pass overwrite=True or use a new run_id "
+                f"to avoid overwriting retained evidence")
     run_dir.mkdir(parents=True, exist_ok=True)
 
     outputs: list[dict] = []
@@ -359,7 +380,10 @@ def run_replay_stage(
             "torch_dtype": config.torch_dtype,
             "validated_families_sha256": _file_sha256(source_path),
             "transformers_version": backend.transformers_version(),
+            "torch_version": backend.torch_version(),
+            "cuda_version": backend.cuda_version(),
             "git_commit": get_git_commit(),
+            "git_dirty": is_git_dirty(),
             "config_sha256": config.fingerprint(),
             "resolved_sha256": resolved_fingerprint(
                 backend, config, input_dir),

@@ -29,6 +29,12 @@ class ReplayBackend(Protocol):
     def transformers_version(self) -> str | None:
         """transformers library version used at load time."""
 
+    def torch_version(self) -> str | None:
+        """PyTorch version used at load time."""
+
+    def cuda_version(self) -> str | None:
+        """CUDA runtime version (None if CPU-only)."""
+
 
 class CallableBackend:
     """Backend from a plain function (tests, dry runs)."""
@@ -60,6 +66,12 @@ class CallableBackend:
     def transformers_version(self) -> str | None:
         return None
 
+    def torch_version(self) -> str | None:
+        return None
+
+    def cuda_version(self) -> str | None:
+        return None
+
     def model_name(self) -> str:
         return self._model_name
 
@@ -87,6 +99,8 @@ class HFLocalBackend:
         self.processor = None
         self._revision = config.model_revision
         self._transformers_version: str | None = None
+        self._torch_version: str | None = None
+        self._cuda_version: str | None = None
         self._processor_revision: str | None = None
 
     def _pretrained_kwargs(self) -> dict:
@@ -106,10 +120,19 @@ class HFLocalBackend:
         )
 
         self._transformers_version = transformers.__version__
+        self._torch_version = torch.__version__
+        self._cuda_version = (torch.version.cuda
+                              if torch.cuda.is_available() else None)
         kwargs = self._pretrained_kwargs()
         self.processor = AutoProcessor.from_pretrained(
             self.config.model_name, **kwargs)
-        self._processor_revision = self._resolve_revision_from_cache()
+        # When the revision is explicitly pinned, use it directly for
+        # the processor revision too — reading the first cached ref
+        # could report a later main revision if the cache changes.
+        if self.config.model_revision is not None:
+            self._processor_revision = self.config.model_revision
+        else:
+            self._processor_revision = self._resolve_revision_from_cache()
         self.model = AutoModelForImageTextToText.from_pretrained(
             self.config.model_name,
             torch_dtype=getattr(torch, self.config.torch_dtype),
@@ -172,6 +195,12 @@ class HFLocalBackend:
 
     def transformers_version(self) -> str | None:
         return self._transformers_version
+
+    def torch_version(self) -> str | None:
+        return self._torch_version
+
+    def cuda_version(self) -> str | None:
+        return self._cuda_version
 
     def _eos_token_ids(self) -> set:
         """All EOS ids of the loaded stack, defensively collected.

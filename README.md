@@ -265,11 +265,14 @@ separate from the dataset artifacts. Hard gates:
 
 Iteration 8 produces raw responses ONLY: judging and the causal
 estimands (ΔT, ΔV, ΔTV, reset/order effects) are Iteration 9. The
-Iteration-9 primary panel is the 1536-token re-run
-(`scale-b-2026-08-27-t1536-qwen35-9b`, ~zero truncation; measured
-smoke truncation at lower caps: 512→8/27, 768→4/30, 1024→3/30); the
-256-token v0.8.0 runs are retained as evidence of the truncation bias
-(cross_modal 85% vs text_only 40% mid-sentence at the 256 cap).
+Iteration-9 primary panel is the clean-tree pinned re-run
+(`scale-b-2026-08-28-t1536-final-qwen35-9b`; revision explicitly
+pinned, `git_dirty=false`, `resolved_sha256` binds model + processor
+revision + prompt template + torch/CUDA versions + validated families
+hash + repository commit; ~zero truncation; measured smoke truncation
+at lower caps: 512→8/27, 768→4/30, 1024→3/30); the 256-token v0.8.0
+runs are retained as evidence of the truncation bias (cross_modal 85%
+vs text_only 40% mid-sentence at the 256 cap).
 
 ### Run Inference
 

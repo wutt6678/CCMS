@@ -38,6 +38,11 @@ PANEL_RUN = REPLAY_ROOT / "scale-b-2026-08-27-t1536-qwen35-9b"
 PINNED_SMOKE_RUN = REPLAY_ROOT / "smoke-2026-08-28-pinned-qwen35-9b"
 PINNED_PANEL_RUN = REPLAY_ROOT / "scale-b-2026-08-28-pinned-qwen35-9b"
 CAP_ESCALATION_SUMMARY = REPLAY_ROOT / "cap_escalation_summary.json"
+# v0.8.3 clean-tree rerun: git_commit matches the actual code tree
+# (not the base commit), git_dirty=False, expanded fingerprint
+# includes prompt_template_revision + torch/CUDA versions.
+FINAL_SMOKE_RUN = REPLAY_ROOT / "smoke-2026-08-28-t1536-final-qwen35-9b"
+FINAL_PANEL_RUN = REPLAY_ROOT / "scale-b-2026-08-28-t1536-final-qwen35-9b"
 
 VARIANTS = ("neutral", "text_only", "vision_only",
             "cross_modal", "shuffle", "history_reset")
@@ -273,6 +278,27 @@ class TestV082PinnedPanel:
             assert record["finish_reason"] in {"eos", "stop"}
             assert record["hit_max_new_tokens"] is False
 
+    def test_all_120_pinned_outputs_match_v081_panel(self):
+        """All 120 pinned panel outputs must match the v0.8.1 panel
+        byte-for-byte (same weights, same prompt, greedy decoding).
+        This is the full-panel analogue of the 30-response smoke
+        byte-for-byte check."""
+        pinned = read_jsonl(PINNED_PANEL_RUN / "replay_outputs.jsonl")
+        v081 = read_jsonl(PANEL_RUN / "replay_outputs.jsonl")
+        assert len(pinned) == len(v081) == 120
+        pinned_sorted = sorted(
+            pinned, key=lambda r: (r["family_id"], r["variant"]))
+        v081_sorted = sorted(
+            v081, key=lambda r: (r["family_id"], r["variant"]))
+        divergences = 0
+        for pinned_rec, v081_rec in zip(pinned_sorted, v081_sorted):
+            assert pinned_rec["family_id"] == v081_rec["family_id"]
+            assert pinned_rec["variant"] == v081_rec["variant"]
+            if pinned_rec["response"] != v081_rec["response"]:
+                divergences += 1
+        assert divergences == 0, \
+            f"{divergences} response(s) differ between pinned and v0.8.1"
+
 
 class TestCapEscalationSummary:
     """Machine-readable cap escalation summary."""
@@ -290,3 +316,56 @@ class TestCapEscalationSummary:
         assert final["max_new_tokens"] == 1536
         assert final["n_truncated"] == 0
         assert final["truncation_rate"] == 0.0
+
+
+class TestV083FinalCleanTreePanel:
+    """120-response panel from a CLEAN git tree. The git_commit field
+    now identifies the EXACT code tree that executed (not a base
+    commit from an uncommitted working tree). git_dirty=False."""
+
+    def test_final_panel_exists_and_complete(self):
+        assert FINAL_PANEL_RUN.exists(), \
+            "final clean-tree panel missing — run the t1536 chain script"
+        outputs, failures, report = _load(FINAL_PANEL_RUN)
+        assert report["expected_attempts"] == 120
+        assert report["n_succeeded"] == 120 and report["n_failed"] == 0
+        assert failures == [] and len(outputs) == 120
+
+    def test_final_panel_clean_tree_provenance(self):
+        """git_dirty=False and git_commit identifies the actual code."""
+        _, _, report = _load(FINAL_PANEL_RUN)
+        prov = report["provenance"]
+        assert prov["revision_pinned"] is True
+        assert prov["requested_model_revision"] == \
+            "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+        assert prov["resolved_model_revision"] == \
+            "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+        assert prov["git_dirty"] is False, \
+            "final panel must come from a clean tree"
+        assert prov["git_commit"]
+        # Expanded fingerprint includes prompt_template_revision +
+        # torch/CUDA versions
+        assert prov["prompt_template_revision"] == "v1"
+        assert prov["torch_version"]
+        assert prov["cuda_version"]
+        assert prov["resolved_sha256"]
+
+    def test_final_panel_zero_truncation(self):
+        _, _, report = _load(FINAL_PANEL_RUN)
+        assert report["truncation"]["n_truncated"] == 0
+
+    def test_final_panel_outputs_match_v081(self):
+        """Same model, same prompt, greedy == same text."""
+        final = read_jsonl(FINAL_PANEL_RUN / "replay_outputs.jsonl")
+        v081 = read_jsonl(PANEL_RUN / "replay_outputs.jsonl")
+        assert len(final) == len(v081) == 120
+        final_sorted = sorted(
+            final, key=lambda r: (r["family_id"], r["variant"]))
+        v081_sorted = sorted(
+            v081, key=lambda r: (r["family_id"], r["variant"]))
+        for f_rec, v_rec in zip(final_sorted, v081_sorted):
+            assert f_rec["family_id"] == v_rec["family_id"]
+            assert f_rec["variant"] == v_rec["variant"]
+            assert f_rec["response"] == v_rec["response"], (
+                f"response diverged for "
+                f"{f_rec['family_id']}:{f_rec['variant']}")

@@ -34,6 +34,8 @@ def main() -> None:
                         default=ReplayConfig.max_new_tokens)
     parser.add_argument("--device", default=ReplayConfig.device)
     parser.add_argument("--run-id", default=None)
+    parser.add_argument("--overwrite", action="store_true", default=False,
+                        help="Allow overwriting an existing run directory")
     args = parser.parse_args()
 
     config = ReplayConfig(model_name=args.model_name,
@@ -42,7 +44,8 @@ def main() -> None:
                           device=args.device)
     report = run_replay_stage(
         args.input_dir, args.output_root, config=config,
-        max_families=args.max_families, run_id=args.run_id)
+        max_families=args.max_families, run_id=args.run_id,
+        overwrite=args.overwrite)
     print(f"run_id: {report['run_id']}")
     print(f"attempted: {report['n_attempted']}/{report['expected_attempts']}"
           f" succeeded: {report['n_succeeded']} failed: {report['n_failed']}")

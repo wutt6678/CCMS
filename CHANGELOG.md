@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.3] — 2026-08-28
+
+### Fixed — clean-tree provenance, fingerprint restoration, evidence
+protection
+
+The v0.8.2 pinned reports recorded `git_commit = e5f1c8a...` (the
+base commit), but the pinning implementation was committed afterward
+in 1119a30/6c06174. The runs were produced from an uncommitted
+working tree, so the field identified the base commit, not the exact
+code tree that executed.
+
+- Runner now records `git_dirty` flag (True/False/None) alongside
+  `git_commit`. The final clean-tree rerun produces `git_dirty=False`,
+  proving the code tree matches the commit.
+- `resolved_sha256` restored `prompt_template_revision` (accidentally
+  dropped during the v0.8.2 expansion) and added `torch_version` and
+  `cuda_version` for stronger reproducibility.
+- Processor revision resolution fixed: when the model revision is
+  explicitly pinned, `processor_revision` is set directly from the
+  requested revision rather than reading the first cached ref (which
+  could report a later main revision if the cache changes).
+- Runner refuses to overwrite existing evidence: `run_replay_stage`
+  fails if the run directory already contains evidence files unless
+  `overwrite=True` is explicitly passed. CLI exposes `--overwrite`.
+- Chain script `run_t1536_smoke_then_full.sh` updated to use new
+  run IDs (`smoke-2026-08-28-t1536-final-qwen35-9b`,
+  `scale-b-2026-08-28-t1536-final-qwen35-9b`) — the old v0.8.1 IDs
+  would collide with retained evidence.
+- README updated: Iteration-9 primary panel now points to the final
+  clean-tree rerun.
+- Committed test asserts all 120 pinned outputs match v0.8.1
+  byte-for-byte (not only the 30-response smoke).
+
 ## [0.8.2] — 2026-08-28
 
 ### Fixed — provenance closure: revision pinning + expanded fingerprint
