@@ -28,6 +28,8 @@ from causal_mllm.evaluation.gate import (
 from causal_mllm.evaluation.refusal_detector import RuleBasedRefusalDetector
 from causal_mllm.evaluation.schema import validate_judgment
 from causal_mllm.evaluation.sensitivity import threshold_sweep
+from causal_mllm.replay.config import DEFAULT_SYSTEM_PROMPT
+from causal_mllm.seeds import sha256_text
 from causal_mllm.validation.stage import strict_causal_decision
 
 # ---------------------------------------------------------------------------
@@ -41,11 +43,14 @@ def _make_replay_run(tmp_path, n_families=20, n_variants=6,
     run_dir = tmp_path / "test_run"
     run_dir.mkdir()
 
+    sys_prompt_sha = sha256_text(DEFAULT_SYSTEM_PROMPT)
+
     variants = list(ALL_VARIANT_NAMES)[:n_variants]
     records = []
     for fam_idx in range(n_families):
         family_id = f"CMST_{fam_idx:06d}"
         for variant in variants:
+            terminal_q = f"Terminal query for {family_id}/{variant}"
             rec = {
                 "run_id": "test_run",
                 "family_id": family_id,
@@ -58,6 +63,8 @@ def _make_replay_run(tmp_path, n_families=20, n_variants=6,
                 "hit_max_new_tokens": truncation,
                 "response": f"Response for {family_id}/{variant}",
                 "output_token_count": 100,
+                "system_prompt_sha256": sys_prompt_sha,
+                "terminal_sha256": sha256_text(terminal_q),
             }
             records.append(rec)
 
@@ -72,6 +79,15 @@ def _make_replay_run(tmp_path, n_families=20, n_variants=6,
         for rec in failures:
             f.write(json.dumps(rec) + "\n")
 
+    # Create a minimal validated_families.jsonl for context reconstruction
+    families_path = tmp_path / "validated_families.jsonl"
+    _write_minimal_families(families_path, n_families, variants)
+
+    # Compute its SHA for provenance
+    import hashlib
+    families_sha = hashlib.sha256(
+        families_path.read_bytes()).hexdigest()
+
     # Write report
     report = {
         "run_id": "test_run",
@@ -81,12 +97,59 @@ def _make_replay_run(tmp_path, n_families=20, n_variants=6,
             "git_dirty": False,
             "requested_model_revision": "abc123",
             "resolved_model_revision": "abc123",
+            "system_prompt_sha256": sys_prompt_sha,
+            "validated_families_sha256": families_sha,
         },
     }
     with (run_dir / "replay_report.json").open("w") as f:
         json.dump(report, f)
 
     return run_dir
+
+
+def _write_minimal_families(path, n_families, variants):
+    """Write minimal CausalFamily records for testing."""
+    with path.open("w") as f:
+        for fam_idx in range(n_families):
+            family_id = f"CMST_{fam_idx:06d}"
+            family_variants = {}
+            for variant in variants:
+                terminal_q = f"Terminal query for {family_id}/{variant}"
+                # Build messages: history + terminal
+                messages = [
+                    {"role": "user", "text": f"History msg for {family_id}",
+                     "images": [], "turn_index": 0},
+                    {"role": "user", "text": terminal_q,
+                     "images": [], "turn_index": 1},
+                ]
+                family_variants[variant] = {
+                    "name": variant,
+                    "messages": messages,
+                    "provenance": {
+                        "backend": "test",
+                        "model": "test",
+                        "model_revision": "abc123",
+                        "prompt_template_revision": "v1",
+                        "generation_config": {},
+                    },
+                }
+            family = {
+                "family_id": family_id,
+                "source": {"dataset": "test", "source_id": f"src:{fam_idx}"},
+                "category": "test",
+                "setting": "test",
+                "terminal_query": {
+                    "text": f"Terminal query for {family_id}",
+                    "sha256": sha256_text(
+                        f"Terminal query for {family_id}"),
+                    "invariant_required": True,
+                },
+                "semantic_atoms": [],
+                "ground_truth": {},
+                "variants": family_variants,
+                "validation": {"status": "passed"},
+            }
+            f.write(json.dumps(family) + "\n")
 
 
 def _make_judged_records(n_families=20, score_fn=None):

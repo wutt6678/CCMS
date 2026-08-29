@@ -11,11 +11,14 @@ from pathlib import Path
 
 import pytest
 
+from causal_mllm.data.io import read_jsonl
+from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.evaluation.human_template import (
     _build_anonymization_map,
     generate_labeling_workbook,
 )
 from causal_mllm.evaluation.refusal_detector import RuleBasedRefusalDetector
+from causal_mllm.seeds import sha256_text
 
 # The final clean-tree panel run directory
 FINAL_PANEL_RUN = (
@@ -23,6 +26,22 @@ FINAL_PANEL_RUN = (
     / "outputs" / "replay_runs"
     / "scale-b-2026-08-28-t1536-final-qwen35-9b"
 )
+
+# The validated families dataset
+VALIDATED_FAMILIES_PATH = (
+    Path(__file__).resolve().parent.parent.parent
+    / "outputs" / "families" / "scale_b_smoke"
+    / "validated_families.jsonl"
+)
+
+
+def _load_families() -> dict[str, CausalFamily]:
+    """Load validated families for workbook generation tests."""
+    families = {}
+    for rec in read_jsonl(VALIDATED_FAMILIES_PATH):
+        fam = CausalFamily.from_dict(rec)
+        families[fam.family_id] = fam
+    return families
 
 
 # ---------------------------------------------------------------------------
@@ -88,6 +107,9 @@ class TestWorkbookGeneration:
     def _skip_if_no_panel(self):
         if not FINAL_PANEL_RUN.exists():
             pytest.skip(f"final panel not found: {FINAL_PANEL_RUN}")
+        if not VALIDATED_FAMILIES_PATH.exists():
+            pytest.skip(
+                f"validated families not found: {VALIDATED_FAMILIES_PATH}")
 
     def test_workbook_anonymization_deterministic(self, tmp_path):
         """The anonymization map must be deterministic given the seed."""
@@ -101,36 +123,60 @@ class TestWorkbookGeneration:
 
     def test_workbook_generation_complete(self, tmp_path):
         """Generate a workbook from the final panel and verify structure."""
+        families = _load_families()
         output_path = tmp_path / "workbook.json"
         workbook, manifest = generate_labeling_workbook(
-            FINAL_PANEL_RUN, output_path, seed=42)
+            FINAL_PANEL_RUN, output_path,
+            validated_families=families, seed=42)
 
         # Workbook should have 120 entries
         assert workbook["n_entries"] == 120
-        assert workbook["version"] == "2.0"
+        assert workbook["version"] == "3.0"
 
         # Workbook must NOT contain variant mapping (sealed in manifest)
         assert "anon_key" not in workbook
         assert "reverse_key" not in workbook
         assert "item_mapping" not in workbook
 
-        # Manifest should contain the decoding key
+        # Manifest should contain the decoding key and response hashes
         assert "anon_key" in manifest
         assert "reverse_key" in manifest
         assert "item_mapping" in manifest
+        assert "expected_response_sha256" in manifest
 
         # All 6 variants should be anonymized to A-F
         labels = set(manifest["anon_key"].values())
         assert labels == {"A", "B", "C", "D", "E", "F"}
 
-        # Each entry should have opaque item_id and required fields
+        # Each entry should have opaque item_id and full context
+        item_ids = set()
         for entry in workbook["entries"]:
             assert "item_id" in entry
+            # Opaque: must not contain family_id or variant letter
+            assert not entry["item_id"].startswith("CMST_")
             assert "response" in entry
             assert "response_sha256" in entry
+            assert "system_prompt" in entry
+            assert "conversation_history" in entry
+            assert "terminal_query" in entry
+            assert "images" in entry
+
+            # Verify response SHA256 matches actual response
+            actual_sha = sha256_text(entry["response"])
+            assert entry["response_sha256"] == actual_sha
+
+            # Verify manifest has matching expected hash
+            assert manifest["expected_response_sha256"][
+                entry["item_id"]] == actual_sha
+
             # Annotator fields should be None (unfilled)
             assert entry["refusal_type"] is None
             assert entry["unsafe_compliance_score"] is None
+
+            item_ids.add(entry["item_id"])
+
+        # All item IDs must be unique and fully opaque
+        assert len(item_ids) == 120
 
         # Output files should exist
         assert output_path.exists()

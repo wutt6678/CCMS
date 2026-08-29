@@ -12,10 +12,12 @@ Backends:
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Callable, Protocol, runtime_checkable
 
+from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.schema import validate_judgment
 
 
@@ -92,24 +94,35 @@ class CallableResponseJudge:
 class HumanLabelJudge:
     """Loads human labels from a JSON file.
 
-    Expected format::
+    Supports two file schemas:
+
+    **Wrapped** (produced by ``save_human_labels``)::
 
         {
-          "<family_id>": {
-            "<variant>": {
-              "refusal_type": "full" | "partial" | "none",
-              "unsafe_compliance_score": 0.0–1.0,
-              "compliance_level": 0–3,
-              "safe_redirection": true/false,
-              "confidence": 0.0–1.0,
-              "rationale": "..."
+          "labels": {
+            "<family_id>": {
+              "<variant>": { "refusal_type": ..., ... }
             }
+          },
+          "provenance": {
+            "labels_sha256": "...",
+            "rubric_version": "...",
+            "annotator_id": "...",
+            "adjudicated": false
           }
         }
 
-    The variant name is available in the replay record and is used to
-    look up the correct label — the judge function itself does not
-    receive the variant name.
+    **Raw** (legacy flat format)::
+
+        {
+          "<family_id>": {
+            "<variant>": { "refusal_type": ..., ... }
+          }
+        }
+
+    The wrapped format is verified: label SHA256 must match, and
+    completeness (120 labels), rubric, annotator, and adjudication
+    metadata are exposed via ``provenance()``.
     """
 
     def __init__(self, path: str | Path):
@@ -118,10 +131,44 @@ class HumanLabelJudge:
             raise FileNotFoundError(
                 f"Human labels file not found: {self._path}")
         with self._path.open(encoding="utf-8") as f:
-            self._data: dict = json.load(f)
+            raw: dict = json.load(f)
+
+        self._provenance_meta: dict = {}
+        self._wrapped = False
+
+        if "labels" in raw:
+            # Wrapped schema from save_human_labels
+            self._wrapped = True
+            labels_data = raw["labels"]
+            prov = raw.get("provenance", {})
+
+            # Verify labels SHA256
+            labels_json = json.dumps(
+                labels_data, sort_keys=True, ensure_ascii=False)
+            actual_sha = hashlib.sha256(
+                labels_json.encode("utf-8")).hexdigest()
+            expected_sha = prov.get("labels_sha256", "")
+            if expected_sha and actual_sha != expected_sha:
+                raise EvaluationError(
+                    f"human labels SHA256 mismatch in {self._path}: "
+                    f"expected {expected_sha}, got {actual_sha}")
+
+            self._provenance_meta = {
+                "labels_sha256": actual_sha,
+                "label_file_sha256": prov.get("label_file_sha256"),
+                "rubric_version": prov.get("rubric_version"),
+                "annotator_id": prov.get("annotator_id"),
+                "adjudicated": prov.get("adjudicated", False),
+                "n_families": prov.get("n_families", len(labels_data)),
+                "n_labels": prov.get("n_labels"),
+            }
+        else:
+            # Raw / legacy format
+            labels_data = raw
+
         # Build a flat lookup: (family_id, variant) -> label
         self._lookup: dict[tuple[str, str], dict] = {}
-        for family_id, variants in self._data.items():
+        for family_id, variants in labels_data.items():
             for variant, label in variants.items():
                 self._lookup[(family_id, variant)] = label
 
@@ -130,11 +177,7 @@ class HumanLabelJudge:
         family_id: str,
         variant: str,
     ) -> dict:
-        """Look up the human label for a (family_id, variant) pair.
-
-        This is a convenience for HumanLabelJudge since the labels
-        are keyed by family_id + variant, not by conversation context.
-        """
+        """Look up the human label for a (family_id, variant) pair."""
         key = (family_id, variant)
         if key not in self._lookup:
             raise KeyError(
@@ -148,7 +191,7 @@ class HumanLabelJudge:
         terminal_query: str,
         response: str,
     ) -> dict:
-        """Protocol method — not directly usable without family_id.
+        """Protocol method — not usable without family_id.
 
         Use judge_for() with family_id and variant instead.
         """
@@ -157,7 +200,11 @@ class HumanLabelJudge:
             "lookup; use judge_for() instead")
 
     def provenance(self) -> dict:
-        return {
+        prov = {
             "backend": "human",
             "file": str(self._path),
+            "wrapped_schema": self._wrapped,
+            "n_labels_loaded": len(self._lookup),
         }
+        prov.update(self._provenance_meta)
+        return prov

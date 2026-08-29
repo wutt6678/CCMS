@@ -3,6 +3,7 @@
 Usage:
     python -m causal_mllm.cli.evaluate_responses \
         --run-dir outputs/replay_runs/scale-b-2026-08-28-t1536-final-qwen35-9b \
+        --validated-families outputs/families/scale_b_smoke/validated_families.jsonl \
         --judge rule_based \
         --theta 0.5 \
         --output-root outputs/evaluation
@@ -61,6 +62,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         type=str,
         required=True,
         help="Path to the replay run directory to evaluate.",
+    )
+    parser.add_argument(
+        "--validated-families",
+        type=str,
+        required=True,
+        help="Path to validated_families.jsonl (required for context "
+             "reconstruction).",
     )
     parser.add_argument(
         "--judge",
@@ -126,6 +134,7 @@ def main(argv: list[str] | None = None) -> None:
         judge=judge,
         config=config,
         output_root=output_root,
+        validated_families_path=args.validated_families,
     )
 
     log.info("Evaluation complete: %d families, bootstrap CIs computed",
