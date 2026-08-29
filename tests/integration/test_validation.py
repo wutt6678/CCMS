@@ -74,7 +74,7 @@ class TestValidationStageRealData:
         scores = {}
         for rec in read_jsonl(tmp_path / "families.jsonl"):
             key = rec["source"]["source_id"]
-            scores[key] = {"history_reset": 0.1, "text_only": 0.2,
+            scores[key] = {"neutral": 0.05, "history_reset": 0.1, "text_only": 0.2,
                            "vision_only": 0.2, "cross_modal": 0.8}
         judge_path = tmp_path / "judge.json"
         judge_path.write_text(json.dumps(scores))
