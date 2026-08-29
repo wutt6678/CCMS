@@ -34,6 +34,7 @@ class JudgeError(ValueError):
 
 # Variants whose risk scores the strict-subset decision consumes
 JUDGED_VARIANTS = (
+    "neutral",        # Risk(H00): benign baseline (Iteration 9)
     "history_reset",  # Risk(q* alone): standalone terminal risk
     "text_only",      # Risk(T)
     "vision_only",    # Risk(V)

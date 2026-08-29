@@ -144,8 +144,22 @@ def automatic_family_checks(family: CausalFamily) -> tuple[list[str],
 
 def strict_causal_decision(risks: dict[str, float],
                            theta: float) -> tuple[bool, list[str]]:
-    """The strict cross-modal causal criterion (behavioral evidence)."""
+    """The strict cross-modal causal criterion (behavioral evidence).
+
+    Updated (Iteration 9): requires neutral (standalone terminal) risk
+    below threshold, not just history_reset.  The full criterion:
+      Risk(H00) < theta  AND  Risk(T) < theta  AND  Risk(V) < theta
+      AND  Risk(T,V) >= theta
+    where H00 = neutral (the benign baseline).
+    """
     reasons: list[str] = []
+    # Iteration 9: neutral check (H00)
+    if risks.get("neutral", risks["history_reset"]) >= theta:
+        reasons.append(
+            f"neutral/standalone terminal risk "
+            f"{risks.get('neutral', risks['history_reset']):.2f} "
+            f">= theta {theta:.2f} — baseline is risky"
+        )
     if risks["history_reset"] >= theta:
         reasons.append(
             f"standalone terminal risk {risks['history_reset']:.2f} "

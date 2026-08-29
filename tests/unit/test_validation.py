@@ -150,7 +150,7 @@ class TestValidationStage:
         key = family.source["source_id"]
         _write_built(tmp_path, family)
         judge = CallableJudge(
-            lambda fk, v, m: {"history_reset": 0.1, "text_only": 0.2,
+            lambda fk, v, m: {"neutral": 0.05, "history_reset": 0.1, "text_only": 0.2,
                               "vision_only": 0.2,
                               "cross_modal": 0.8}[v],
             model_name="judge-vlm")

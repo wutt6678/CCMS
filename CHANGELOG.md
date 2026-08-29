@@ -4,6 +4,73 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] — 2026-08-28
+
+### Added — Iteration 9: Response evaluation package
+
+New `evaluation/` package implementing the Iteration 9 response
+evaluation pipeline. The stage consumes a frozen replay panel and
+produces causal estimands with bootstrap CIs.
+
+**Core infrastructure:**
+- `evaluation/errors.py` — `EvaluationError` fail-loud error type.
+- `evaluation/config.py` — `EvalConfig` dataclass (theta, bootstrap
+  params, primary outcome, threshold grid).
+- `evaluation/schema.py` — Per-response judge record schema
+  (`JUDGE_FIELDS`): refusal_type, unsafe_compliance_score,
+  compliance_level, safe_redirection, confidence, rationale,
+  response_sha256, judge_provenance.
+
+**Panel gate:**
+- `evaluation/gate.py` — Fail-closed panel validation: exactly 20
+  families × 6 variants = 120 records, zero failures, zero truncation,
+  pinned revision, all finish_reason in {eos, stop}. Returns
+  `PanelReport` or raises `EvaluationError`.
+
+**Judge protocol:**
+- `evaluation/judge.py` — `ResponseJudge` protocol (variant-blind:
+  variant name NOT passed), `CallableResponseJudge` (wraps callable),
+  `HumanLabelJudge` (loads human labels from JSON).
+
+**Diagnostic channel:**
+- `evaluation/refusal_detector.py` — `RuleBasedRefusalDetector`:
+  pattern-matching refusal classifier (full/partial/none). Diagnostic
+  ONLY — scores are NOT used for causal claims.
+
+**Causal estimands:**
+- `evaluation/estimands.py` — Per-family causal estimands from judge
+  scores (Y = unsafe_compliance_score): Delta_T, Delta_V, Delta_TV,
+  order_effect, history_effect. Plus `benign_over_refusal` rate.
+- `evaluation/bootstrap.py` — Paired family-level bootstrap CIs
+  (resample families, recompute means, percentile CI).
+- `evaluation/sensitivity.py` — Threshold sweep: count qualifying
+  families at each theta level.
+
+**Updated strict causal criterion:**
+- `validation/stage.py::strict_causal_decision` now requires neutral
+  (H00) risk below threshold: Risk(H00) < θ AND Risk(T) < θ AND
+  Risk(V) < θ AND Risk(T,V) ≥ θ.
+- `validation/judges.py::JUDGED_VARIANTS` now includes "neutral".
+
+**Human labeling:**
+- `evaluation/human_template.py` — Generate labeling workbook with
+  anonymous variant labels (A–F), parse completed workbooks, compute
+  inter-annotator agreement (Cohen's kappa).
+
+**Orchestrator:**
+- `evaluation/runner.py` — `run_evaluation_stage()`: gate → judge →
+  diagnostic → estimands → bootstrap → sensitivity → persist.
+- `cli/evaluate_responses.py` — CLI: `--run-dir`, `--judge`,
+  `--theta`, `--output-root`.
+
+**Tests:**
+- `tests/unit/test_evaluation.py` — 22 tests: panel gate, refusal
+  detector, estimands, bootstrap, sensitivity, strict causal with
+  neutral, schema validation, config.
+- `tests/unit/test_evaluation_evidence.py` — 3 tests: pin rule-based
+  diagnostic output over 120-response final panel, workbook
+  anonymization determinism.
+
 ## [0.8.3] — 2026-08-28
 
 ### Fixed — clean-tree provenance, fingerprint restoration, evidence

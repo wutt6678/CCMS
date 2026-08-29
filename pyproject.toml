@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "causal-mllm"
-version = "0.8.3"
+version = "0.9.0"
 description = "Causal Cross-Modal Safety-State Dataset and Evaluation Pipeline"
 readme = "README.md"
 license = { text = "MIT" }
@@ -37,6 +37,7 @@ causal-mllm-build = "causal_mllm.cli.build_families:main"
 causal-mllm-validate = "causal_mllm.cli.validate_families:main"
 causal-mllm-infer = "causal_mllm.cli.run_inference:main"
 causal-mllm-evaluate = "causal_mllm.cli.evaluate:main"
+causal-mllm-eval-responses = "causal_mllm.cli.evaluate_responses:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
