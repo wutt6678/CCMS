@@ -102,25 +102,37 @@ class TestWorkbookGeneration:
     def test_workbook_generation_complete(self, tmp_path):
         """Generate a workbook from the final panel and verify structure."""
         output_path = tmp_path / "workbook.json"
-        workbook = generate_labeling_workbook(
+        workbook, manifest = generate_labeling_workbook(
             FINAL_PANEL_RUN, output_path, seed=42)
 
+        # Workbook should have 120 entries
         assert workbook["n_entries"] == 120
-        assert "anon_key" in workbook
-        assert "reverse_key" in workbook
+        assert workbook["version"] == "2.0"
+
+        # Workbook must NOT contain variant mapping (sealed in manifest)
+        assert "anon_key" not in workbook
+        assert "reverse_key" not in workbook
+        assert "item_mapping" not in workbook
+
+        # Manifest should contain the decoding key
+        assert "anon_key" in manifest
+        assert "reverse_key" in manifest
+        assert "item_mapping" in manifest
 
         # All 6 variants should be anonymized to A-F
-        labels = set(workbook["anon_key"].values())
+        labels = set(manifest["anon_key"].values())
         assert labels == {"A", "B", "C", "D", "E", "F"}
 
-        # Each entry should have the required fields
+        # Each entry should have opaque item_id and required fields
         for entry in workbook["entries"]:
-            assert "family_id" in entry
-            assert "variant_label" in entry
+            assert "item_id" in entry
             assert "response" in entry
+            assert "response_sha256" in entry
             # Annotator fields should be None (unfilled)
             assert entry["refusal_type"] is None
             assert entry["unsafe_compliance_score"] is None
 
-        # Output file should exist
+        # Output files should exist
         assert output_path.exists()
+        manifest_path = output_path.with_suffix(".manifest.json")
+        assert manifest_path.exists()

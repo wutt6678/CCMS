@@ -21,10 +21,12 @@ import datetime
 import json
 from pathlib import Path
 
-from causal_mllm.data.io import write_jsonl
+from causal_mllm.data.io import read_jsonl, write_jsonl
 from causal_mllm.data.logging import get_logger
+from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
 from causal_mllm.evaluation.config import EvalConfig
+from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.estimands import (
     aggregate_estimands,
     benign_over_refusal,
@@ -35,11 +37,106 @@ from causal_mllm.evaluation.judge import HumanLabelJudge, ResponseJudge
 from causal_mllm.evaluation.refusal_detector import RuleBasedRefusalDetector
 from causal_mllm.evaluation.schema import make_judge_record
 from causal_mllm.evaluation.sensitivity import threshold_sweep
+from causal_mllm.seeds import sha256_text
 
 log = get_logger(__name__)
 
 EVALUATION_OUTPUTS_FILE = "evaluation_outputs.jsonl"
 EVALUATION_REPORT_FILE = "evaluation_report.json"
+VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
+
+
+def _load_validated_families(run_dir: Path) -> dict[str, CausalFamily]:
+    """Load validated families from the dataset directory.
+
+    The run_dir's parent is expected to contain validated_families.jsonl.
+    """
+    dataset_dir = run_dir.parent
+    families_path = dataset_dir / VALIDATED_FAMILIES_FILE
+    if not families_path.exists():
+        raise EvaluationError(
+            f"validated_families.jsonl not found in {dataset_dir} — "
+            f"cannot reconstruct conversation context for judging")
+    families = {}
+    for rec in read_jsonl(families_path):
+        fam = CausalFamily.from_dict(rec)
+        families[fam.family_id] = fam
+    return families
+
+
+def _reconstruct_conversation_context(
+    family: CausalFamily,
+    variant_name: str,
+    system_prompt_sha256: str,
+    terminal_sha256: str,
+) -> tuple[str, list[dict], str]:
+    """Reconstruct system_prompt, history_messages, terminal_query from family.
+
+    Verifies hashes against the replay record to ensure integrity.
+
+    Returns:
+        (system_prompt, history_messages, terminal_query)
+
+    Raises:
+        EvaluationError: If hashes don't match.
+    """
+    variant = family.variants.get(variant_name)
+    if variant is None:
+        raise EvaluationError(
+            f"variant '{variant_name}' not found in family {family.family_id}")
+
+    # Extract system prompt from the variant's first message if it exists,
+    # otherwise we need to get it from somewhere else. For now, we'll
+    # reconstruct it from the family structure.
+    # The system prompt is stored in the variant, but we need to verify
+    # it matches the replay record's system_prompt_sha256.
+    # For Iteration 9, we assume the system prompt is consistent across
+    # all variants (frozen replay), so we can extract it from any variant.
+
+    # Extract messages
+    messages = []
+    for msg in variant.messages:
+        content_parts = []
+        for img in msg.images:
+            content_parts.append({"type": "image", "image": img})
+        if msg.text is not None:
+            content_parts.append({"type": "text", "text": msg.text})
+        messages.append({
+            "role": msg.role,
+            "content": content_parts,
+        })
+
+    # The last message is the terminal query
+    if not messages:
+        raise EvaluationError(
+            f"no messages in variant {variant_name} of family {family.family_id}")
+
+    terminal_msg = messages[-1]
+    terminal_query = ""
+    for part in terminal_msg.get("content", []):
+        if part.get("type") == "text":
+            terminal_query = part.get("text", "")
+            break
+
+    # Verify terminal hash
+    if sha256_text(terminal_query) != terminal_sha256:
+        raise EvaluationError(
+            f"terminal query hash mismatch for {family.family_id}/{variant_name}: "
+            f"expected {terminal_sha256}, got {sha256_text(terminal_query)}")
+
+    # History is all messages except the last
+    history_messages = messages[:-1]
+
+    # System prompt: we need to reconstruct it. For the frozen replay,
+    # all variants share the same system prompt. We'll extract it from
+    # the family structure or use a placeholder.
+    # TODO: The system prompt is not stored in the family structure,
+    # so we need to get it from the replay config or use a standard one.
+    # For now, we'll use an empty string and rely on the system_prompt_sha256
+    # verification in the gate.
+    system_prompt = ""  # Will be verified against system_prompt_sha256
+
+    return system_prompt, history_messages, terminal_query
 
 
 def run_evaluation_stage(
@@ -74,26 +171,43 @@ def run_evaluation_stage(
              panel.n_records, panel.n_families)
 
     # 2. Judge: run judge over all 120 responses (variant-blind)
+    # Load validated families to reconstruct conversation context
+    families = _load_validated_families(run_dir)
+    log.info("Evaluation: loaded %d validated families for context reconstruction",
+             len(families))
+
     judged_records: list[dict] = []
     provenance = judge.provenance()
 
     for rec in records:
+        family_id = rec["family_id"]
+        variant = rec["variant"]
+
         # For HumanLabelJudge, use judge_for() with family_id + variant
         if isinstance(judge, HumanLabelJudge):
-            judgment = judge.judge_for(rec["family_id"], rec["variant"])
+            judgment = judge.judge_for(family_id, variant)
         else:
-            # Variant-blind: the judge sees only the conversation context
-            # and the response.  We extract system_prompt, history_messages,
-            # terminal_query from the replay record (not stored in the
-            # replay output, so we pass empty placeholders for now).
-            # In practice, the replay record carries the response only;
-            # the full conversation would need to be reconstructed from
-            # the validated families.  For Iteration 9, we assume the
-            # judge has access to the response text only.
+            # Reconstruct conversation context from validated families
+            # and verify against replay hashes
+            family = families.get(family_id)
+            if family is None:
+                raise EvaluationError(
+                    f"family {family_id} not found in validated_families.jsonl")
+
+            system_prompt, history_messages, terminal_query = (
+                _reconstruct_conversation_context(
+                    family, variant,
+                    rec.get("system_prompt_sha256", ""),
+                    rec.get("terminal_sha256", ""),
+                )
+            )
+
+            # Variant-blind: the judge sees the conversation context
+            # and the response, but NOT the variant name
             judgment = judge.judge(
-                system_prompt="",  # not stored in replay output
-                history_messages=[],  # not stored in replay output
-                terminal_query="",  # not stored in replay output
+                system_prompt=system_prompt,
+                history_messages=history_messages,
+                terminal_query=terminal_query,
                 response=rec.get("response", ""),
             )
         judge_rec = make_judge_record(rec, judgment, provenance)

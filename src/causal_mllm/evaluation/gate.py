@@ -129,6 +129,70 @@ def validate_panel(run_dir: str | Path) -> tuple[PanelReport, list[dict]]:
     if not provenance.get("revision_pinned"):
         errors.append("revision_pinned must be True")
 
+    # --- Clean-tree acceptance criteria (Iteration 8 hardening) ---
+    # git_dirty must be explicitly False (not missing, not True)
+    git_dirty = provenance.get("git_dirty")
+    if git_dirty is not False:
+        errors.append(
+            f"git_dirty must be False for clean-tree provenance, "
+            f"got {git_dirty!r}")
+
+    # requested and resolved revisions must be nonempty and equal
+    requested_rev = provenance.get("requested_model_revision")
+    resolved_rev = provenance.get("resolved_model_revision")
+    if not requested_rev:
+        errors.append("requested_model_revision must be nonempty")
+    if not resolved_rev:
+        errors.append("resolved_model_revision must be nonempty")
+    if requested_rev and resolved_rev and requested_rev != resolved_rev:
+        errors.append(
+            f"requested_model_revision ({requested_rev}) must equal "
+            f"resolved_model_revision ({resolved_rev})")
+
+    # Report/record run-ID consistency
+    report_run_id = report.get("run_id")
+    record_run_ids = {r.get("run_id") for r in records}
+    if not report_run_id:
+        errors.append("report run_id is missing")
+    if len(record_run_ids) != 1:
+        errors.append(
+            f"records must have exactly one run_id, got {record_run_ids}")
+    if report_run_id and len(record_run_ids) == 1:
+        if report_run_id != list(record_run_ids)[0]:
+            errors.append(
+                f"report run_id ({report_run_id}) must match record run_id "
+                f"({list(record_run_ids)[0]})")
+
+    # Revision consistency between report and records
+    record_revisions = {r.get("model_revision") for r in records}
+    if len(record_revisions) != 1:
+        errors.append(
+            f"records must have exactly one model_revision, got {record_revisions}")
+    if resolved_rev and len(record_revisions) == 1:
+        if resolved_rev != list(record_revisions)[0]:
+            errors.append(
+                f"report resolved_model_revision ({resolved_rev}) must match "
+                f"record model_revision ({list(record_revisions)[0]})")
+
+    # 120 unique family/variant pairs
+    family_variant_pairs = {
+        (r.get("family_id"), r.get("variant")) for r in records
+    }
+    if len(family_variant_pairs) != EXPECTED_N_RECORDS:
+        errors.append(
+            f"expected {EXPECTED_N_RECORDS} unique (family_id, variant) pairs, "
+            f"got {len(family_variant_pairs)}")
+
+    # Nonempty responses
+    empty_responses = [
+        i for i, r in enumerate(records)
+        if not r.get("response")
+    ]
+    if empty_responses:
+        errors.append(
+            f"all responses must be nonempty, got {len(empty_responses)} "
+            f"empty response(s)")
+
     # --- Finish reasons ---
     bad_finish = [
         r for r in records

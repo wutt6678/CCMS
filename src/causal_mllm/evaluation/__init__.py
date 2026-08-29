@@ -33,6 +33,8 @@ from causal_mllm.evaluation.human_template import (
     agreement_stats,
     generate_labeling_workbook,
     parse_completed_workbook,
+    save_human_labels,
+    workbook_to_human_labels,
 )
 from causal_mllm.evaluation.judge import (
     CallableResponseJudge,
@@ -65,6 +67,8 @@ __all__ = [
     "run_evaluation_stage",
     "generate_labeling_workbook",
     "parse_completed_workbook",
+    "workbook_to_human_labels",
+    "save_human_labels",
     "agreement_stats",
     "JUDGE_FIELDS",
     "make_judge_record",

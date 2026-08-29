@@ -38,7 +38,7 @@ def generate_labeling_workbook(
     run_dir: str | Path,
     output_path: str | Path,
     seed: int = 42,
-) -> dict:
+) -> tuple[dict, dict]:
     """Create a JSON workbook for human labeling.
 
     Each entry contains:
@@ -46,13 +46,17 @@ def generate_labeling_workbook(
       - response text, terminal query (from replay record)
       - Empty fields for the annotator to fill in
 
+    The variant mapping is stored in a separate sealed manifest file
+    (output_path with .manifest.json extension) to prevent bias.
+
     Args:
         run_dir: Path to the replay run directory.
         output_path: Where to write the workbook JSON.
         seed: Random seed for anonymization.
 
     Returns:
-        The workbook dict (also written to output_path).
+        (workbook, manifest) tuple. The workbook contains only opaque
+        item IDs; the manifest contains the decoding key.
     """
     run_dir = Path(run_dir)
     records = read_jsonl(run_dir / "replay_outputs.jsonl")
@@ -60,19 +64,23 @@ def generate_labeling_workbook(
     anon_map = _build_anonymization_map(seed)
     entries: list[dict] = []
 
-    for rec in records:
+    # Randomize item order to prevent pattern recognition
+    rng = random.Random(seed)
+    shuffled_records = list(records)
+    rng.shuffle(shuffled_records)
+
+    for rec in shuffled_records:
         variant = rec.get("variant")
         if variant not in anon_map:
             raise EvaluationError(
                 f"unknown variant '{variant}' in replay record")
+        # Generate opaque item ID
+        item_id = f"{rec.get('family_id')}_{anon_map[variant]}"
         entry = {
-            "family_id": rec.get("family_id"),
-            "source_id": rec.get("source_id"),
-            "variant_label": anon_map[variant],
-            "variant_anon_key": anon_map,
+            "item_id": item_id,
             # Context for the annotator
             "response": rec.get("response", ""),
-            "response_sha256": rec.get("terminal_sha256", ""),
+            "response_sha256": rec.get("response_sha256", rec.get("terminal_sha256", "")),
             # Annotator fills these in:
             "refusal_type": None,
             "unsafe_compliance_score": None,
@@ -84,54 +92,101 @@ def generate_labeling_workbook(
         entries.append(entry)
 
     workbook = {
-        "version": "1.0",
+        "version": "2.0",
         "seed": seed,
-        "anon_key": anon_map,
-        "reverse_key": _reverse_map(anon_map),
         "n_entries": len(entries),
         "entries": entries,
     }
 
+    # Create sealed manifest with decoding key
+    manifest = {
+        "version": "2.0",
+        "seed": seed,
+        "anon_key": anon_map,
+        "reverse_key": _reverse_map(anon_map),
+        "item_mapping": {
+            f"{rec.get('family_id')}_{anon_map[rec.get('variant')]}": {
+                "family_id": rec.get("family_id"),
+                "variant": rec.get("variant"),
+                "source_id": rec.get("source_id"),
+            }
+            for rec in records
+        },
+    }
+
+    # Write workbook
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(workbook, f, indent=2, ensure_ascii=False)
 
-    return workbook
+    # Write sealed manifest
+    manifest_path = output_path.with_suffix(".manifest.json")
+    with manifest_path.open("w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=2, ensure_ascii=False)
+
+    return workbook, manifest
 
 
-def parse_completed_workbook(path: str | Path) -> list[dict]:
+def parse_completed_workbook(
+    path: str | Path,
+    manifest_path: str | Path | None = None,
+) -> list[dict]:
     """Convert a completed labeling workbook to judge records.
 
     Args:
         path: Path to the completed workbook JSON.
+        manifest_path: Path to the sealed manifest JSON. If None, looks
+            for a .manifest.json file alongside the workbook.
 
     Returns:
-        List of validated judgment dicts, one per entry.
+        List of validated judgment dicts, one per entry. Each dict includes
+        family_id, variant, source_id, and response_sha256 for verification.
 
     Raises:
-        EvaluationError: If any entry has unfilled required fields.
+        EvaluationError: If any entry has unfilled required fields or if
+            the manifest is missing/corrupted.
     """
     path = Path(path)
     with path.open(encoding="utf-8") as f:
         workbook = json.load(f)
 
-    reverse_key = _reverse_map(workbook.get("anon_key", {}))
+    # Load manifest for decoding
+    if manifest_path is None:
+        manifest_path = path.with_suffix(".manifest.json")
+    manifest_path = Path(manifest_path)
+    if not manifest_path.exists():
+        raise EvaluationError(
+            f"sealed manifest not found: {manifest_path} — "
+            f"cannot decode item_id to family_id/variant")
+    with manifest_path.open(encoding="utf-8") as f:
+        manifest = json.load(f)
+
+    item_mapping = manifest.get("item_mapping", {})
     records: list[dict] = []
 
     for i, entry in enumerate(workbook.get("entries", [])):
-        label = entry.get("variant_label")
-        variant = reverse_key.get(label)
-        if variant is None:
+        item_id = entry.get("item_id")
+        if item_id is None:
             raise EvaluationError(
-                f"entry {i}: unknown variant_label '{label}'")
+                f"entry {i}: missing item_id")
+
+        # Decode item_id to family_id/variant using manifest
+        mapping = item_mapping.get(item_id)
+        if mapping is None:
+            raise EvaluationError(
+                f"entry {i}: item_id '{item_id}' not found in manifest")
+
+        family_id = mapping["family_id"]
+        variant = mapping["variant"]
+        source_id = mapping.get("source_id")
 
         # Check required fields are filled
         for field in ("refusal_type", "unsafe_compliance_score",
                        "compliance_level", "confidence"):
             if entry.get(field) is None:
                 raise EvaluationError(
-                    f"entry {i} ({entry.get('family_id')}/{variant}): "
+                    f"entry {i} ({item_id} = {family_id}/{variant}): "
                     f"field '{field}' is not filled")
 
         judgment = validate_judgment({
@@ -142,11 +197,87 @@ def parse_completed_workbook(path: str | Path) -> list[dict]:
             "confidence": entry["confidence"],
             "rationale": entry.get("rationale", ""),
         })
-        judgment["family_id"] = entry.get("family_id")
+        judgment["family_id"] = family_id
         judgment["variant"] = variant
+        judgment["source_id"] = source_id
+        judgment["item_id"] = item_id
+        judgment["response_sha256"] = entry.get("response_sha256", "")
         records.append(judgment)
 
     return records
+
+
+def workbook_to_human_labels(
+    parsed_records: list[dict],
+    rubric_version: str = "1.0",
+    annotator_id: str = "unknown",
+    adjudicated: bool = False,
+) -> dict:
+    """Convert parsed workbook records to HumanLabelJudge format.
+
+    Args:
+        parsed_records: List of judgment dicts from parse_completed_workbook.
+        rubric_version: Version of the labeling rubric used.
+        annotator_id: Identifier for the annotator.
+        adjudicated: Whether the labels have been adjudicated.
+
+    Returns:
+        Dict in the format expected by HumanLabelJudge:
+        {family_id: {variant: {label_dict}}}
+    """
+    labels: dict[str, dict[str, dict]] = {}
+    for rec in parsed_records:
+        family_id = rec["family_id"]
+        variant = rec["variant"]
+        if family_id not in labels:
+            labels[family_id] = {}
+        labels[family_id][variant] = {
+            "refusal_type": rec["refusal_type"],
+            "unsafe_compliance_score": rec["unsafe_compliance_score"],
+            "compliance_level": rec["compliance_level"],
+            "safe_redirection": rec.get("safe_redirection", False),
+            "confidence": rec["confidence"],
+            "rationale": rec.get("rationale", ""),
+            # Provenance metadata
+            "response_sha256": rec.get("response_sha256", ""),
+            "rubric_version": rubric_version,
+            "annotator_id": annotator_id,
+            "adjudicated": adjudicated,
+            "item_id": rec.get("item_id", ""),
+        }
+    return labels
+
+
+def save_human_labels(
+    labels: dict,
+    output_path: str | Path,
+    label_file_sha256: str | None = None,
+) -> None:
+    """Save human labels to JSON with provenance metadata.
+
+    Args:
+        labels: Dict from workbook_to_human_labels.
+        output_path: Where to write the labels JSON.
+        label_file_sha256: Optional SHA256 of the source workbook file.
+    """
+    import hashlib
+    output_path = Path(output_path)
+
+    # Compute SHA256 of the labels content for provenance
+    labels_json = json.dumps(labels, sort_keys=True, ensure_ascii=False)
+    labels_sha256 = hashlib.sha256(labels_json.encode("utf-8")).hexdigest()
+
+    output = {
+        "labels": labels,
+        "provenance": {
+            "labels_sha256": labels_sha256,
+            "label_file_sha256": label_file_sha256,
+        },
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(output, f, indent=2, ensure_ascii=False)
 
 
 def agreement_stats(labels_a: list[dict],

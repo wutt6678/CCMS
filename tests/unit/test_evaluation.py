@@ -78,6 +78,9 @@ def _make_replay_run(tmp_path, n_families=20, n_variants=6,
         "n_families": n_families,
         "provenance": {
             "revision_pinned": revision_pinned,
+            "git_dirty": False,
+            "requested_model_revision": "abc123",
+            "resolved_model_revision": "abc123",
         },
     }
     with (run_dir / "replay_report.json").open("w") as f:
