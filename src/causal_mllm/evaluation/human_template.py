@@ -13,9 +13,10 @@ causal estimand computation.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import random
-import uuid
+import secrets
 from pathlib import Path
 
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
@@ -23,6 +24,7 @@ from causal_mllm.data.io import read_jsonl
 from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.schema import validate_judgment
+from causal_mllm.replay.config import DEFAULT_SYSTEM_PROMPT
 from causal_mllm.seeds import sha256_text
 
 # ---------------------------------------------------------------------------
@@ -43,21 +45,28 @@ def _reverse_map(anon_map: dict[str, str]) -> dict[str, str]:
     return {v: k for k, v in anon_map.items()}
 
 
-def _build_item_namespace(seed: int) -> uuid.UUID:
-    """Derive a deterministic UUID namespace from the manifest seed."""
-    return uuid.UUID(hashlib.sha256(
-        f"iter9-workbook-seed-{seed}".encode()
-    ).hexdigest()[:32])
+def _generate_id_secret() -> str:
+    """Generate a cryptographically random secret for item ID derivation.
+
+    This secret is stored ONLY in the sealed manifest, never in the
+    workbook.  Without it, item IDs are irreversible.
+    """
+    return secrets.token_hex(32)
 
 
 def _make_opaque_item_id(family_id: str, variant: str,
-                         seed: int) -> str:
-    """Generate a fully opaque deterministic item ID.
+                         id_secret: str) -> str:
+    """Generate a fully opaque deterministic item ID via HMAC-SHA256.
 
-    The ID reveals nothing about family membership or variant condition.
+    The ID is derived from a secret key that exists only in the sealed
+    manifest.  Without the secret, the mapping is irreversible even
+    though family IDs and variant names are public.
     """
-    ns = _build_item_namespace(seed)
-    return f"item-{uuid.uuid5(ns, f'{family_id}:{variant}')}"
+    msg = f"{family_id}:{variant}".encode("utf-8")
+    digest = hmac.new(
+        id_secret.encode("utf-8"), msg, hashlib.sha256
+    ).hexdigest()[:16]
+    return f"item-{digest}"
 
 
 def _extract_conversation_context(
@@ -151,6 +160,9 @@ def generate_labeling_workbook(
     item_mapping: dict[str, dict] = {}
     expected_response_shas: dict[str, str] = {}
 
+    # Generate a secret for opaque item IDs — stored ONLY in manifest
+    id_secret = _generate_id_secret()
+
     # Randomize item order to prevent pattern recognition
     rng = random.Random(seed)
     shuffled_records = list(records)
@@ -163,8 +175,8 @@ def generate_labeling_workbook(
             raise EvaluationError(
                 f"unknown variant '{variant}' in replay record")
 
-        # Fully opaque item ID
-        item_id = _make_opaque_item_id(family_id, variant, seed)
+        # Fully opaque item ID (secret only in manifest)
+        item_id = _make_opaque_item_id(family_id, variant, id_secret)
 
         # Compute actual response hash
         response_text = rec.get("response", "")
@@ -193,7 +205,7 @@ def generate_labeling_workbook(
         entry = {
             "item_id": item_id,
             # Full conversation context for the annotator
-            "system_prompt": rec.get("_system_prompt", ""),
+            "system_prompt": DEFAULT_SYSTEM_PROMPT,
             "conversation_history": json.dumps(
                 history_msgs, ensure_ascii=False),
             "terminal_query": terminal_q,
@@ -226,10 +238,11 @@ def generate_labeling_workbook(
         "entries": entries,
     }
 
-    # Sealed manifest with decoding key and expected hashes
+    # Sealed manifest with decoding key, expected hashes, and ID secret
     manifest = {
         "version": "3.0",
         "seed": seed,
+        "id_secret": id_secret,
         "anon_key": anon_map,
         "reverse_key": _reverse_map(anon_map),
         "item_mapping": item_mapping,
@@ -459,49 +472,73 @@ def agreement_stats(labels_a: list[dict],
                      labels_b: list[dict]) -> dict:
     """Compute inter-annotator agreement between two label sets.
 
+    Aligns both sets by (family_id, variant) before comparison.
+    Mismatched keys are reported as an error.
+
     Args:
         labels_a, labels_b: Lists of judgment dicts from two annotators.
-            Must be aligned (same order, same family_id/variant).
+            Each dict must have ``family_id`` and ``variant`` keys.
 
     Returns:
         Dict with Cohen's kappa (for refusal_type, compliance_level),
         exact agreement rate, and mean absolute difference for scores.
     """
-    if len(labels_a) != len(labels_b):
-        raise EvaluationError(
-            f"label sets must have equal length: "
-            f"{len(labels_a)} vs {len(labels_b)}")
+    # Build keyed lookups
+    keyed_a = {
+        (r["family_id"], r["variant"]): r for r in labels_a
+    }
+    keyed_b = {
+        (r["family_id"], r["variant"]): r for r in labels_b
+    }
 
-    n = len(labels_a)
+    keys_a = set(keyed_a)
+    keys_b = set(keyed_b)
+
+    if keys_a != keys_b:
+        only_a = keys_a - keys_b
+        only_b = keys_b - keys_a
+        parts = []
+        if only_a:
+            parts.append(f"only in annotator A: {len(only_a)}")
+        if only_b:
+            parts.append(f"only in annotator B: {len(only_b)}")
+        raise EvaluationError(
+            f"label sets have mismatched keys ({', '.join(parts)})")
+
+    common_keys = sorted(keys_a)
+    n = len(common_keys)
     if n == 0:
         return {"kappa_refusal": None, "kappa_compliance": None,
                 "exact_agreement_rate": None,
                 "mean_abs_score_diff": None}
 
+    aligned_a = [keyed_a[k] for k in common_keys]
+    aligned_b = [keyed_b[k] for k in common_keys]
+
     # Exact agreement
     n_exact = sum(
-        1 for a, b in zip(labels_a, labels_b)
+        1 for a, b in zip(aligned_a, aligned_b)
         if (a.get("refusal_type") == b.get("refusal_type")
             and a.get("compliance_level") == b.get("compliance_level"))
     )
 
     # Cohen's kappa for refusal_type
     kappa_refusal = _cohens_kappa(
-        [a.get("refusal_type") for a in labels_a],
-        [b.get("refusal_type") for b in labels_b],
+        [a.get("refusal_type") for a in aligned_a],
+        [b.get("refusal_type") for b in aligned_b],
     )
 
     # Cohen's kappa for compliance_level
     kappa_compliance = _cohens_kappa(
-        [a.get("compliance_level") for a in labels_a],
-        [b.get("compliance_level") for b in labels_b],
+        [a.get("compliance_level") for a in aligned_a],
+        [b.get("compliance_level") for b in aligned_b],
     )
 
     # Mean absolute score difference
     score_diffs = [
         abs(float(a.get("unsafe_compliance_score", 0))
             - float(b.get("unsafe_compliance_score", 0)))
-        for a, b in zip(labels_a, labels_b)
+        for a, b in zip(aligned_a, aligned_b)
     ]
 
     return {

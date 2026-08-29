@@ -137,12 +137,16 @@ class TestWorkbookGeneration:
         assert "anon_key" not in workbook
         assert "reverse_key" not in workbook
         assert "item_mapping" not in workbook
+        # Workbook must NOT contain the ID secret (irreversible IDs)
+        assert "id_secret" not in workbook
 
-        # Manifest should contain the decoding key and response hashes
+        # Manifest should contain the decoding key, response hashes,
+        # and the ID secret for deobfuscation
         assert "anon_key" in manifest
         assert "reverse_key" in manifest
         assert "item_mapping" in manifest
         assert "expected_response_sha256" in manifest
+        assert "id_secret" in manifest
 
         # All 6 variants should be anonymized to A-F
         labels = set(manifest["anon_key"].values())
@@ -157,6 +161,7 @@ class TestWorkbookGeneration:
             assert "response" in entry
             assert "response_sha256" in entry
             assert "system_prompt" in entry
+            assert len(entry["system_prompt"]) > 0  # non-empty
             assert "conversation_history" in entry
             assert "terminal_query" in entry
             assert "images" in entry

@@ -239,6 +239,17 @@ def run_evaluation_stage(
     judged_records: list[dict] = []
     judge_provenance = judge.provenance()
 
+    # For HumanLabelJudge, verify response SHA256 against replay outputs
+    if isinstance(judge, HumanLabelJudge):
+        expected_response_shas = {
+            (rec["family_id"], rec["variant"]): sha256_text(
+                rec.get("response", ""))
+            for rec in records
+        }
+        judge.verify_response_shas(expected_response_shas)
+        log.info("Evaluation: human label response SHA256 verified "
+                 "against %d replay responses", len(expected_response_shas))
+
     for rec in records:
         family_id = rec["family_id"]
         variant = rec["variant"]

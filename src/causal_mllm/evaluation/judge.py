@@ -172,6 +172,35 @@ class HumanLabelJudge:
             for variant, label in variants.items():
                 self._lookup[(family_id, variant)] = label
 
+    def verify_response_shas(
+        self,
+        expected_shas: dict[tuple[str, str], str],
+    ) -> None:
+        """Verify each label's response_sha256 against replay hashes.
+
+        Args:
+            expected_shas: Dict mapping (family_id, variant) to the
+                SHA256 of the actual replay response text.
+
+        Raises:
+            EvaluationError: On any mismatch or missing label.
+        """
+        errors: list[str] = []
+        for key, expected in sorted(expected_shas.items()):
+            label = self._lookup.get(key)
+            if label is None:
+                errors.append(f"missing label for {key}")
+                continue
+            label_sha = label.get("response_sha256", "")
+            if label_sha and label_sha != expected:
+                errors.append(
+                    f"{key}: response_sha256 mismatch — "
+                    f"label has {label_sha}, replay has {expected}")
+        if errors:
+            raise EvaluationError(
+                f"response SHA256 verification failed "
+                f"in {self._path}:\n  " + "\n  ".join(errors))
+
     def judge_for(
         self,
         family_id: str,
