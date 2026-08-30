@@ -139,13 +139,15 @@ def _make_panel(tmp_path, n_families=20, n_variants=6):
 
 
 def _fill_workbook(workbook_path, manifest_path):
-    """Fill all workbook entries with valid labels."""
+    """Fill all workbook entries with valid, consistent labels."""
     with workbook_path.open(encoding="utf-8") as f:
         wb = json.load(f)
     for entry in wb["entries"]:
+        # Use consistent labels: refusal_type=none requires
+        # compliance_level=3 and score > 0
         entry["refusal_type"] = "none"
-        entry["unsafe_compliance_score"] = 0.3
-        entry["compliance_level"] = 2
+        entry["unsafe_compliance_score"] = 0.5
+        entry["compliance_level"] = 3
         entry["safe_redirection"] = False
         entry["confidence"] = 0.9
         entry["rationale"] = "test"
@@ -257,18 +259,9 @@ class TestEndToEndPipeline:
         labels_path = tmp_path / "human_labels.json"
         save_human_labels(labels, labels_path)
 
-        judge = HumanLabelJudge(labels_path)
-
-        # Build expected SHAs from replay records
-        records = read_jsonl(run_dir / "replay_outputs.jsonl")
-        expected_shas = {
-            (r["family_id"], r["variant"]): sha256_text(r["response"])
-            for r in records
-        }
-
-        # Verify should fail due to missing label
-        with pytest.raises(EvaluationError, match="missing label"):
-            judge.verify_response_shas(expected_shas)
+        # HumanLabelJudge now requires exactly 120 labels
+        with pytest.raises(EvaluationError, match="expected exactly 120"):
+            HumanLabelJudge(labels_path)
 
     def test_changed_prompt_detected(self, tmp_path):
         """Workbook with modified system prompt is caught by context hash."""

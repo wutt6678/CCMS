@@ -136,41 +136,66 @@ class HumanLabelJudge:
         self._provenance_meta: dict = {}
         self._wrapped = False
 
-        if "labels" in raw:
-            # Wrapped schema from save_human_labels
-            self._wrapped = True
-            labels_data = raw["labels"]
-            prov = raw.get("provenance", {})
+        # Require wrapped schema from save_human_labels
+        if "labels" not in raw:
+            raise EvaluationError(
+                f"human labels file {self._path} must use wrapped schema "
+                f"with 'labels' and 'provenance' keys — "
+                f"use save_human_labels() to create the file")
 
-            # Verify labels SHA256
-            labels_json = json.dumps(
-                labels_data, sort_keys=True, ensure_ascii=False)
-            actual_sha = hashlib.sha256(
-                labels_json.encode("utf-8")).hexdigest()
-            expected_sha = prov.get("labels_sha256", "")
-            if expected_sha and actual_sha != expected_sha:
-                raise EvaluationError(
-                    f"human labels SHA256 mismatch in {self._path}: "
-                    f"expected {expected_sha}, got {actual_sha}")
+        if "provenance" not in raw:
+            raise EvaluationError(
+                f"human labels file {self._path} is missing 'provenance' — "
+                f"wrapped schema requires provenance metadata")
 
-            self._provenance_meta = {
-                "labels_sha256": actual_sha,
-                "label_file_sha256": prov.get("label_file_sha256"),
-                "rubric_version": prov.get("rubric_version"),
-                "annotator_id": prov.get("annotator_id"),
-                "adjudicated": prov.get("adjudicated", False),
-                "n_families": prov.get("n_families", len(labels_data)),
-                "n_labels": prov.get("n_labels"),
-            }
-        else:
-            # Raw / legacy format
-            labels_data = raw
+        self._wrapped = True
+        labels_data = raw["labels"]
+        prov = raw["provenance"]
+
+        # Require nonempty labels_sha256
+        labels_json = json.dumps(
+            labels_data, sort_keys=True, ensure_ascii=False)
+        actual_sha = hashlib.sha256(
+            labels_json.encode("utf-8")).hexdigest()
+        expected_sha = prov.get("labels_sha256", "")
+        if not expected_sha:
+            raise EvaluationError(
+                f"human labels file {self._path} has empty labels_sha256")
+        if actual_sha != expected_sha:
+            raise EvaluationError(
+                f"human labels SHA256 mismatch in {self._path}: "
+                f"expected {expected_sha}, got {actual_sha}")
+
+        # Require explicit annotator_id and rubric_version
+        if not prov.get("annotator_id"):
+            raise EvaluationError(
+                f"human labels file {self._path} has empty annotator_id")
+        if not prov.get("rubric_version"):
+            raise EvaluationError(
+                f"human labels file {self._path} has empty rubric_version")
+
+        self._provenance_meta = {
+            "labels_sha256": actual_sha,
+            "label_file_sha256": prov.get("label_file_sha256"),
+            "rubric_version": prov.get("rubric_version"),
+            "annotator_id": prov.get("annotator_id"),
+            "adjudicated": prov.get("adjudicated", False),
+            "n_families": prov.get("n_families", len(labels_data)),
+            "n_labels": prov.get("n_labels"),
+        }
 
         # Build a flat lookup: (family_id, variant) -> label
         self._lookup: dict[tuple[str, str], dict] = {}
         for family_id, variants in labels_data.items():
             for variant, label in variants.items():
                 self._lookup[(family_id, variant)] = label
+
+        # Require exact 120-key coverage
+        n_labels = len(self._lookup)
+        if n_labels != 120:
+            raise EvaluationError(
+                f"human labels file {self._path} has {n_labels} labels, "
+                f"expected exactly 120 (20 families × 6 variants)")
 
     def verify_response_shas(
         self,
