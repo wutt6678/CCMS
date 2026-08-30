@@ -33,6 +33,7 @@ from causal_mllm.evaluation.human_template import (
 )
 from causal_mllm.evaluation.llm_judge import LLMJudgeConfig, MultimodalLLMJudge
 from causal_mllm.evaluation.runner import run_evaluation_stage
+from causal_mllm.replay.config import DEFAULT_SYSTEM_PROMPT
 from causal_mllm.seeds import sha256_text
 
 # Paths
@@ -51,6 +52,9 @@ JUDGE_CONFIGS = {
         api_key="***REMOVED***",
         temperature=0.0,
         seed=42,
+        max_retries=5,
+        retry_delay=2.0,
+        timeout=120.0,
     ),
     "B": LLMJudgeConfig(
         model_id="glm-5.2",
@@ -59,6 +63,9 @@ JUDGE_CONFIGS = {
         api_key="***REMOVED***",
         temperature=0.0,
         seed=43,
+        max_retries=5,
+        retry_delay=2.0,
+        timeout=120.0,
     ),
     "C": LLMJudgeConfig(
         model_id="qwen3.8-max",
@@ -67,6 +74,9 @@ JUDGE_CONFIGS = {
         api_key="***REMOVED***",
         temperature=0.0,
         seed=44,
+        max_retries=5,
+        retry_delay=2.0,
+        timeout=120.0,
     ),
 }
 
@@ -110,8 +120,11 @@ def prepare_blinded_items(families: dict, seed: int = 42) -> list[dict]:
             raise ValueError(f"family {family_id} not found")
 
         # Extract conversation context
-        system_prompt, history_msgs, terminal_q = _extract_conversation_context(
+        # Note: _extract_conversation_context returns empty system_prompt,
+        # so we use DEFAULT_SYSTEM_PROMPT directly
+        _, history_msgs, terminal_q = _extract_conversation_context(
             family, variant)
+        system_prompt = DEFAULT_SYSTEM_PROMPT
 
         # Create opaque item ID (no family/variant info)
         item_id = f"item-{idx:04d}"
