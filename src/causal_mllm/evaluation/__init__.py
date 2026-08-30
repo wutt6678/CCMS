@@ -8,6 +8,7 @@ Public API:
   - ResponseJudge: protocol for variant-blind judges
   - CallableResponseJudge: wraps a callable as a judge
   - HumanLabelJudge: loads human labels from JSON
+  - MultimodalLLMJudge: LLM-based multimodal judge
   - RuleBasedRefusalDetector: diagnostic refusal classifier
   - compute_family_estimands: per-family causal estimands
   - aggregate_estimands: population-level summary
@@ -18,8 +19,10 @@ Public API:
   - generate_labeling_workbook: human labeling setup
   - parse_completed_workbook: convert labels to judge records
   - agreement_stats: inter-annotator agreement
+  - compute_judge_agreement: multi-judge agreement metrics
 """
 
+from causal_mllm.evaluation.agreement import compute_judge_agreement
 from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
 from causal_mllm.evaluation.config import EvalConfig
 from causal_mllm.evaluation.errors import EvaluationError
@@ -41,6 +44,10 @@ from causal_mllm.evaluation.judge import (
     HumanLabelJudge,
     ResponseJudge,
 )
+from causal_mllm.evaluation.llm_judge import (
+    LLMJudgeConfig,
+    MultimodalLLMJudge,
+)
 from causal_mllm.evaluation.refusal_detector import RuleBasedRefusalDetector
 from causal_mllm.evaluation.runner import run_evaluation_stage
 from causal_mllm.evaluation.schema import (
@@ -58,6 +65,8 @@ __all__ = [
     "ResponseJudge",
     "CallableResponseJudge",
     "HumanLabelJudge",
+    "MultimodalLLMJudge",
+    "LLMJudgeConfig",
     "RuleBasedRefusalDetector",
     "compute_family_estimands",
     "aggregate_estimands",
@@ -70,6 +79,7 @@ __all__ = [
     "workbook_to_human_labels",
     "save_human_labels",
     "agreement_stats",
+    "compute_judge_agreement",
     "JUDGE_FIELDS",
     "make_judge_record",
     "validate_judgment",
