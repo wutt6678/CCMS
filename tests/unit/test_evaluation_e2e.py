@@ -271,7 +271,7 @@ class TestEndToEndPipeline:
             judge.verify_response_shas(expected_shas)
 
     def test_changed_prompt_detected(self, tmp_path):
-        """Workbook with wrong system prompt is caught."""
+        """Workbook with modified system prompt is caught by context hash."""
         run_dir, families_path, _ = _make_panel(tmp_path)
         cfamilies = {}
         for rec in read_jsonl(families_path):
@@ -279,12 +279,22 @@ class TestEndToEndPipeline:
             cfamilies[fam.family_id] = fam
 
         wb_path = tmp_path / "workbook.json"
-        workbook, _ = generate_labeling_workbook(
+        generate_labeling_workbook(
             run_dir, wb_path, validated_families=cfamilies, seed=42)
 
-        # The workbook should have the correct system prompt
-        assert workbook["entries"][0]["system_prompt"] == DEFAULT_SYSTEM_PROMPT
-        assert len(workbook["entries"][0]["system_prompt"]) > 0
+        # Fill workbook with labels
+        _fill_workbook(wb_path, wb_path.with_suffix(".manifest.json"))
+
+        # Tamper: modify the system prompt in the workbook
+        with wb_path.open(encoding="utf-8") as f:
+            wb = json.load(f)
+        wb["entries"][0]["system_prompt"] = "MODIFIED SYSTEM PROMPT"
+        with wb_path.open("w", encoding="utf-8") as f:
+            json.dump(wb, f)
+
+        # Parsing should detect the context hash mismatch
+        with pytest.raises(EvaluationError, match="system_prompt hash mismatch"):
+            parse_completed_workbook(wb_path)
 
     def test_misaligned_annotators_rejected(self, tmp_path):
         """agreement_stats rejects mismatched annotator files."""
@@ -368,9 +378,10 @@ class TestEndToEndPipeline:
 
         parsed = parse_completed_workbook(wb_path)
 
-        # Tamper: set all response_sha256 to "deadbeef"
+        # Tamper: set all response_sha256 to a fake 64-char hash
+        fake_hash = "a" * 64
         for rec in parsed:
-            rec["response_sha256"] = "deadbeef"
+            rec["response_sha256"] = fake_hash
 
         labels = workbook_to_human_labels(parsed)
         labels_path = tmp_path / "labels.json"
@@ -387,4 +398,40 @@ class TestEndToEndPipeline:
 
         # Verify should reject the fake hashes
         with pytest.raises(EvaluationError, match="response_sha256 mismatch"):
+            judge.verify_response_shas(expected_shas)
+
+    def test_empty_response_hash_rejected(self, tmp_path):
+        """Empty response_sha256 is rejected by verify_response_shas."""
+        run_dir, families_path, families_dict = _make_panel(tmp_path)
+        cfamilies = {}
+        for rec in read_jsonl(families_path):
+            fam = CausalFamily.from_dict(rec)
+            cfamilies[fam.family_id] = fam
+
+        wb_path = tmp_path / "workbook.json"
+        generate_labeling_workbook(
+            run_dir, wb_path, validated_families=cfamilies, seed=42)
+        _fill_workbook(wb_path, wb_path.with_suffix(".manifest.json"))
+
+        parsed = parse_completed_workbook(wb_path)
+
+        # Tamper: set all response_sha256 to empty string
+        for rec in parsed:
+            rec["response_sha256"] = ""
+
+        labels = workbook_to_human_labels(parsed)
+        labels_path = tmp_path / "labels.json"
+        save_human_labels(labels, labels_path)
+
+        judge = HumanLabelJudge(labels_path)
+
+        # Build expected SHAs from replay records
+        records = read_jsonl(run_dir / "replay_outputs.jsonl")
+        expected_shas = {
+            (r["family_id"], r["variant"]): sha256_text(r["response"])
+            for r in records
+        }
+
+        # Verify should reject empty hashes
+        with pytest.raises(EvaluationError, match="nonempty 64-character"):
             judge.verify_response_shas(expected_shas)

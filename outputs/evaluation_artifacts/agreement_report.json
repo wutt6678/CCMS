@@ -1,0 +1,7 @@
+{
+  "kappa_refusal": 0.4520547945205479,
+  "kappa_compliance": 0.4520547945205479,
+  "exact_agreement_rate": 0.825,
+  "mean_abs_score_diff": 0.005,
+  "n_compared": 120
+}

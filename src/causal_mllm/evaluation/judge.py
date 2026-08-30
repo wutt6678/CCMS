@@ -192,7 +192,13 @@ class HumanLabelJudge:
                 errors.append(f"missing label for {key}")
                 continue
             label_sha = label.get("response_sha256", "")
-            if label_sha and label_sha != expected:
+            # Require nonempty 64-character hex hash
+            if not label_sha or len(label_sha) != 64:
+                errors.append(
+                    f"{key}: response_sha256 must be a nonempty "
+                    f"64-character hex hash, got '{label_sha}'")
+                continue
+            if label_sha != expected:
                 errors.append(
                     f"{key}: response_sha256 mismatch — "
                     f"label has {label_sha}, replay has {expected}")

@@ -159,6 +159,7 @@ def generate_labeling_workbook(
     entries: list[dict] = []
     item_mapping: dict[str, dict] = {}
     expected_response_shas: dict[str, str] = {}
+    context_hashes: dict[str, dict] = {}
 
     # Generate a secret for opaque item IDs — stored ONLY in manifest
     id_secret = _generate_id_secret()
@@ -231,6 +232,17 @@ def generate_labeling_workbook(
         }
         expected_response_shas[item_id] = response_sha256
 
+        # Store context hashes for integrity verification
+        context_hashes[item_id] = {
+            "system_prompt": hashlib.sha256(
+                DEFAULT_SYSTEM_PROMPT.encode("utf-8")).hexdigest(),
+            "conversation_history": hashlib.sha256(
+                json.dumps(history_msgs, ensure_ascii=False).encode(
+                    "utf-8")).hexdigest(),
+            "terminal_query": hashlib.sha256(
+                terminal_q.encode("utf-8")).hexdigest(),
+        }
+
     workbook = {
         "version": "3.0",
         "seed": seed,
@@ -247,6 +259,7 @@ def generate_labeling_workbook(
         "reverse_key": _reverse_map(anon_map),
         "item_mapping": item_mapping,
         "expected_response_sha256": expected_response_shas,
+        "context_hashes": context_hashes,
     }
 
     # Write workbook
@@ -304,9 +317,34 @@ def parse_completed_workbook(
 
     item_mapping = manifest.get("item_mapping", {})
     expected_shas = manifest.get("expected_response_sha256", {})
+    context_hashes = manifest.get("context_hashes", {})
     records: list[dict] = []
 
-    for i, entry in enumerate(workbook.get("entries", [])):
+    # Fix 3: Check for duplicate item_ids in workbook
+    seen_item_ids: set[str] = set()
+    entries = workbook.get("entries", [])
+    for entry in entries:
+        item_id = entry.get("item_id")
+        if item_id in seen_item_ids:
+            raise EvaluationError(
+                f"duplicate item_id in workbook: {item_id}")
+        seen_item_ids.add(item_id)
+
+    # Fix 3: Require exactly the manifest's expected item IDs
+    manifest_item_ids = set(item_mapping.keys())
+    workbook_item_ids = seen_item_ids
+    if workbook_item_ids != manifest_item_ids:
+        only_wb = workbook_item_ids - manifest_item_ids
+        only_man = manifest_item_ids - workbook_item_ids
+        parts = []
+        if only_wb:
+            parts.append(f"extra items in workbook: {len(only_wb)}")
+        if only_man:
+            parts.append(f"missing items from workbook: {len(only_man)}")
+        raise EvaluationError(
+            f"workbook item IDs don't match manifest ({', '.join(parts)})")
+
+    for i, entry in enumerate(entries):
         item_id = entry.get("item_id")
         if item_id is None:
             raise EvaluationError(
@@ -326,11 +364,39 @@ def parse_completed_workbook(
         response_text = entry.get("response", "")
         actual_sha = sha256_text(response_text)
         expected_sha = expected_shas.get(item_id, "")
-        if expected_sha and actual_sha != expected_sha:
+        if not expected_sha or len(expected_sha) != 64:
+            raise EvaluationError(
+                f"entry {i} ({item_id} = {family_id}/{variant}): "
+                f"manifest response_sha256 is not a valid 64-char hash")
+        if actual_sha != expected_sha:
             raise EvaluationError(
                 f"entry {i} ({item_id} = {family_id}/{variant}): "
                 f"response SHA256 mismatch — "
                 f"expected {expected_sha}, got {actual_sha}")
+
+        # Fix 2: Verify context hashes against manifest
+        expected_ctx = context_hashes.get(item_id, {})
+        if expected_ctx:
+            actual_sys = hashlib.sha256(
+                entry.get("system_prompt", "").encode("utf-8")).hexdigest()
+            if actual_sys != expected_ctx.get("system_prompt", ""):
+                raise EvaluationError(
+                    f"entry {i} ({item_id} = {family_id}/{variant}): "
+                    f"system_prompt hash mismatch — context was modified")
+            actual_hist = hashlib.sha256(
+                entry.get("conversation_history", "").encode(
+                    "utf-8")).hexdigest()
+            if actual_hist != expected_ctx.get("conversation_history", ""):
+                raise EvaluationError(
+                    f"entry {i} ({item_id} = {family_id}/{variant}): "
+                    f"conversation_history hash mismatch — "
+                    f"context was modified")
+            actual_query = hashlib.sha256(
+                entry.get("terminal_query", "").encode("utf-8")).hexdigest()
+            if actual_query != expected_ctx.get("terminal_query", ""):
+                raise EvaluationError(
+                    f"entry {i} ({item_id} = {family_id}/{variant}): "
+                    f"terminal_query hash mismatch — context was modified")
 
         # Check required fields are filled
         for field in ("refusal_type", "unsafe_compliance_score",
@@ -483,6 +549,16 @@ def agreement_stats(labels_a: list[dict],
         Dict with Cohen's kappa (for refusal_type, compliance_level),
         exact agreement rate, and mean absolute difference for scores.
     """
+    # Fix 3: Reject duplicate (family_id, variant) keys before building dicts
+    keys_a_list = [(r["family_id"], r["variant"]) for r in labels_a]
+    keys_b_list = [(r["family_id"], r["variant"]) for r in labels_b]
+    if len(keys_a_list) != len(set(keys_a_list)):
+        raise EvaluationError(
+            "annotator A has duplicate (family_id, variant) keys")
+    if len(keys_b_list) != len(set(keys_b_list)):
+        raise EvaluationError(
+            "annotator B has duplicate (family_id, variant) keys")
+
     # Build keyed lookups
     keyed_a = {
         (r["family_id"], r["variant"]): r for r in labels_a

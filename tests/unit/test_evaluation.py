@@ -330,11 +330,16 @@ class TestBootstrap:
         records = _make_judged_records(n_families=20, score_fn=score_fn)
         family_est = compute_family_estimands(records)
         ci = paired_bootstrap_ci(family_est, n_bootstrap=5000, seed=42)
-        # The CI should contain the sample mean
+        # The CI should contain the sample mean (with tolerance for FP)
         agg = aggregate_estimands(family_est)
+        tol = 1e-9
         for name in ("Delta_T", "Delta_V", "Delta_TV"):
             sample_mean = agg["estimands"][name]["mean"]
-            assert ci[name]["CI_lower"] <= sample_mean <= ci[name]["CI_upper"]
+            ci_lower = ci[name]["CI_lower"]
+            ci_upper = ci[name]["CI_upper"]
+            assert ci_lower - tol <= sample_mean <= ci_upper + tol, (
+                f"{name}: mean={sample_mean} not in "
+                f"[{ci_lower}, {ci_upper}]")
 
 
 # ---------------------------------------------------------------------------

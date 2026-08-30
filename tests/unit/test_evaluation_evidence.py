@@ -141,12 +141,19 @@ class TestWorkbookGeneration:
         assert "id_secret" not in workbook
 
         # Manifest should contain the decoding key, response hashes,
-        # and the ID secret for deobfuscation
+        # context hashes, and the ID secret for deobfuscation
         assert "anon_key" in manifest
         assert "reverse_key" in manifest
         assert "item_mapping" in manifest
         assert "expected_response_sha256" in manifest
+        assert "context_hashes" in manifest
         assert "id_secret" in manifest
+
+        # Context hashes should be 64-char hex strings
+        for item_id, ctx in manifest["context_hashes"].items():
+            assert len(ctx["system_prompt"]) == 64
+            assert len(ctx["conversation_history"]) == 64
+            assert len(ctx["terminal_query"]) == 64
 
         # All 6 variants should be anonymized to A-F
         labels = set(manifest["anon_key"].values())
