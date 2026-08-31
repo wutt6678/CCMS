@@ -107,22 +107,30 @@ def _mean(vals: list[float]) -> float:
     return sum(vals) / len(vals)
 
 
-def _icc(scores_list: list[list[float]], icc_type: str = "ICC3k") -> float:
-    """Compute Intraclass Correlation Coefficient.
+def _icc(scores_list: list[list[float]], icc_type: str = "ICC(3,k)") -> dict:
+    """Compute Intraclass Correlation Coefficient using standard formulas.
+
+    Implements Shrout & Fleiss (1979) ICC forms:
+    - ICC(3,1): single-measure consistency
+    - ICC(3,k): average-measure consistency
 
     Args:
         scores_list: List of score arrays, one per judge.
-        icc_type: ICC type ("ICC3k" for consistency, "ICC2k" for agreement).
+        icc_type: ICC type to return ("ICC(3,1)" or "ICC(3,k)").
 
     Returns:
-        ICC value.
+        Dict with both ICC(3,1) and ICC(3,k) values, plus the requested type.
+
+    Formulas (Shrout & Fleiss, 1979):
+        ICC(3,1) = (MS_between - MS_within) / (MS_between + (k-1)*MS_within)
+        ICC(3,k) = (MS_between - MS_within) / MS_between
     """
     # Convert to subjects × raters format
     n_raters = len(scores_list)
     n_subjects = len(scores_list[0])
 
     if n_subjects < 2 or n_raters < 2:
-        return 0.0
+        return {"ICC(3,1)": 0.0, "ICC(3,k)": 0.0, "requested": 0.0}
 
     # data[subject][rater]
     data = [[scores_list[r][s] for r in range(n_raters)] for s in range(n_subjects)]
@@ -145,14 +153,31 @@ def _icc(scores_list: list[list[float]], icc_type: str = "ICC3k") -> float:
     df_within = n_subjects * (n_raters - 1)
     ms_within = ss_within / df_within if df_within > 0 else 0
 
-    # ICC(3,k) for consistency
-    if icc_type == "ICC3k":
-        if ms_within == 0:
-            return 1.0
-        return (ms_between - ms_within) / (ms_between + (n_raters - 1) * ms_within)
+    # ICC(3,1): single-measure consistency
+    # Formula: (MS_between - MS_within) / (MS_between + (k-1)*MS_within)
+    if ms_within == 0:
+        icc_3_1 = 1.0
+    else:
+        icc_3_1 = (ms_between - ms_within) / (ms_between + (n_raters - 1) * ms_within)
 
-    # ICC(2,k) for agreement (simplified)
-    return (ms_between - ms_within) / ms_between if ms_between > 0 else 0.0
+    # ICC(3,k): average-measure consistency
+    # Formula: (MS_between - MS_within) / MS_between
+    if ms_between > 0:
+        icc_3_k = (ms_between - ms_within) / ms_between
+    else:
+        icc_3_k = 0.0
+
+    # Clamp to [0, 1]
+    icc_3_1 = max(0.0, min(1.0, icc_3_1))
+    icc_3_k = max(0.0, min(1.0, icc_3_k))
+
+    requested = icc_3_k if icc_type == "ICC(3,k)" else icc_3_1
+
+    return {
+        "ICC(3,1)": icc_3_1,
+        "ICC(3,k)": icc_3_k,
+        "requested": requested,
+    }
 
 
 def _rank_data(vals: list[float]) -> list[float]:
@@ -269,8 +294,8 @@ def compute_judge_agreement(
     mae_bc = _mean([abs(b - c) for b, c in zip(scores_b, scores_c)])
     mae_mean = (mae_ab + mae_ac + mae_bc) / 3
 
-    # ICC for scores
-    icc = _icc([scores_a, scores_b, scores_c])
+    # ICC for scores (now returns dict with both ICC(3,1) and ICC(3,k))
+    icc_result = _icc([scores_a, scores_b, scores_c])
 
     # Spearman rank correlation (mean of pairwise)
     rho_ab = _spearman_rho(scores_a, scores_b)
@@ -284,6 +309,9 @@ def compute_judge_agreement(
             "A_C": kappa_ac,
             "B_C": kappa_bc,
             "mean": kappa_refusal_mean,
+            "note": "A_C measures within-model repeatability (same model, "
+                    "different seeds). A_B and B_C measure cross-model "
+                    "agreement. Mean includes all pairs.",
         },
         "kappa_compliance_weighted": {
             "A_B": wkappa_ab,
@@ -297,7 +325,12 @@ def compute_judge_agreement(
             "B_C": mae_bc,
             "mean": mae_mean,
         },
-        "icc_score": icc,
+        "icc_score": {
+            "ICC(3,1)": icc_result["ICC(3,1)"],
+            "ICC(3,k)": icc_result["ICC(3,k)"],
+            "note": "ICC(3,1) is single-measure consistency. "
+                    "ICC(3,k) is average-measure consistency (Shrout & Fleiss, 1979).",
+        },
         "spearman_rho": {
             "A_B": rho_ab,
             "A_C": rho_ac,

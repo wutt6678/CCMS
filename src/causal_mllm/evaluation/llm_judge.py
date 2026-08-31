@@ -52,6 +52,15 @@ class LLMJudgeProvenance:
     finish_reason: str = ""
     retries: int = 0
     timestamp: str = ""
+    # Image provenance
+    image_hashes: list[str] = None
+    # Provider response metadata
+    provider_response_id: str = ""
+    request_hash: str = ""
+
+    def __post_init__(self):
+        if self.image_hashes is None:
+            self.image_hashes = []
 
 
 class MultimodalLLMJudge:
@@ -103,12 +112,17 @@ class MultimodalLLMJudge:
         history_messages: list[dict],
         terminal_query: str,
         response: str,
-    ) -> tuple[str, list[dict]]:
+    ) -> tuple[str, list[dict], list[str]]:
         """Build the evaluation prompt and image content.
 
         Returns:
-            Tuple of (text_prompt, image_contents) where image_contents is
-            a list of base64-encoded image data for the API call.
+            Tuple of (text_prompt, image_contents, image_hashes) where
+            image_contents is a list of base64-encoded image data for the
+            API call, and image_hashes is a list of SHA256 hashes for
+            provenance.
+
+        Raises:
+            EvaluationError: If any referenced image file is missing.
         """
         # Format conversation history
         history_text = ""
@@ -124,7 +138,12 @@ class MultimodalLLMJudge:
                     msg_text += part.get("text", "")
                 elif part.get("type") == "image":
                     img_path = part.get("image", "")
-                    if img_path and Path(img_path).exists():
+                    if img_path:
+                        # FATAL: Missing images are not allowed
+                        if not Path(img_path).exists():
+                            raise EvaluationError(
+                                f"referenced image not found: {img_path}. "
+                                f"All images must be present for judging.")
                         all_images.append(img_path)
                         msg_text += f" [Image: {Path(img_path).name}]"
 
@@ -189,29 +208,60 @@ Ensure your labels are internally consistent according to the rubric's
 cross-field consistency requirements.
 """
 
-        # Encode images
+        # Encode images with correct MIME detection and hash computation
         image_contents = []
+        image_hashes = []
         for img_path in all_images:
-            with open(img_path, "rb") as f:
-                img_data = base64.b64encode(f.read()).decode("utf-8")
+            img_bytes = Path(img_path).read_bytes()
+
+            # Compute image hash for provenance
+            img_hash = hashlib.sha256(img_bytes).hexdigest()
+            image_hashes.append(img_hash)
+
+            # Detect MIME type from extension
+            mime_type = self._detect_mime(img_path)
+
+            img_data = base64.b64encode(img_bytes).decode("utf-8")
             image_contents.append({
                 "type": "image_url",
                 "image_url": {
-                    "url": f"data:image/jpeg;base64,{img_data}",
+                    "url": f"data:{mime_type};base64,{img_data}",
                 },
             })
 
-        return eval_prompt, image_contents
+        return eval_prompt, image_contents, image_hashes
+
+    @staticmethod
+    def _detect_mime(img_path: str) -> str:
+        """Detect MIME type from image file extension.
+
+        Args:
+            img_path: Path to the image file.
+
+        Returns:
+            MIME type string (e.g., "image/jpeg", "image/png").
+        """
+        ext = Path(img_path).suffix.lower()
+        mime_map = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+            ".bmp": "image/bmp",
+        }
+        return mime_map.get(ext, "image/jpeg")
 
     def _call_api(
         self,
         prompt: str,
         image_contents: list[dict],
-    ) -> tuple[dict, str, str, int]:
+    ) -> tuple[dict, str, str, int, str]:
         """Call the LLM API and return the response.
 
         Returns:
-            Tuple of (parsed_response, raw_response, finish_reason, retries).
+            Tuple of (parsed_response, raw_response, finish_reason, retries,
+            provider_response_id).
         """
         # Build message content
         content = [{"type": "text", "text": prompt}]
@@ -254,6 +304,7 @@ cross-field consistency requirements.
                 choice = result["choices"][0]
                 raw_response = choice["message"]["content"]
                 finish_reason = choice.get("finish_reason", "unknown")
+                provider_response_id = result.get("id", "")
 
                 # Parse JSON from response
                 # Try to extract JSON from markdown code blocks
@@ -265,7 +316,7 @@ cross-field consistency requirements.
                     json_str = raw_response
 
                 parsed = json.loads(json_str.strip())
-                return parsed, raw_response, finish_reason, retries
+                return parsed, raw_response, finish_reason, retries, provider_response_id
 
             except Exception as e:
                 last_error = e
@@ -293,18 +344,33 @@ cross-field consistency requirements.
 
         Returns:
             Tuple of (judgment_dict, provenance).
+
+        Raises:
+            EvaluationError: If any referenced image file is missing.
         """
-        # Build prompt
-        eval_prompt, image_contents = self._build_prompt(
+        # Build prompt (now returns image hashes for provenance)
+        eval_prompt, image_contents, image_hashes = self._build_prompt(
             system_prompt, history_messages, terminal_query, response)
 
         # Compute prompt hash
         prompt_sha256 = hashlib.sha256(
             eval_prompt.encode("utf-8")).hexdigest()
 
-        # Call API
-        parsed, raw_response, finish_reason, retries = self._call_api(
-            eval_prompt, image_contents)
+        # Compute request hash (binds prompt + images)
+        request_components = {
+            "prompt_sha256": prompt_sha256,
+            "image_hashes": image_hashes,
+            "model_id": self.config.model_id,
+            "temperature": self.config.temperature,
+            "seed": self.config.seed,
+        }
+        request_hash = hashlib.sha256(
+            json.dumps(request_components, sort_keys=True).encode("utf-8")
+        ).hexdigest()
+
+        # Call API (now returns provider_response_id)
+        parsed, raw_response, finish_reason, retries, provider_response_id = \
+            self._call_api(eval_prompt, image_contents)
 
         # Compute response hash
         response_hash = hashlib.sha256(
@@ -324,6 +390,9 @@ cross-field consistency requirements.
             finish_reason=finish_reason,
             retries=retries,
             timestamp=datetime.now(timezone.utc).isoformat(),
+            image_hashes=image_hashes,
+            provider_response_id=provider_response_id,
+            request_hash=request_hash,
         )
 
         # Validate judgment

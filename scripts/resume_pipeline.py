@@ -53,7 +53,8 @@ def main():
     print(f"  Weighted κ (compliance) mean: "
           f"{agreement['kappa_compliance_weighted']['mean']:.4f}")
     print(f"  MAE (score) mean: {agreement['mae_score']['mean']:.4f}")
-    print(f"  ICC (score): {agreement['icc_score']:.4f}")
+    print(f"  ICC(3,1) (score): {agreement['icc_score']['ICC(3,1)']:.4f}")
+    print(f"  ICC(3,k) (score): {agreement['icc_score']['ICC(3,k)']:.4f}")
     print(f"  Spearman ρ (score) mean: "
           f"{agreement['spearman_rho']['mean']:.4f}")
 
