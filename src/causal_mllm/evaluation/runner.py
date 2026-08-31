@@ -34,7 +34,11 @@ from causal_mllm.evaluation.estimands import (
     compute_family_estimands,
 )
 from causal_mllm.evaluation.gate import validate_panel
-from causal_mllm.evaluation.judge import HumanLabelJudge, ResponseJudge
+from causal_mllm.evaluation.judge import (
+    HumanLabelJudge,
+    LLMEnsembleLabelJudge,
+    ResponseJudge,
+)
 from causal_mllm.evaluation.refusal_detector import RuleBasedRefusalDetector
 from causal_mllm.evaluation.schema import make_judge_record
 from causal_mllm.evaluation.sensitivity import threshold_sweep
@@ -254,8 +258,9 @@ def run_evaluation_stage(
         family_id = rec["family_id"]
         variant = rec["variant"]
 
-        # For HumanLabelJudge, use judge_for() with family_id + variant
-        if isinstance(judge, HumanLabelJudge):
+        # For label-file judges (HumanLabelJudge / LLMEnsembleLabelJudge),
+        # use judge_for() with family_id + variant
+        if isinstance(judge, (HumanLabelJudge, LLMEnsembleLabelJudge)):
             judgment = judge.judge_for(family_id, variant)
         else:
             # Reconstruct conversation context from validated families

@@ -32,11 +32,31 @@ data/raw/*
 # Downloaded / generated images
 data/media/*
 !data/media/*/.gitkeep
-# Scale-B source images are provenance-bound and MUST be tracked so the
-# LLM-judge pipeline can rerun with the exact image bytes.
+# The 20 Scale-B source images referenced by validated_families.jsonl are
+# provenance-bound and MUST be tracked so the LLM-judge pipeline can rerun
+# with the exact image bytes. Only these specific files are un-ignored.
 !data/media/source/
 data/media/source/*
-!data/media/source/mtmcs_type_b_*_main.png
+!data/media/source/mtmcs_type_b_0_main.png
+!data/media/source/mtmcs_type_b_3_main.png
+!data/media/source/mtmcs_type_b_4_main.png
+!data/media/source/mtmcs_type_b_6_main.png
+!data/media/source/mtmcs_type_b_8_main.png
+!data/media/source/mtmcs_type_b_17_main.png
+!data/media/source/mtmcs_type_b_20_main.png
+!data/media/source/mtmcs_type_b_22_main.png
+!data/media/source/mtmcs_type_b_23_main.png
+!data/media/source/mtmcs_type_b_34_main.png
+!data/media/source/mtmcs_type_b_36_main.png
+!data/media/source/mtmcs_type_b_40_main.png
+!data/media/source/mtmcs_type_b_42_main.png
+!data/media/source/mtmcs_type_b_44_main.png
+!data/media/source/mtmcs_type_b_47_main.png
+!data/media/source/mtmcs_type_b_52_main.png
+!data/media/source/mtmcs_type_b_55_main.png
+!data/media/source/mtmcs_type_b_57_main.png
+!data/media/source/mtmcs_type_b_59_main.png
+!data/media/source/mtmcs_type_b_60_main.png
 
 # Generated family data
 data/families/*
@@ -82,3 +102,13 @@ htmlcov/
 
 # Local CI-reproduction venv
 .ci-venv/
+
+# ---------------------------------------------------------------------------
+# Secrets / credentials — NEVER tracked
+# ---------------------------------------------------------------------------
+configs/**/*credentials*
+configs/**/*secret*
+# ...but the credential TEMPLATE (no real values) is tracked for reference.
+!configs/evaluation/llm_judge_credentials.conf.example
+*.key
+.env

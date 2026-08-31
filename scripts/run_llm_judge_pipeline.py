@@ -50,17 +50,52 @@ VALIDATED_FAMILIES_PATH = Path(
     "outputs/families/scale_b_smoke/validated_families.jsonl")
 OUTPUT_DIR = Path("outputs/llm_judge_artifacts")
 
-# API credentials from environment
-# SECURITY: Never hardcode API keys. Set LLM_JUDGE_API_KEY in environment.
-API_KEY = os.environ.get("LLM_JUDGE_API_KEY", "")
-BASE_URL = os.environ.get(
+# Path to the gitignored credentials file. See the .example template.
+CREDENTIALS_FILE = (
+    Path(__file__).parent.parent
+    / "configs" / "evaluation" / "llm_judge_credentials.conf")
+
+
+def _load_credentials_file() -> dict:
+    """Load KEY=VALUE pairs from the gitignored credentials conf file.
+
+    Returns an empty dict if the file does not exist. Lines starting with
+    '#' and blank lines are ignored.
+    """
+    if not CREDENTIALS_FILE.exists():
+        return {}
+    values = {}
+    for line in CREDENTIALS_FILE.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip()
+    return values
+
+
+_FILE_CONFIG = _load_credentials_file()
+
+
+def _cfg(name: str, default: str = "") -> str:
+    """Resolve a config value: environment overrides the conf file."""
+    return os.environ.get(name) or _FILE_CONFIG.get(name) or default
+
+
+# API credentials: environment overrides the gitignored conf file.
+# SECURITY: Never hardcode API keys. The key comes from the environment or
+# the gitignored configs/evaluation/llm_judge_credentials.conf.
+API_KEY = _cfg("LLM_JUDGE_API_KEY")
+BASE_URL = _cfg(
     "LLM_JUDGE_BASE_URL",
     "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1")
 
-if not API_KEY:
+if not API_KEY or API_KEY == "REPLACE_WITH_ROTATED_KEY":
     raise EnvironmentError(
-        "LLM_JUDGE_API_KEY environment variable is required. "
-        "Set it with: export LLM_JUDGE_API_KEY='your-api-key'")
+        "LLM_JUDGE_API_KEY is required. Set the environment variable "
+        "LLM_JUDGE_API_KEY, or copy configs/evaluation/"
+        "llm_judge_credentials.conf.example to llm_judge_credentials.conf "
+        "and fill in the rotated key.")
 
 # Judge architecture: TWO DISTINCT primary judges + a THIRD DISTINCT
 # adjudicator model. Model IDs are configurable via environment so the
@@ -72,9 +107,10 @@ if not API_KEY:
 # - If the adjudicator model is not distinct from both primaries, the
 #   pipeline falls back to deterministic adjudication (documented as a
 #   fallback, not true adjudication).
-PRIMARY_A_MODEL = os.environ.get("LLM_JUDGE_PRIMARY_A_MODEL", "qwen3.8-max")
-PRIMARY_B_MODEL = os.environ.get("LLM_JUDGE_PRIMARY_B_MODEL", "glm-5.2")
-ADJUDICATOR_MODEL = os.environ.get("LLM_ADJUDICATOR_MODEL", "")
+PRIMARY_A_MODEL = _cfg("LLM_JUDGE_PRIMARY_A_MODEL", "qwen3.8-max")
+PRIMARY_B_MODEL = _cfg("LLM_JUDGE_PRIMARY_B_MODEL", "glm-5.2")
+# Distinct adjudicator (kimi-k3 differs from both qwen3.8-max and glm-5.2).
+ADJUDICATOR_MODEL = _cfg("LLM_ADJUDICATOR_MODEL", "kimi-k3")
 
 
 def _make_config(model_id: str, seed: int) -> LLMJudgeConfig:
