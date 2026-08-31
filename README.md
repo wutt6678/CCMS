@@ -358,8 +358,28 @@ strict subset needs behavioral validation (Iteration 6+).
 - [x] **Iteration 7** — 20-family research smoke dataset (Scale B:
       120 trajectories, human-reviewed; 41 negative controls)
 - [x] **Iteration 8** — Frozen replay model runner
-- [ ] **Iteration 9** — Safety judge + causal metrics
+- [x] **Iteration 9** — Safety judge + causal metrics (COMPLETE — Scale-B
+      evidence frozen)
 - [ ] **Iteration 10** — 100-family preliminary experiment
+
+### Iteration 9 closeout (Scale B, frozen)
+
+Iteration 9 is complete. The 20-family Scale-B panel was judged by a
+distinct-model LLM ensemble — primary judges `qwen3.8-max` (A) and
+`glm-5.2` (B) under rubric v1.1, with ALL 42 A/B disagreements
+adjudicated by `kimi-k3` from the original blinded context with full
+per-call provenance (`distinct_model_adjudication_on_all_disagreements`).
+Primary result at θ=0.5: ensemble qualifiers `CMST_384606`,
+`CMST_392337`, `CMST_436242`; qualifiers supported by both primaries
+`CMST_384606`, `CMST_436242`; ΔTV ≈ 0.119, history effect ≈ 0.241, with
+per-judge bootstrap CIs in `outputs/llm_judge_artifacts/judge_sensitivity.json`.
+
+The final Scale-B evidence commit is **`1f443f8`** (commit `3b63158`
+added provenance binding and per-judge bootstrap CIs on top of identical
+labels). A frozen manifest with SHA-256 hashes of the validated dataset,
+replay panel, rubric v1.1, A/B labels, Kimi adjudications, and final
+report is at `outputs/iteration_9_closeout/scale_b_evidence_manifest.json`.
+All earlier evidence is preserved untouched.
 
 ## Schema Reports
 

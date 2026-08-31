@@ -1,0 +1,89 @@
+{
+  "closeout": {
+    "iteration": "9",
+    "scale": "B (20-family smoke)",
+    "status": "COMPLETE — frozen",
+    "timestamp": "2026-08-31T15:04:45.615205+00:00",
+    "final_scale_b_evidence_commit": "1f443f8",
+    "post_evidence_annotation_commit": "3b63158",
+    "note": "1f443f8 is the final Scale-B evidence commit (labels, agreement, evaluation). 3b63158 only added provenance binding and per-judge bootstrap CIs on top of the same labels (labels_sha256 unchanged)."
+  },
+  "primary_results": {
+    "panel_gate": "passed",
+    "primary_threshold_theta": 0.5,
+    "ensemble_qualifiers": [
+      "CMST_384606",
+      "CMST_392337",
+      "CMST_436242"
+    ],
+    "qualifiers_both_primaries": [
+      "CMST_384606",
+      "CMST_436242"
+    ],
+    "delta_tv_mean": 0.119,
+    "history_effect_mean": 0.241,
+    "cross_model_kappa_refusal": 0.6968,
+    "icc_3_1": 0.6823,
+    "adjudication": "distinct_model_adjudication_on_all_disagreements (42/42)"
+  },
+  "artifacts": {
+    "validated_dataset": {
+      "path": "outputs/families/scale_b_smoke/validated_families.jsonl",
+      "sha256": "773594a91f1a06cff66b8296007817a21487dba9414a28d24d1214d7d5526c26",
+      "n_families": 20,
+      "n_trajectories": 120,
+      "bound_by_replay_provenance": true
+    },
+    "replay_panel": {
+      "run_dir": "outputs/replay_runs/scale-b-2026-08-28-t1536-final-qwen35-9b",
+      "replay_outputs_sha256": "1467ed12643c2184c73cc51c37bcf7a80627a8ac3e996ea34bb95cca0c23d3b1",
+      "replay_report_sha256": "c6a6de15603736fa856bdc8473a971726f3299866a6c74ef8662adc85b5473f2",
+      "model": "Qwen/Qwen3.5-9B",
+      "resolved_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "revision_pinned": true,
+      "max_new_tokens": 1536,
+      "temperature": 0.0,
+      "git_dirty": false,
+      "git_commit": "e3b8db0e738c8c401a7e44f9f50a54baf2f41711",
+      "truncation": 0
+    },
+    "rubric_v1_1": {
+      "path": "src/causal_mllm/evaluation/annotation_rubric_v1_1.md",
+      "sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c"
+    },
+    "primary_labels": {
+      "judge_A": {
+        "path": "outputs/llm_judge_artifacts/llm_labels_judge_A.json",
+        "sha256": "6b7681f9921d5b629f1ffe7c2ee9031a7e87f223609b001eaa7e99cc4008657e",
+        "model_id": "qwen3.8-max"
+      },
+      "judge_B": {
+        "path": "outputs/llm_judge_artifacts/llm_labels_judge_B.json",
+        "sha256": "697e5ffdd4b4ccfaad254365f4a054766c4f554d1f1c29537f9a68c66490a149",
+        "model_id": "glm-5.2"
+      }
+    },
+    "kimi_adjudications": {
+      "adjudicator_artifact": {
+        "path": "outputs/llm_judge_artifacts/llm_labels_adjudicator.json",
+        "sha256": "f6a809f34c3375eb79c0efac626c7efb5baa20f405a294294a8e0e9accf1742c",
+        "n_items": 42,
+        "binding_fingerprint": "f2d67d6d031c5501b26800f065d1b230d3111b235b2963155878876b43117490"
+      },
+      "adjudicated_labels": {
+        "path": "outputs/llm_judge_artifacts/llm_labels_adjudicated.json",
+        "sha256": "d2cc9f8ef9c2cff366024fad3e571ec07c61c5f0ec8cb18f94cff2d394310572",
+        "labels_sha256": "30f9a7dc364cb71938e7fec3e890f71e8f34712bd42582842c04ab5bda3adc3b"
+      }
+    },
+    "final_report": {
+      "path": "outputs/llm_judge_artifacts/final_evaluation_report.json",
+      "sha256": "d547c46359f5a8ae42414c069f07e72daeff2ac6a2ef6c3b4567dc2d4103c209"
+    },
+    "supporting": {
+      "judge_agreement": "4129f074dfa4a0b22c973b7e5f4f9bbbeef2db4f98a91de6c141b18e20aedbc4",
+      "judge_sensitivity": "bc4c6bed2dabe85ac75a1a2c6d61bf070b071819247e25f9520377e52d4aa522",
+      "blinded_items": "5f3cbb6c5d561fa8962c4cc6648216416dea56639a1cf1ba78a9b58aeba1b102"
+    }
+  }
+}
