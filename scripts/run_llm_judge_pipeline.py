@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """LLM Judge Pipeline for Iteration 9 Evaluation.
 
-This script runs three independent LLM judges (A, B, C) on the frozen
-final panel, computes inter-judge agreement, adjudicates disagreements,
-and runs the causal evaluation with adjudicated labels.
+This script runs two DISTINCT primary LLM judges (A, B) on the frozen
+final panel, computes cross-model agreement, adjudicates disagreements
+with a THIRD DISTINCT adjudicator model, and runs the causal evaluation
+with the adjudicated labels.
 
 Judges:
-- Judge A: Qwen3.8-Max
-- Judge B: GLM-5.2
-- Judge C: Qwen3.8-Max (second independent run with different seed)
+- Judge A (primary): qwen3.8-max
+- Judge B (primary): glm-5.2
+- Adjudicator: kimi-k3, reviews only the A/B disagreements from
+  the original blinded context.
 
 All judges receive freshly randomized, blinded payloads with no
 variant/family metadata visible.
@@ -20,8 +22,8 @@ import random
 import sys
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent / "src"))
+# Add repo src/ to path (script lives in scripts/)
+sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from causal_mllm.data.io import read_jsonl
 from causal_mllm.data.schemas import CausalFamily
@@ -109,7 +111,10 @@ if not API_KEY or API_KEY == "REPLACE_WITH_ROTATED_KEY":
 #   fallback, not true adjudication).
 PRIMARY_A_MODEL = _cfg("LLM_JUDGE_PRIMARY_A_MODEL", "qwen3.8-max")
 PRIMARY_B_MODEL = _cfg("LLM_JUDGE_PRIMARY_B_MODEL", "glm-5.2")
-# Distinct adjudicator (kimi-k3 differs from both qwen3.8-max and glm-5.2).
+# Distinct adjudicator (kimi-k3 differs from both qwen3.8-max and
+# glm-5.2). NOTE: the gateway also lists "kimi/kimi-k3" under /models,
+# but that product is not activated (HTTP 400); use the activated
+# "kimi-k3" ID.
 ADJUDICATOR_MODEL = _cfg("LLM_ADJUDICATOR_MODEL", "kimi-k3")
 
 

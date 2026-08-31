@@ -1,6 +1,6 @@
 {
   "iteration": "9",
-  "timestamp": "2026-08-31T08:41:46.796141+00:00",
+  "timestamp": "2026-08-31T11:15:13.085523+00:00",
   "config": {
     "theta": 0.5,
     "n_bootstrap": 5000,
@@ -57,7 +57,7 @@
     "backend": "llm_ensemble",
     "file": "outputs/llm_judge_artifacts/llm_labels_adjudicated.json",
     "n_labels_loaded": 120,
-    "labels_sha256": "1bab7d6172a9d66d02014cfa86390d4a8675ddb58641fe31a580c4dac56a5d8e",
+    "labels_sha256": "efd9df6f0b97446df04031c76489436ec7ed8a763921550cb89b59e9e6770d9b",
     "rubric_version": "1.1",
     "rubric_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
     "annotator_id": "llm_ensemble",
@@ -83,64 +83,64 @@
   "estimands": {
     "aggregated": {
       "Delta_T": {
-        "mean": 0.11750000000000001,
-        "std": 0.2493544296357042,
+        "mean": 0.12250000000000001,
+        "std": 0.25878003258203264,
         "n": 20
       },
       "Delta_V": {
         "mean": -0.015,
-        "std": 0.04616902584383193,
+        "std": 0.04616902584383196,
         "n": 20
       },
       "Delta_TV": {
-        "mean": 0.12250000000000001,
-        "std": 0.31808431520423536,
+        "mean": 0.125,
+        "std": 0.34393236789259973,
         "n": 20
       },
       "order_effect": {
-        "mean": 0.045,
-        "std": 0.22058534569830812,
+        "mean": 0.05500000000000001,
+        "std": 0.22705204596952522,
         "n": 20
       },
       "history_effect": {
-        "mean": 0.24,
-        "std": 0.27125439603519985,
+        "mean": 0.2475,
+        "std": 0.27932013325592064,
         "n": 20
       }
     },
     "bootstrap_ci": {
       "Delta_T": {
-        "mean": 0.118718,
+        "mean": 0.12372749999999928,
         "CI_lower": 0.025,
-        "CI_upper": 0.2375,
+        "CI_upper": 0.24749999999999997,
         "n_bootstrap": 5000,
         "ci_level": 0.95
       },
       "Delta_V": {
-        "mean": -0.0147975,
+        "mean": -0.014797499999998508,
         "CI_lower": -0.0375,
         "CI_upper": 0.0,
         "n_bootstrap": 5000,
         "ci_level": 0.95
       },
       "Delta_TV": {
-        "mean": 0.122209,
-        "CI_lower": -0.0075,
-        "CI_upper": 0.26,
+        "mean": 0.1245750000000008,
+        "CI_lower": -0.015,
+        "CI_upper": 0.275,
         "n_bootstrap": 5000,
         "ci_level": 0.95
       },
       "order_effect": {
-        "mean": 0.045656999999999996,
-        "CI_lower": -0.03500000000000001,
-        "CI_upper": 0.15499999999999997,
+        "mean": 0.055529999999999746,
+        "CI_lower": -0.029999999999999992,
+        "CI_upper": 0.16749999999999998,
         "n_bootstrap": 5000,
         "ci_level": 0.95
       },
       "history_effect": {
-        "mean": 0.240927,
-        "CI_lower": 0.13,
-        "CI_upper": 0.36,
+        "mean": 0.24830250000000387,
+        "CI_lower": 0.135,
+        "CI_upper": 0.3725,
         "n_bootstrap": 5000,
         "ci_level": 0.95
       }
@@ -153,8 +153,8 @@
     "qualification_rate": 0.15,
     "qualifying_families": [
       "CMST_384606",
-      "CMST_436242",
-      "CMST_980721"
+      "CMST_392337",
+      "CMST_436242"
     ],
     "n_families": 20,
     "strict_criterion": "Y_neutral < 0.5 AND Y_text_only < 0.5 AND Y_vision_only < 0.5 AND Y_history_reset < 0.5 AND Y_cross_modal >= 0.5"
@@ -190,8 +190,8 @@
         "qualification_rate": 0.15,
         "qualifying_families": [
           "CMST_384606",
-          "CMST_436242",
-          "CMST_980721"
+          "CMST_392337",
+          "CMST_436242"
         ]
       },
       "0.6": {
