@@ -5,12 +5,13 @@ Computes agreement between multiple LLM judges:
 - Weighted κ for compliance level (ordinal)
 - MAE for unsafe compliance score (continuous)
 - ICC or rank correlation for scores (continuous)
+
+Pure Python implementation (no numpy/scipy dependency).
 """
 
 from __future__ import annotations
 
-import numpy as np
-from scipy import stats
+import math
 
 from causal_mllm.evaluation.errors import EvaluationError
 
@@ -65,38 +66,45 @@ def _weighted_kappa(labels_a: list, labels_b: list, weights: str = "quadratic") 
     categories = sorted(set(labels_a) | set(labels_b))
     k = len(categories)
 
-    # Build confusion matrix
-    obs = np.zeros((k, k))
+    # Build confusion matrix (list of lists)
+    obs = [[0.0] * k for _ in range(k)]
     for a, b in zip(labels_a, labels_b):
         i = categories.index(a)
         j = categories.index(b)
-        obs[i, j] += 1
+        obs[i][j] += 1
 
     # Normalize to proportions
-    obs = obs / n
+    obs = [[obs[i][j] / n for j in range(k)] for i in range(k)]
 
     # Compute expected matrix
-    row_sums = obs.sum(axis=1)
-    col_sums = obs.sum(axis=0)
-    exp = np.outer(row_sums, col_sums)
+    row_sums = [sum(obs[i]) for i in range(k)]
+    col_sums = [sum(obs[i][j] for i in range(k)) for j in range(k)]
+    exp = [[row_sums[i] * col_sums[j] for j in range(k)] for i in range(k)]
 
     # Build weight matrix
-    w = np.zeros((k, k))
+    w = [[0.0] * k for _ in range(k)]
     for i in range(k):
         for j in range(k):
             if weights == "quadratic":
-                w[i, j] = ((i - j) ** 2) / ((k - 1) ** 2)
+                w[i][j] = ((i - j) ** 2) / ((k - 1) ** 2) if k > 1 else 0.0
             else:  # linear
-                w[i, j] = abs(i - j) / (k - 1)
+                w[i][j] = abs(i - j) / (k - 1) if k > 1 else 0.0
 
     # Compute weighted κ
-    numerator = (w * obs).sum()
-    denominator = (w * exp).sum()
+    numerator = sum(w[i][j] * obs[i][j] for i in range(k) for j in range(k))
+    denominator = sum(w[i][j] * exp[i][j] for i in range(k) for j in range(k))
 
     if denominator == 0:
         return 1.0 if numerator == 0 else 0.0
 
     return 1.0 - numerator / denominator
+
+
+def _mean(vals: list[float]) -> float:
+    """Compute mean of a list of values."""
+    if not vals:
+        return 0.0
+    return sum(vals) / len(vals)
 
 
 def _icc(scores_list: list[list[float]], icc_type: str = "ICC3k") -> float:
@@ -109,24 +117,31 @@ def _icc(scores_list: list[list[float]], icc_type: str = "ICC3k") -> float:
     Returns:
         ICC value.
     """
-    # Convert to numpy array (subjects × raters)
-    data = np.array(scores_list).T  # Shape: (n_subjects, n_raters)
-    n_subjects, n_raters = data.shape
+    # Convert to subjects × raters format
+    n_raters = len(scores_list)
+    n_subjects = len(scores_list[0])
 
     if n_subjects < 2 or n_raters < 2:
         return 0.0
 
+    # data[subject][rater]
+    data = [[scores_list[r][s] for r in range(n_raters)] for s in range(n_subjects)]
+
     # Compute means
-    subject_means = data.mean(axis=1)
-    grand_mean = data.mean()
+    subject_means = [_mean(data[s]) for s in range(n_subjects)]
+    grand_mean = _mean(subject_means)
 
     # Between-subjects variance
-    ss_between = n_raters * ((subject_means - grand_mean) ** 2).sum()
+    ss_between = n_raters * sum((subject_means[s] - grand_mean) ** 2 for s in range(n_subjects))
     df_between = n_subjects - 1
     ms_between = ss_between / df_between if df_between > 0 else 0
 
     # Within-subjects variance
-    ss_within = ((data - subject_means[:, None]) ** 2).sum()
+    ss_within = sum(
+        (data[s][r] - subject_means[s]) ** 2
+        for s in range(n_subjects)
+        for r in range(n_raters)
+    )
     df_within = n_subjects * (n_raters - 1)
     ms_within = ss_within / df_within if df_within > 0 else 0
 
@@ -138,6 +153,57 @@ def _icc(scores_list: list[list[float]], icc_type: str = "ICC3k") -> float:
 
     # ICC(2,k) for agreement (simplified)
     return (ms_between - ms_within) / ms_between if ms_between > 0 else 0.0
+
+
+def _rank_data(vals: list[float]) -> list[float]:
+    """Compute ranks for a list of values (average rank for ties)."""
+    n = len(vals)
+    indexed = sorted(enumerate(vals), key=lambda x: x[1])
+    ranks = [0.0] * n
+
+    i = 0
+    while i < n:
+        j = i
+        # Find all items with the same value
+        while j < n - 1 and indexed[j + 1][1] == indexed[j][1]:
+            j += 1
+        # Average rank
+        avg_rank = (i + j) / 2.0 + 1  # 1-based
+        for k in range(i, j + 1):
+            ranks[indexed[k][0]] = avg_rank
+        i = j + 1
+
+    return ranks
+
+
+def _spearman_rho(x: list[float], y: list[float]) -> float:
+    """Compute Spearman rank correlation coefficient.
+
+    Args:
+        x, y: Two lists of numeric values.
+
+    Returns:
+        Spearman's ρ coefficient.
+    """
+    n = len(x)
+    if n < 2:
+        return 0.0
+
+    rx = _rank_data(x)
+    ry = _rank_data(y)
+
+    # Pearson correlation on ranks
+    mean_rx = _mean(rx)
+    mean_ry = _mean(ry)
+
+    num = sum((rx[i] - mean_rx) * (ry[i] - mean_ry) for i in range(n))
+    den_x = math.sqrt(sum((rx[i] - mean_rx) ** 2 for i in range(n)))
+    den_y = math.sqrt(sum((ry[i] - mean_ry) ** 2 for i in range(n)))
+
+    if den_x == 0 or den_y == 0:
+        return 0.0
+
+    return num / (den_x * den_y)
 
 
 def compute_judge_agreement(
@@ -198,18 +264,18 @@ def compute_judge_agreement(
     wkappa_compliance_mean = (wkappa_ab + wkappa_ac + wkappa_bc) / 3
 
     # MAE for scores (pairwise)
-    mae_ab = np.mean([abs(a - b) for a, b in zip(scores_a, scores_b)])
-    mae_ac = np.mean([abs(a - c) for a, c in zip(scores_a, scores_c)])
-    mae_bc = np.mean([abs(b - c) for b, c in zip(scores_b, scores_c)])
+    mae_ab = _mean([abs(a - b) for a, b in zip(scores_a, scores_b)])
+    mae_ac = _mean([abs(a - c) for a, c in zip(scores_a, scores_c)])
+    mae_bc = _mean([abs(b - c) for b, c in zip(scores_b, scores_c)])
     mae_mean = (mae_ab + mae_ac + mae_bc) / 3
 
     # ICC for scores
     icc = _icc([scores_a, scores_b, scores_c])
 
     # Spearman rank correlation (mean of pairwise)
-    rho_ab, _ = stats.spearmanr(scores_a, scores_b)
-    rho_ac, _ = stats.spearmanr(scores_a, scores_c)
-    rho_bc, _ = stats.spearmanr(scores_b, scores_c)
+    rho_ab = _spearman_rho(scores_a, scores_b)
+    rho_ac = _spearman_rho(scores_a, scores_c)
+    rho_bc = _spearman_rho(scores_b, scores_c)
     spearman_mean = (rho_ab + rho_ac + rho_bc) / 3
 
     return {
@@ -226,17 +292,17 @@ def compute_judge_agreement(
             "mean": wkappa_compliance_mean,
         },
         "mae_score": {
-            "A_B": float(mae_ab),
-            "A_C": float(mae_ac),
-            "B_C": float(mae_bc),
-            "mean": float(mae_mean),
+            "A_B": mae_ab,
+            "A_C": mae_ac,
+            "B_C": mae_bc,
+            "mean": mae_mean,
         },
-        "icc_score": float(icc),
+        "icc_score": icc,
         "spearman_rho": {
-            "A_B": float(rho_ab),
-            "A_C": float(rho_ac),
-            "B_C": float(rho_bc),
-            "mean": float(spearman_mean),
+            "A_B": rho_ab,
+            "A_C": rho_ac,
+            "B_C": rho_bc,
+            "mean": spearman_mean,
         },
         "n_items": len(common_ids),
     }

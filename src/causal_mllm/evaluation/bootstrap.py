@@ -6,13 +6,41 @@ means for each estimand, and report the empirical percentile CI.
 This is the PRIMARY inference method for the causal estimands.  The
 unit of resampling is the FAMILY (not the response), preserving the
 within-family factorial structure.
+
+Pure Python implementation (no numpy dependency).
 """
 
 from __future__ import annotations
 
-import numpy as np
+import random
 
 from causal_mllm.evaluation.errors import EvaluationError
+
+
+def _percentile(sorted_vals: list[float], pct: float) -> float:
+    """Compute the percentile of a sorted list using linear interpolation.
+
+    Args:
+        sorted_vals: Sorted list of numeric values.
+        pct: Percentile in [0, 100].
+
+    Returns:
+        Interpolated percentile value.
+    """
+    n = len(sorted_vals)
+    if n == 0:
+        return 0.0
+    if n == 1:
+        return sorted_vals[0]
+
+    # Linear interpolation method
+    k = (pct / 100.0) * (n - 1)
+    f = int(k)
+    c = f + 1
+    if c >= n:
+        return sorted_vals[-1]
+    d = k - f
+    return sorted_vals[f] + d * (sorted_vals[c] - sorted_vals[f])
 
 
 def paired_bootstrap_ci(
@@ -40,20 +68,23 @@ def paired_bootstrap_ci(
                       "order_effect", "history_effect")
     family_ids = sorted(family_estimands.keys())
     n_families = len(family_ids)
+    n_estimands = len(estimand_names)
 
     # Build matrix: rows = families, cols = estimands
-    data = np.array([
+    data = [
         [family_estimands[fid][name] for name in estimand_names]
         for fid in family_ids
-    ])
+    ]
 
-    rng = np.random.RandomState(seed)
-    bootstrap_samples = np.zeros((n_bootstrap, len(estimand_names)))
+    rng = random.Random(seed)
+    # Store bootstrap means per estimand
+    bootstrap_samples: list[list[float]] = [[] for _ in range(n_estimands)]
 
-    for b in range(n_bootstrap):
-        indices = rng.randint(0, n_families, size=n_families)
-        resampled = data[indices]
-        bootstrap_samples[b] = resampled.mean(axis=0)
+    for _b in range(n_bootstrap):
+        indices = [rng.randint(0, n_families - 1) for _ in range(n_families)]
+        for e_idx in range(n_estimands):
+            vals = [data[i][e_idx] for i in indices]
+            bootstrap_samples[e_idx].append(sum(vals) / len(vals))
 
     # Percentile CI
     alpha = 1.0 - ci_level
@@ -61,12 +92,12 @@ def paired_bootstrap_ci(
     upper_pct = 100 * (1 - alpha / 2)
 
     result: dict[str, dict] = {}
-    for i, name in enumerate(estimand_names):
-        samples = bootstrap_samples[:, i]
+    for e_idx, name in enumerate(estimand_names):
+        samples = sorted(bootstrap_samples[e_idx])
         result[name] = {
-            "mean": float(np.mean(samples)),
-            "CI_lower": float(np.percentile(samples, lower_pct)),
-            "CI_upper": float(np.percentile(samples, upper_pct)),
+            "mean": sum(samples) / len(samples),
+            "CI_lower": _percentile(samples, lower_pct),
+            "CI_upper": _percentile(samples, upper_pct),
             "n_bootstrap": n_bootstrap,
             "ci_level": ci_level,
         }

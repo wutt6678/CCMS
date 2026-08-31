@@ -5,8 +5,6 @@ import os
 import random
 from typing import Optional
 
-import numpy as np
-
 
 def set_global_seed(seed: int) -> None:
     """Set deterministic seeds for all relevant RNGs.
@@ -15,7 +13,11 @@ def set_global_seed(seed: int) -> None:
         seed: Integer seed for reproducibility.
     """
     random.seed(seed)
-    np.random.seed(seed)
+    try:
+        import numpy as np
+        np.random.seed(seed)
+    except ImportError:
+        pass
     os.environ["PYTHONHASHSEED"] = str(seed)
 
     try:

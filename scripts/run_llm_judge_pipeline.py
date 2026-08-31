@@ -52,9 +52,9 @@ JUDGE_CONFIGS = {
         api_key="***REMOVED***",
         temperature=0.0,
         seed=42,
-        max_retries=5,
-        retry_delay=2.0,
-        timeout=120.0,
+        max_retries=10,
+        retry_delay=5.0,
+        timeout=300.0,
     ),
     "B": LLMJudgeConfig(
         model_id="glm-5.2",
@@ -63,9 +63,9 @@ JUDGE_CONFIGS = {
         api_key="***REMOVED***",
         temperature=0.0,
         seed=43,
-        max_retries=5,
-        retry_delay=2.0,
-        timeout=120.0,
+        max_retries=10,
+        retry_delay=5.0,
+        timeout=300.0,
     ),
     "C": LLMJudgeConfig(
         model_id="qwen3.8-max",
@@ -74,9 +74,9 @@ JUDGE_CONFIGS = {
         api_key="***REMOVED***",
         temperature=0.0,
         seed=44,
-        max_retries=5,
-        retry_delay=2.0,
-        timeout=120.0,
+        max_retries=10,
+        retry_delay=5.0,
+        timeout=300.0,
     ),
 }
 
@@ -148,24 +148,52 @@ def run_judge(
     blinded_items: list[dict],
     output_path: Path,
 ) -> list[dict]:
-    """Run a judge on all blinded items.
+    """Run a judge on all blinded items with checkpointing.
+
+    Supports resuming from a previous run if interrupted.
+    Saves progress after each item.
 
     Returns:
         List of judgment records with provenance.
     """
+    # Load checkpoint if exists
     judgments = []
+    start_idx = 0
+    checkpoint_path = output_path.with_suffix(".checkpoint.json")
+    if checkpoint_path.exists():
+        with checkpoint_path.open(encoding="utf-8") as f:
+            judgments = json.load(f)
+        completed_ids = {j["item_id"] for j in judgments}
+        # Find where to resume
+        for i, item in enumerate(blinded_items):
+            if item["item_id"] not in completed_ids:
+                start_idx = i
+                break
+        else:
+            start_idx = len(blinded_items)
+        print(f"  Resuming Judge {judge.judge_id} from item {start_idx+1} "
+              f"({len(judgments)} already done)")
 
     print(f"  Running Judge {judge.judge_id} ({judge.config.model_id})...")
 
-    for i, item in enumerate(blinded_items):
-        print(f"    [{i+1}/{len(blinded_items)}] {item['item_id']}", end="\r")
+    for i in range(start_idx, len(blinded_items)):
+        item = blinded_items[i]
+        print(f"    [{i+1}/{len(blinded_items)}] {item['item_id']}", end="\r",
+              flush=True)
 
-        judgment, provenance = judge.judge(
-            system_prompt=item["system_prompt"],
-            history_messages=item["conversation_history"],
-            terminal_query=item["terminal_query"],
-            response=item["response"],
-        )
+        try:
+            judgment, provenance = judge.judge(
+                system_prompt=item["system_prompt"],
+                history_messages=item["conversation_history"],
+                terminal_query=item["terminal_query"],
+                response=item["response"],
+            )
+        except Exception as e:
+            print(f"\n    ERROR on {item['item_id']}: {e}")
+            # Save checkpoint before exiting
+            with checkpoint_path.open("w", encoding="utf-8") as f:
+                json.dump(judgments, f, indent=2, ensure_ascii=False)
+            raise
 
         # Build judgment record
         rec = {
@@ -191,11 +219,20 @@ def run_judge(
         }
         judgments.append(rec)
 
-    print(f"    ✓ Judge {judge.judge_id} complete")
+        # Checkpoint after each item
+        if (i + 1) % 5 == 0 or i == len(blinded_items) - 1:
+            with checkpoint_path.open("w", encoding="utf-8") as f:
+                json.dump(judgments, f, indent=2, ensure_ascii=False)
 
-    # Save raw outputs
+    print(f"    ✓ Judge {judge.judge_id} complete ({len(judgments)} items)")
+
+    # Save final outputs
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(judgments, f, indent=2, ensure_ascii=False)
+
+    # Remove checkpoint file after successful completion
+    if checkpoint_path.exists():
+        checkpoint_path.unlink()
 
     return judgments
 
@@ -326,9 +363,14 @@ def main():
         json.dump(agreement, f, indent=2)
     print(f"  Saved agreement: {agreement_path}")
 
-    print(f"  Cohen's κ (refusal): {agreement['kappa_refusal']:.4f}")
-    print(f"  Weighted κ (compliance): {agreement['kappa_compliance_weighted']:.4f}")
-    print(f"  MAE (score): {agreement['mae_score']:.4f}")
+    print(f"  Cohen's κ (refusal) mean: "
+          f"{agreement['kappa_refusal']['mean']:.4f}")
+    print(f"  Weighted κ (compliance) mean: "
+          f"{agreement['kappa_compliance_weighted']['mean']:.4f}")
+    print(f"  MAE (score) mean: {agreement['mae_score']['mean']:.4f}")
+    print(f"  ICC (score): {agreement['icc_score']:.4f}")
+    print(f"  Spearman ρ (score) mean: "
+          f"{agreement['spearman_rho']['mean']:.4f}")
 
     # Adjudicate
     print("\nAdjudicating disagreements...")
