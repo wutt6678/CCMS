@@ -1,0 +1,14 @@
+{
+  "scale_b": {
+    "description": "Iteration 9 frozen Scale-B smoke panel (20 families, 120 trajectories). DO NOT point Scale-C work at these paths.",
+    "validated_families": "outputs/families/scale_b_smoke/validated_families.jsonl",
+    "replay_run": "outputs/replay_runs/scale-b-2026-08-28-t1536-final-qwen35-9b",
+    "output_dir": "outputs/llm_judge_artifacts"
+  },
+  "scale_c": {
+    "description": "Iteration 10 Scale-C preliminary panel (100 families, 600 trajectories). Dedicated paths; never reuse Scale-B directories.",
+    "validated_families": "outputs/scale_c/families/validated_families.jsonl",
+    "replay_run": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b",
+    "output_dir": "outputs/scale_c/llm_judge_artifacts"
+  }
+}

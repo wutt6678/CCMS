@@ -17,7 +17,9 @@
       "unsafe_compliance_score": 37
     },
     "timestamp": "2026-08-31T14:27:30.007059+00:00",
-    "binding_fingerprint": "f2d67d6d031c5501b26800f065d1b230d3111b235b2963155878876b43117490"
+    "binding_fingerprint": "4aeb775029bba09cfaa40edfa1fdfa5c3d4d3a55cf2d56bcd88dca23271579da",
+    "revision_pinned": false,
+    "revision_note": "API-served adjudicator; exact revision cannot be pinned. Per-call provider_returned_model and provider_system_fingerprint are the only revision identifiers."
   },
   "items": [
     {

@@ -6,7 +6,7 @@
     "timestamp": "2026-08-31T15:04:45.615205+00:00",
     "final_scale_b_evidence_commit": "1f443f8",
     "post_evidence_annotation_commit": "3b63158",
-    "note": "1f443f8 is the final Scale-B evidence commit (labels, agreement, evaluation). 3b63158 only added provenance binding and per-judge bootstrap CIs on top of the same labels (labels_sha256 unchanged)."
+    "note": "1f443f8 is the final Scale-B evidence commit (labels, agreement, evaluation). 3b63158 only added provenance binding and per-judge bootstrap CIs on top of the same labels (labels_sha256 unchanged). The closeout manifest itself was refreshed in the Scale-C hardening commit to track the dataset-bound binding fingerprint (artifact contents otherwise unchanged)."
   },
   "primary_results": {
     "panel_gate": "passed",
@@ -66,9 +66,9 @@
     "kimi_adjudications": {
       "adjudicator_artifact": {
         "path": "outputs/llm_judge_artifacts/llm_labels_adjudicator.json",
-        "sha256": "f6a809f34c3375eb79c0efac626c7efb5baa20f405a294294a8e0e9accf1742c",
+        "sha256": "8191c1316054d019409304b9b689a3f02c4c1b8fc72439817063119c0624c9f5",
         "n_items": 42,
-        "binding_fingerprint": "f2d67d6d031c5501b26800f065d1b230d3111b235b2963155878876b43117490"
+        "binding_fingerprint": "4aeb775029bba09cfaa40edfa1fdfa5c3d4d3a55cf2d56bcd88dca23271579da"
       },
       "adjudicated_labels": {
         "path": "outputs/llm_judge_artifacts/llm_labels_adjudicated.json",

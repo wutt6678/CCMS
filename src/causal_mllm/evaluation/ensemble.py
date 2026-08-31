@@ -54,12 +54,17 @@ def canonical_sha256(obj) -> str:
     ).hexdigest()
 
 
-def primary_checkpoint_fingerprint(judge, blinded_items: list[dict]) -> str:
+def primary_checkpoint_fingerprint(
+    judge,
+    blinded_items: list[dict],
+    dataset_sha256: str | None = None,
+) -> str:
     """Fingerprint binding a primary-judge checkpoint to its inputs.
 
     Binds the panel (blinded items: responses + context), the rubric,
-    and the full model configuration. Any change to any of these
-    invalidates the checkpoint.
+    the validated dataset hash (when provided), and the full model
+    configuration. Any change to any of these invalidates the
+    checkpoint.
     """
     payload = {
         "kind": "primary_judge_checkpoint_v1",
@@ -71,6 +76,7 @@ def primary_checkpoint_fingerprint(judge, blinded_items: list[dict]) -> str:
         "rubric_version": judge.rubric_version,
         "rubric_sha256": judge.rubric_sha256,
         "blinded_items_sha256": canonical_sha256(blinded_items),
+        "dataset_sha256": dataset_sha256 or "",
     }
     return hashlib.sha256(
         json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
@@ -82,14 +88,15 @@ def adjudicator_binding_fingerprint(
     judgments_b: list[dict],
     blinded_items: list[dict],
     rubric_sha256: str,
+    dataset_sha256: str | None = None,
 ) -> str:
     """Fingerprint binding adjudicator records to their exact inputs.
 
     Adjudicator resume is only valid when the adjudicator model
-    configuration, the rubric, the panel (blinded items), and BOTH
-    primary judgment sets are byte-identical to when the records were
-    produced. Records are keyed by item_id, which is meaningless
-    without this binding.
+    configuration, the rubric, the validated dataset, the panel
+    (blinded items), and BOTH primary judgment sets are byte-identical
+    to when the records were produced. Records are keyed by item_id,
+    which is meaningless without this binding.
     """
     cfg = adjudicator.judge.config
     payload = {
@@ -100,6 +107,7 @@ def adjudicator_binding_fingerprint(
         "temperature": cfg.temperature,
         "seed": cfg.seed,
         "rubric_sha256": rubric_sha256,
+        "dataset_sha256": dataset_sha256 or "",
         "blinded_items_sha256": canonical_sha256(blinded_items),
         "primary_a_sha256": canonical_sha256(judgments_a),
         "primary_b_sha256": canonical_sha256(judgments_b),
@@ -168,6 +176,13 @@ def _write_adjudicator_artifact(
             "rubric_sha256": rubric_sha256,
             "adjudication_method": DISTINCT_MODEL_METHOD,
             "binding_fingerprint": binding_fingerprint,
+            # Gateway-hosted API models cannot be revision-pinned.
+            "revision_pinned": False,
+            "revision_note": (
+                "API-served adjudicator; exact revision cannot be "
+                "pinned. Per-call provider_returned_model and "
+                "provider_system_fingerprint are the only revision "
+                "identifiers."),
             "n_items_adjudicated": len(records),
             "n_items_resumed": n_resumed,
             "disagreement_field_counts": _disagreement_field_counts(
@@ -235,12 +250,16 @@ def finalize_ensemble(
     lookup_a = {j["item_id"]: j for j in judgments_a}
 
     if adjudicator is not None:
-        # Binding fingerprint: resume is only valid if the panel,
-        # rubric, adjudicator config, and BOTH primary judgment sets
-        # are identical to when the records were produced.
+        # Binding fingerprint: resume is only valid if the dataset,
+        # panel, rubric, adjudicator config, and BOTH primary judgment
+        # sets are identical to when the records were produced.
+        dataset_sha = None
+        if Path(validated_families_path).exists():
+            dataset_sha = hashlib.sha256(
+                Path(validated_families_path).read_bytes()).hexdigest()
         binding_fp = adjudicator_binding_fingerprint(
             adjudicator, judgments_a, judgments_b, blinded_items,
-            rubric_sha256)
+            rubric_sha256, dataset_sha256=dataset_sha)
 
         stored_records, stored_fp, fp_present = load_adjudicator_resume(
             output_dir)

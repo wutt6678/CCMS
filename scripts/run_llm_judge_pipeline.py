@@ -16,6 +16,7 @@ All judges receive freshly randomized, blinded payloads with no
 variant/family metadata visible.
 """
 
+import hashlib
 import json
 import os
 import random
@@ -43,12 +44,28 @@ from causal_mllm.evaluation.llm_judge import LLMJudgeConfig, MultimodalLLMJudge
 from causal_mllm.replay.config import DEFAULT_SYSTEM_PROMPT
 from causal_mllm.seeds import sha256_text
 
-# Paths
-FINAL_PANEL_RUN = Path(
-    "outputs/replay_runs/scale-b-2026-08-28-t1536-final-qwen35-9b")
-VALIDATED_FAMILIES_PATH = Path(
-    "outputs/families/scale_b_smoke/validated_families.jsonl")
-OUTPUT_DIR = Path("outputs/llm_judge_artifacts")
+# Paths — resolved from the scale profile (configs/evaluation/
+# scale_profiles.json). Scale-B and Scale-C NEVER share paths; select
+# with CCMS_SCALE=scale_b|scale_c (default: scale_b, the frozen panel).
+SCALE = os.environ.get("CCMS_SCALE", "scale_b")
+SCALE_PROFILES_FILE = (
+    Path(__file__).parent.parent
+    / "configs" / "evaluation" / "scale_profiles.json")
+
+
+def _load_scale_profile(scale: str) -> dict:
+    profiles = json.loads(SCALE_PROFILES_FILE.read_text(encoding="utf-8"))
+    if scale not in profiles:
+        raise EnvironmentError(
+            f"unknown CCMS_SCALE={scale!r}; expected one of "
+            f"{sorted(profiles)}")
+    return profiles[scale]
+
+
+_SCALE_PROFILE = _load_scale_profile(SCALE)
+FINAL_PANEL_RUN = Path(_SCALE_PROFILE["replay_run"])
+VALIDATED_FAMILIES_PATH = Path(_SCALE_PROFILE["validated_families"])
+OUTPUT_DIR = Path(_SCALE_PROFILE["output_dir"])
 
 # Path to the gitignored credentials file. See the .example template.
 CREDENTIALS_FILE = (
@@ -224,19 +241,22 @@ def run_judge(
     judge: MultimodalLLMJudge,
     blinded_items: list[dict],
     output_path: Path,
+    dataset_sha256: str | None = None,
 ) -> list[dict]:
     """Run a judge on all blinded items with fingerprint-bound checkpoints.
 
-    The checkpoint is bound to a fingerprint of the panel (blinded
-    items), rubric, and model configuration. A checkpoint whose
-    fingerprint does not match the current run (or that predates the
-    wrapped format) is DISCARDED and judging restarts from scratch —
-    stale resume state can never contaminate evidence.
+    The checkpoint is bound to a fingerprint of the validated dataset
+    (when provided), the panel (blinded items), rubric, and model
+    configuration. A checkpoint whose fingerprint does not match the
+    current run (or that predates the wrapped format) is DISCARDED and
+    judging restarts from scratch — stale resume state can never
+    contaminate evidence.
 
     Returns:
         List of judgment records with provenance.
     """
-    fingerprint = primary_checkpoint_fingerprint(judge, blinded_items)
+    fingerprint = primary_checkpoint_fingerprint(
+        judge, blinded_items, dataset_sha256=dataset_sha256)
 
     # Load checkpoint if it exists AND matches the current fingerprint
     judgments = []
@@ -310,6 +330,15 @@ def run_judge(
                     provenance.provider_returned_model),
                 "provider_system_fingerprint": (
                     provenance.provider_system_fingerprint),
+                # Gateway-hosted API models cannot be revision-pinned.
+                # The provider-returned model ID / system fingerprint
+                # are the ONLY revision evidence available.
+                "revision_pinned": False,
+                "revision_note": (
+                    "API-served model; exact revision cannot be pinned. "
+                    "provider_returned_model and "
+                    "provider_system_fingerprint are the only "
+                    "revision identifiers."),
             },
         }
         judgments.append(rec)
@@ -352,13 +381,21 @@ def main():
 
     # Run the two DISTINCT primary judges
     print("\nRunning primary LLM judges (A, B)...")
+    print(f"  Scale: {SCALE}")
     print(f"  Primary A model: {PRIMARY_A_MODEL}")
     print(f"  Primary B model: {PRIMARY_B_MODEL}")
+    dataset_sha = None
+    if VALIDATED_FAMILIES_PATH.exists():
+        dataset_sha = hashlib.sha256(
+            VALIDATED_FAMILIES_PATH.read_bytes()).hexdigest()
+        print(f"  Dataset sha256: {dataset_sha[:16]}...")
     all_judgments = {}
     for judge_id, config in PRIMARY_JUDGE_CONFIGS.items():
         judge = MultimodalLLMJudge(config, judge_id=judge_id)
         output_path = OUTPUT_DIR / f"llm_labels_judge_{judge_id}.json"
-        all_judgments[judge_id] = run_judge(judge, blinded_items, output_path)
+        all_judgments[judge_id] = run_judge(
+            judge, blinded_items, output_path,
+            dataset_sha256=dataset_sha)
         print(f"  Saved Judge {judge_id} labels: {output_path}")
 
     # Build the distinct adjudicator (or fall back deterministically).
