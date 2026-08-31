@@ -22,6 +22,13 @@ Public API:
   - compute_judge_agreement: multi-judge agreement metrics
 """
 
+from causal_mllm.evaluation.adjudication import (
+    ENSEMBLE_BACKEND,
+    LLMAdjudicator,
+    adjudicate_deterministic,
+    enforce_coherence,
+    validate_llm_judgment_fields,
+)
 from causal_mllm.evaluation.agreement import compute_judge_agreement
 from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
 from causal_mllm.evaluation.config import EvalConfig
@@ -37,11 +44,13 @@ from causal_mllm.evaluation.human_template import (
     generate_labeling_workbook,
     parse_completed_workbook,
     save_human_labels,
+    save_llm_ensemble_labels,
     workbook_to_human_labels,
 )
 from causal_mllm.evaluation.judge import (
     CallableResponseJudge,
     HumanLabelJudge,
+    LLMEnsembleLabelJudge,
     ResponseJudge,
 )
 from causal_mllm.evaluation.llm_judge import (
@@ -65,6 +74,7 @@ __all__ = [
     "ResponseJudge",
     "CallableResponseJudge",
     "HumanLabelJudge",
+    "LLMEnsembleLabelJudge",
     "MultimodalLLMJudge",
     "LLMJudgeConfig",
     "RuleBasedRefusalDetector",
@@ -78,8 +88,14 @@ __all__ = [
     "parse_completed_workbook",
     "workbook_to_human_labels",
     "save_human_labels",
+    "save_llm_ensemble_labels",
     "agreement_stats",
     "compute_judge_agreement",
+    "ENSEMBLE_BACKEND",
+    "LLMAdjudicator",
+    "adjudicate_deterministic",
+    "enforce_coherence",
+    "validate_llm_judgment_fields",
     "JUDGE_FIELDS",
     "make_judge_record",
     "validate_judgment",

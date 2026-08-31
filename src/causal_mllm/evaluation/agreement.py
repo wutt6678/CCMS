@@ -108,24 +108,31 @@ def _mean(vals: list[float]) -> float:
 
 
 def _icc(scores_list: list[list[float]], icc_type: str = "ICC(3,k)") -> dict:
-    """Compute Intraclass Correlation Coefficient using standard formulas.
+    """Compute consistency Intraclass Correlation via two-way ANOVA.
 
-    Implements Shrout & Fleiss (1979) ICC forms:
-    - ICC(3,1): single-measure consistency
-    - ICC(3,k): average-measure consistency
+    Implements Shrout & Fleiss (1979) Case 3 (consistency), forms (3,1)
+    and (3,k). This is a two-way mixed-effects model where raters are
+    fixed. The residual error term removes BOTH subject (row) and rater
+    (column) effects, so additive per-rater offsets do not reduce the
+    consistency ICC.
 
     Args:
-        scores_list: List of score arrays, one per judge.
-        icc_type: ICC type to return ("ICC(3,1)" or "ICC(3,k)").
+        scores_list: List of score arrays, one per judge (k raters).
+        icc_type: Which form to mark as "requested".
 
     Returns:
-        Dict with both ICC(3,1) and ICC(3,k) values, plus the requested type.
+        Dict with "ICC(3,1)", "ICC(3,k)", and "requested". Values are
+        NOT clamped; negative ICCs are reported as-is (they indicate
+        agreement worse than chance).
 
-    Formulas (Shrout & Fleiss, 1979):
-        ICC(3,1) = (MS_between - MS_within) / (MS_between + (k-1)*MS_within)
-        ICC(3,k) = (MS_between - MS_within) / MS_between
+    Decomposition (n subjects, k raters, X[i][j] = subject i, rater j):
+        SS_rows  = k * sum_i (row_mean_i  - grand_mean)^2   df = n-1
+        SS_cols  = n * sum_j (col_mean_j  - grand_mean)^2   df = k-1
+        SS_error = SS_total - SS_rows - SS_cols             df = (n-1)(k-1)
+
+        ICC(3,1) = (MS_rows - MS_error) / (MS_rows + (k-1)*MS_error)
+        ICC(3,k) = (MS_rows - MS_error) / MS_rows
     """
-    # Convert to subjects × raters format
     n_raters = len(scores_list)
     n_subjects = len(scores_list[0])
 
@@ -133,43 +140,42 @@ def _icc(scores_list: list[list[float]], icc_type: str = "ICC(3,k)") -> dict:
         return {"ICC(3,1)": 0.0, "ICC(3,k)": 0.0, "requested": 0.0}
 
     # data[subject][rater]
-    data = [[scores_list[r][s] for r in range(n_raters)] for s in range(n_subjects)]
+    data = [[scores_list[r][s] for r in range(n_raters)]
+            for s in range(n_subjects)]
 
-    # Compute means
-    subject_means = [_mean(data[s]) for s in range(n_subjects)]
-    grand_mean = _mean(subject_means)
+    grand_mean = _mean([data[s][r]
+                        for s in range(n_subjects)
+                        for r in range(n_raters)])
+    row_means = [_mean(data[s]) for s in range(n_subjects)]
+    col_means = [_mean([data[s][r] for s in range(n_subjects)])
+                 for r in range(n_raters)]
 
-    # Between-subjects variance
-    ss_between = n_raters * sum((subject_means[s] - grand_mean) ** 2 for s in range(n_subjects))
-    df_between = n_subjects - 1
-    ms_between = ss_between / df_between if df_between > 0 else 0
+    # Sum of squares
+    ss_total = sum((data[s][r] - grand_mean) ** 2
+                   for s in range(n_subjects)
+                   for r in range(n_raters))
+    ss_rows = n_raters * sum((row_means[s] - grand_mean) ** 2
+                             for s in range(n_subjects))
+    ss_cols = n_subjects * sum((col_means[r] - grand_mean) ** 2
+                               for r in range(n_raters))
+    ss_error = ss_total - ss_rows - ss_cols
+    # Guard tiny negative from floating point
+    if ss_error < 0 and ss_error > -1e-9:
+        ss_error = 0.0
 
-    # Within-subjects variance
-    ss_within = sum(
-        (data[s][r] - subject_means[s]) ** 2
-        for s in range(n_subjects)
-        for r in range(n_raters)
-    )
-    df_within = n_subjects * (n_raters - 1)
-    ms_within = ss_within / df_within if df_within > 0 else 0
+    # Degrees of freedom
+    df_rows = n_subjects - 1
+    df_error = (n_subjects - 1) * (n_raters - 1)
 
-    # ICC(3,1): single-measure consistency
-    # Formula: (MS_between - MS_within) / (MS_between + (k-1)*MS_within)
-    if ms_within == 0:
-        icc_3_1 = 1.0
-    else:
-        icc_3_1 = (ms_between - ms_within) / (ms_between + (n_raters - 1) * ms_within)
+    ms_rows = ss_rows / df_rows if df_rows > 0 else 0.0
+    ms_error = ss_error / df_error if df_error > 0 else 0.0
 
-    # ICC(3,k): average-measure consistency
-    # Formula: (MS_between - MS_within) / MS_between
-    if ms_between > 0:
-        icc_3_k = (ms_between - ms_within) / ms_between
-    else:
-        icc_3_k = 0.0
+    # ICC(3,1): single-measure consistency (NOT clamped)
+    denom_31 = ms_rows + (n_raters - 1) * ms_error
+    icc_3_1 = (ms_rows - ms_error) / denom_31 if denom_31 != 0 else 0.0
 
-    # Clamp to [0, 1]
-    icc_3_1 = max(0.0, min(1.0, icc_3_1))
-    icc_3_k = max(0.0, min(1.0, icc_3_k))
+    # ICC(3,k): average-measure consistency (NOT clamped)
+    icc_3_k = (ms_rows - ms_error) / ms_rows if ms_rows != 0 else 0.0
 
     requested = icc_3_k if icc_type == "ICC(3,k)" else icc_3_1
 
@@ -308,28 +314,40 @@ def compute_judge_agreement(
             "A_B": kappa_ab,
             "A_C": kappa_ac,
             "B_C": kappa_bc,
+            # Cross-model agreement excludes the within-model A-C pair.
+            "cross_model_mean": (kappa_ab + kappa_bc) / 2,
+            "within_model_AC": kappa_ac,
             "mean": kappa_refusal_mean,
             "note": "A_C measures within-model repeatability (same model, "
                     "different seeds). A_B and B_C measure cross-model "
-                    "agreement. Mean includes all pairs.",
+                    "agreement. Use cross_model_mean for inter-model "
+                    "agreement; do not interpret 'mean' as general "
+                    "inter-judge agreement since it includes A_C.",
         },
         "kappa_compliance_weighted": {
             "A_B": wkappa_ab,
             "A_C": wkappa_ac,
             "B_C": wkappa_bc,
+            "cross_model_mean": (wkappa_ab + wkappa_bc) / 2,
+            "within_model_AC": wkappa_ac,
             "mean": wkappa_compliance_mean,
         },
         "mae_score": {
             "A_B": mae_ab,
             "A_C": mae_ac,
             "B_C": mae_bc,
+            "cross_model_mean": (mae_ab + mae_bc) / 2,
+            "within_model_AC": mae_ac,
             "mean": mae_mean,
         },
         "icc_score": {
             "ICC(3,1)": icc_result["ICC(3,1)"],
             "ICC(3,k)": icc_result["ICC(3,k)"],
-            "note": "ICC(3,1) is single-measure consistency. "
-                    "ICC(3,k) is average-measure consistency (Shrout & Fleiss, 1979).",
+            "note": "Two-way ANOVA consistency ICC (Shrout & Fleiss 1979, "
+                    "Case 3). Residual removes both subject and rater "
+                    "effects. Values are unclamped; negatives indicate "
+                    "worse-than-chance agreement. ICC(3,1) is single-"
+                    "measure, ICC(3,k) is average-measure.",
         },
         "spearman_rho": {
             "A_B": rho_ab,

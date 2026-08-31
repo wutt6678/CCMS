@@ -17,6 +17,7 @@ from pathlib import Path
 
 import requests
 
+from causal_mllm.evaluation.adjudication import validate_llm_judgment_fields
 from causal_mllm.evaluation.errors import EvaluationError
 
 
@@ -87,12 +88,14 @@ class MultimodalLLMJudge:
         self.config = config
         self.judge_id = judge_id
 
-        # Load rubric
+        # Load rubric (default to v1.1 which separates refusal from
+        # unsafe assistance as independent dimensions)
         if rubric_path is None:
-            rubric_path = Path(__file__).parent / "annotation_rubric_v1.md"
+            rubric_path = Path(__file__).parent / "annotation_rubric_v1_1.md"
         rubric_path = Path(rubric_path)
         if not rubric_path.exists():
             raise EvaluationError(f"rubric not found: {rubric_path}")
+        self.rubric_path = rubric_path
 
         with rubric_path.open(encoding="utf-8") as f:
             self.rubric_content = f.read()
@@ -100,11 +103,28 @@ class MultimodalLLMJudge:
         self.rubric_sha256 = hashlib.sha256(
             self.rubric_content.encode("utf-8")).hexdigest()
 
-        # Extract rubric version from content
-        self.rubric_version = "1.0"  # Default
+        # Extract rubric version from the title line (e.g. "Rubric v1.1")
+        self.rubric_version = self._extract_rubric_version()
+
+    def _extract_rubric_version(self) -> str:
+        """Extract the rubric version from the rubric title.
+
+        Looks for a pattern like "Rubric v1.1" or "v1.1" in the first
+        heading. Falls back to "1.1" if not found.
+        """
+        import re
+        # Match "v<digits>.<digits>" in the first heading line
         for line in self.rubric_content.split("\n"):
-            if "v1.0" in line.lower():
+            if line.startswith("#"):
+                m = re.search(r"v(\d+\.\d+)", line)
+                if m:
+                    return m.group(1)
                 break
+        # Fallback: search anywhere for version history entry
+        m = re.search(r"Rubric v(\d+\.\d+)", self.rubric_content)
+        if m:
+            return m.group(1)
+        return "1.1"
 
     def _build_prompt(
         self,
@@ -368,9 +388,29 @@ cross-field consistency requirements.
             json.dumps(request_components, sort_keys=True).encode("utf-8")
         ).hexdigest()
 
-        # Call API (now returns provider_response_id)
-        parsed, raw_response, finish_reason, retries, provider_response_id = \
-            self._call_api(eval_prompt, image_contents)
+        # Call API with strict schema validation and retry on invalid
+        # output. The LLM may return malformed JSON or out-of-range
+        # fields; we retry rather than silently applying defaults.
+        judgment = None
+        parsed = raw_response = finish_reason = provider_response_id = None
+        retries = 0
+        max_validation_attempts = 3
+        for _attempt in range(max_validation_attempts):
+            parsed, raw_response, finish_reason, retries, \
+                provider_response_id = self._call_api(
+                    eval_prompt, image_contents)
+            try:
+                judgment = validate_llm_judgment_fields(parsed)
+                break
+            except EvaluationError:
+                # Invalid output; retry the API call
+                if _attempt == max_validation_attempts - 1:
+                    raise
+                continue
+
+        if judgment is None:
+            raise EvaluationError(
+                "LLM judge failed to produce a valid judgment")
 
         # Compute response hash
         response_hash = hashlib.sha256(
@@ -394,16 +434,6 @@ cross-field consistency requirements.
             provider_response_id=provider_response_id,
             request_hash=request_hash,
         )
-
-        # Validate judgment
-        judgment = {
-            "refusal_type": parsed.get("refusal_type", "none"),
-            "unsafe_compliance_score": float(parsed.get("unsafe_compliance_score", 0.0)),
-            "compliance_level": int(parsed.get("compliance_level", 0)),
-            "safe_redirection": bool(parsed.get("safe_redirection", False)),
-            "confidence": float(parsed.get("confidence", 0.5)),
-            "rationale": parsed.get("rationale", ""),
-        }
 
         return judgment, provenance
 

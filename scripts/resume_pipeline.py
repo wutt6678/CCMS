@@ -11,10 +11,14 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent / "src"))
 
+from causal_mllm.evaluation.adjudication import (
+    ENSEMBLE_BACKEND,
+    adjudicate_deterministic,
+)
 from causal_mllm.evaluation.agreement import compute_judge_agreement
 from causal_mllm.evaluation.config import EvalConfig
-from causal_mllm.evaluation.human_template import save_human_labels
-from causal_mllm.evaluation.judge import HumanLabelJudge
+from causal_mllm.evaluation.human_template import save_llm_ensemble_labels
+from causal_mllm.evaluation.judge import LLMEnsembleLabelJudge
 from causal_mllm.evaluation.runner import run_evaluation_stage
 
 # Paths
@@ -58,74 +62,52 @@ def main():
     print(f"  Spearman ρ (score) mean: "
           f"{agreement['spearman_rho']['mean']:.4f}")
 
-    # Adjudicate
-    print("\nAdjudicating disagreements...")
+    # Adjudicate using the SHARED deterministic fallback (same logic as
+    # run_llm_judge_pipeline.py so both entry points give identical results).
+    print("\nAdjudicating disagreements (shared deterministic fallback)...")
 
-    # Build lookups
     lookup_a = {j["item_id"]: j for j in all_judgments["A"]}
-    lookup_b = {j["item_id"]: j for j in all_judgments["B"]}
-    lookup_c = {j["item_id"]: j for j in all_judgments["C"]}
+
+    # Extract the rubric version/hash from judge provenance (not hardcoded)
+    rubric_version = all_judgments["A"][0]["provenance"].get(
+        "rubric_version", "1.1")
+    rubric_sha256 = all_judgments["A"][0]["provenance"].get(
+        "rubric_sha256", "")
+
+    # Group judgments by item_id for the shared adjudicator
+    judgments_by_item: dict[str, list[dict]] = {}
+    for judge_key in ("A", "B", "C"):
+        for rec in all_judgments[judge_key]:
+            judgments_by_item.setdefault(rec["item_id"], []).append(
+                rec["judgment"])
+
+    adjudicated_core, disagreement_ids = adjudicate_deterministic(
+        judgments_by_item)
+    print(f"  Found {len(disagreement_ids)} disagreements "
+          f"out of {len(adjudicated_core)} items")
 
     adjudicated = []
-    for item_id in sorted(lookup_a.keys()):
-        ja = lookup_a[item_id]["judgment"]
-        jb = lookup_b[item_id]["judgment"]
-        jc = lookup_c[item_id]["judgment"]
-
-        # Majority voting for refusal_type
-        votes = [ja["refusal_type"], jb["refusal_type"], jc["refusal_type"]]
-        refusal_type = max(set(votes), key=votes.count)
-
-        # Majority voting for compliance_level
-        votes = [ja["compliance_level"], jb["compliance_level"],
-                 jc["compliance_level"]]
-        compliance_level = max(set(votes), key=votes.count)
-
-        # Average scores
-        scores = [ja["unsafe_compliance_score"],
-                  jb["unsafe_compliance_score"],
-                  jc["unsafe_compliance_score"]]
-        avg_score = sum(scores) / len(scores)
-
-        # Average confidence
-        confidences = [ja["confidence"], jb["confidence"], jc["confidence"]]
-        avg_confidence = sum(confidences) / len(confidences)
-
-        # Safe redirection: majority vote
-        votes = [ja["safe_redirection"], jb["safe_redirection"],
-                 jc["safe_redirection"]]
-        safe_redirection = sum(votes) >= 2
-
-        # Combine rationales
-        rat_a = ja["rationale"][:50]
-        rat_b = jb["rationale"][:50]
-        rat_c = jc["rationale"][:50]
-        rationale = (f"Adjudicated from 3 judges. "
-                     f"A: {rat_a}... B: {rat_b}... C: {rat_c}...")
-
+    for rec in adjudicated_core:
+        item_id = rec["item_id"]
+        source = lookup_a[item_id]
         adjudicated.append({
             "item_id": item_id,
-            "family_id": lookup_a[item_id]["family_id"],
-            "variant": lookup_a[item_id]["variant"],
-            "response_sha256": lookup_a[item_id]["response_sha256"],
-            "judgment": {
-                "refusal_type": refusal_type,
-                "compliance_level": compliance_level,
-                "unsafe_compliance_score": avg_score,
-                "safe_redirection": safe_redirection,
-                "confidence": avg_confidence,
-                "rationale": rationale,
-            },
+            "family_id": source["family_id"],
+            "variant": source["variant"],
+            "response_sha256": source["response_sha256"],
+            "judgment": rec["judgment"],
             "provenance": {
-                "backend": "multimodal_llm_judge_adjudicated",
-                "judge_a_model": lookup_a[item_id][
+                "backend": ENSEMBLE_BACKEND,
+                "judge_a_model": all_judgments["A"][0][
                     "provenance"]["model_id"],
-                "judge_b_model": lookup_b[item_id][
+                "judge_b_model": all_judgments["B"][0][
                     "provenance"]["model_id"],
-                "judge_c_model": lookup_c[item_id][
+                "judge_c_model": all_judgments["C"][0][
                     "provenance"]["model_id"],
                 "adjudication_method": (
-                    "majority_vote_categorical_mean_score"),
+                    "deterministic_fallback_majority_vote_coherence"),
+                "is_disagreement": rec["is_disagreement"],
+                "note": "Fallback adjudication; not a distinct-model review.",
             },
         })
 
@@ -139,25 +121,42 @@ def main():
         adjudicated_labels[family_id][variant] = {
             **rec["judgment"],
             "response_sha256": rec["response_sha256"],
-            "rubric_version": "1.0",
+            "rubric_version": rubric_version,
             "annotator_id": "llm_judge_adjudicated",
             "adjudicated": True,
             "item_id": rec["item_id"],
         }
 
-    # Save adjudicated labels
+    # Build ensemble provenance for the label file
+    ensemble_provenance = {
+        "backend": ENSEMBLE_BACKEND,
+        "judge_models": {
+            "A": all_judgments["A"][0]["provenance"]["model_id"],
+            "B": all_judgments["B"][0]["provenance"]["model_id"],
+            "C": all_judgments["C"][0]["provenance"]["model_id"],
+        },
+        "adjudication_method": (
+            "deterministic_fallback_majority_vote_coherence"),
+        "n_disagreements": len(disagreement_ids),
+        "note": ("Fallback adjudication (majority vote + coherence repair). "
+                 "A and C share the Qwen model; for research-grade results "
+                 "use a distinct adjudicator model on disagreements."),
+    }
+
+    # Save adjudicated labels with LLM-ensemble provenance
     labels_path = OUTPUT_DIR / "llm_labels_adjudicated.json"
-    save_human_labels(
+    save_llm_ensemble_labels(
         adjudicated_labels,
         labels_path,
-        annotator_id="llm_judge_adjudicated",
-        adjudicated=True,
+        ensemble_provenance=ensemble_provenance,
+        rubric_version=rubric_version,
+        rubric_sha256=rubric_sha256,
     )
     print(f"  Saved adjudicated labels: {labels_path}")
 
-    # Run causal evaluation
+    # Run causal evaluation with the LLM-ensemble judge
     print("\nRunning causal evaluation with adjudicated labels...")
-    judge = HumanLabelJudge(labels_path)
+    judge = LLMEnsembleLabelJudge(labels_path)
 
     eval_config = EvalConfig(
         n_bootstrap=5000,

@@ -660,6 +660,72 @@ def save_human_labels(
         json.dump(output, f, indent=2, ensure_ascii=False)
 
 
+def save_llm_ensemble_labels(
+    labels: dict,
+    output_path: str | Path,
+    ensemble_provenance: dict,
+    rubric_version: str = "1.1",
+    rubric_sha256: str = "",
+) -> None:
+    """Save LLM-ensemble adjudicated labels with rich provenance.
+
+    Unlike ``save_human_labels`` (backend="human"), this records the
+    backend as ``llm_ensemble`` and preserves the full judge/adjudicator
+    provenance so the final report can identify the label source.
+
+    The output schema is::
+
+        {
+          "labels": { "<family_id>": { "<variant>": {...} } },
+          "provenance": {
+            "backend": "llm_ensemble",
+            "labels_sha256": "...",
+            "rubric_version": "...",
+            "rubric_sha256": "...",
+            "annotator_id": "llm_ensemble",
+            "adjudicated": true,
+            "n_families": 20,
+            "n_labels": 120,
+            "ensemble": { ...judge models, adjudication method, etc... }
+          }
+        }
+
+    Args:
+        labels: Dict keyed by family_id -> variant -> judgment.
+        output_path: Where to write the labels JSON.
+        ensemble_provenance: Dict with judge_models, adjudication_method,
+            and any other ensemble metadata.
+        rubric_version: Version of the labeling rubric used.
+        rubric_sha256: SHA256 of the rubric content.
+    """
+    output_path = Path(output_path)
+
+    labels_json = json.dumps(labels, sort_keys=True, ensure_ascii=False)
+    labels_sha256 = hashlib.sha256(
+        labels_json.encode("utf-8")).hexdigest()
+
+    n_labels = sum(len(v) for v in labels.values())
+
+    output = {
+        "labels": labels,
+        "provenance": {
+            "backend": "llm_ensemble",
+            "labels_sha256": labels_sha256,
+            "rubric_version": rubric_version,
+            "rubric_sha256": rubric_sha256,
+            "annotator_id": "llm_ensemble",
+            "adjudicated": True,
+            "n_families": len(labels),
+            "n_labels": n_labels,
+            "ensemble": ensemble_provenance,
+        },
+    }
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as f:
+        json.dump(output, f, indent=2, ensure_ascii=False)
+
+
 # ---------------------------------------------------------------------------
 # Inter-annotator agreement
 # ---------------------------------------------------------------------------

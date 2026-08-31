@@ -268,3 +268,125 @@ class HumanLabelJudge:
         }
         prov.update(self._provenance_meta)
         return prov
+
+
+class LLMEnsembleLabelJudge:
+    """Loads LLM-ensemble adjudicated labels from a JSON file.
+
+    This is the LLM analogue of ``HumanLabelJudge``. It requires the
+    wrapped schema produced by ``save_llm_ensemble_labels`` with
+    ``backend == "llm_ensemble"`` and reports the ensemble backend in
+    ``provenance()`` so the final report correctly identifies the label
+    source as an LLM ensemble rather than a human annotator.
+    """
+
+    def __init__(self, path: str | Path):
+        self._path = Path(path)
+        if not self._path.exists():
+            raise FileNotFoundError(
+                f"LLM ensemble labels file not found: {self._path}")
+        with self._path.open(encoding="utf-8") as f:
+            raw: dict = json.load(f)
+
+        if "labels" not in raw or "provenance" not in raw:
+            raise EvaluationError(
+                f"LLM ensemble labels file {self._path} must use wrapped "
+                f"schema with 'labels' and 'provenance' keys — use "
+                f"save_llm_ensemble_labels() to create the file")
+
+        labels_data = raw["labels"]
+        prov = raw["provenance"]
+
+        # Require the llm_ensemble backend marker
+        if prov.get("backend") != "llm_ensemble":
+            raise EvaluationError(
+                f"LLM ensemble labels file {self._path} has backend "
+                f"{prov.get('backend')!r}, expected 'llm_ensemble'")
+
+        # Verify label SHA256
+        labels_json = json.dumps(
+            labels_data, sort_keys=True, ensure_ascii=False)
+        actual_sha = hashlib.sha256(
+            labels_json.encode("utf-8")).hexdigest()
+        expected_sha = prov.get("labels_sha256", "")
+        if not expected_sha:
+            raise EvaluationError(
+                f"LLM ensemble labels file {self._path} has empty "
+                f"labels_sha256")
+        if actual_sha != expected_sha:
+            raise EvaluationError(
+                f"LLM ensemble labels SHA256 mismatch in {self._path}: "
+                f"expected {expected_sha}, got {actual_sha}")
+
+        self._provenance_meta = {
+            "labels_sha256": actual_sha,
+            "rubric_version": prov.get("rubric_version"),
+            "rubric_sha256": prov.get("rubric_sha256"),
+            "annotator_id": prov.get("annotator_id"),
+            "adjudicated": prov.get("adjudicated", True),
+            "n_families": prov.get("n_families", len(labels_data)),
+            "n_labels": prov.get("n_labels"),
+            "ensemble": prov.get("ensemble", {}),
+        }
+
+        # Build a flat lookup: (family_id, variant) -> label
+        self._lookup: dict[tuple[str, str], dict] = {}
+        for family_id, variants in labels_data.items():
+            for variant, label in variants.items():
+                self._lookup[(family_id, variant)] = label
+
+        # Require exact 120-key coverage
+        n_labels = len(self._lookup)
+        if n_labels != 120:
+            raise EvaluationError(
+                f"LLM ensemble labels file {self._path} has {n_labels} "
+                f"labels, expected exactly 120 (20 families × 6 variants)")
+
+    def verify_response_shas(
+        self,
+        expected_shas: dict[tuple[str, str], str],
+    ) -> None:
+        """Verify each label's response_sha256 against replay hashes."""
+        errors: list[str] = []
+        for key, expected in sorted(expected_shas.items()):
+            label = self._lookup.get(key)
+            if label is None:
+                errors.append(f"missing label for {key}")
+                continue
+            label_sha = label.get("response_sha256", "")
+            if not label_sha or len(label_sha) != 64:
+                errors.append(
+                    f"{key}: response_sha256 must be a nonempty "
+                    f"64-character hex hash, got '{label_sha}'")
+                continue
+            if label_sha != expected:
+                errors.append(
+                    f"{key}: response_sha256 mismatch — "
+                    f"label has {label_sha}, replay has {expected}")
+        if errors:
+            raise EvaluationError(
+                f"response SHA256 verification failed "
+                f"in {self._path}:\n  " + "\n  ".join(errors))
+
+    def judge_for(self, family_id: str, variant: str) -> dict:
+        """Look up the LLM label for a (family_id, variant) pair."""
+        key = (family_id, variant)
+        if key not in self._lookup:
+            raise KeyError(
+                f"no LLM label for {key} in {self._path}")
+        return validate_judgment(self._lookup[key])
+
+    def judge(self, system_prompt, history_messages,
+              terminal_query, response) -> dict:
+        raise NotImplementedError(
+            "LLMEnsembleLabelJudge requires family_id and variant for "
+            "lookup; use judge_for() instead")
+
+    def provenance(self) -> dict:
+        prov = {
+            "backend": "llm_ensemble",
+            "file": str(self._path),
+            "n_labels_loaded": len(self._lookup),
+        }
+        prov.update(self._provenance_meta)
+        return prov

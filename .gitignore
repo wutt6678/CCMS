@@ -32,6 +32,11 @@ data/raw/*
 # Downloaded / generated images
 data/media/*
 !data/media/*/.gitkeep
+# Scale-B source images are provenance-bound and MUST be tracked so the
+# LLM-judge pipeline can rerun with the exact image bytes.
+!data/media/source/
+data/media/source/*
+!data/media/source/mtmcs_type_b_*_main.png
 
 # Generated family data
 data/families/*
