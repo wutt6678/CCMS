@@ -31,7 +31,10 @@ from causal_mllm.evaluation.adjudication import (
     ENSEMBLE_BACKEND,
     LLMAdjudicator,
 )
-from causal_mllm.evaluation.ensemble import finalize_ensemble
+from causal_mllm.evaluation.ensemble import (
+    finalize_ensemble,
+    primary_checkpoint_fingerprint,
+)
 from causal_mllm.evaluation.human_template import (
     _build_anonymization_map,
     _extract_conversation_context,
@@ -209,36 +212,56 @@ def prepare_blinded_items(families: dict, seed: int = 42) -> list[dict]:
     return blinded_items
 
 
+def _write_checkpoint(checkpoint_path: Path, fingerprint: str,
+                      judgments: list[dict]) -> None:
+    """Write a fingerprint-bound primary-judge checkpoint."""
+    with checkpoint_path.open("w", encoding="utf-8") as f:
+        json.dump({"fingerprint": fingerprint, "judgments": judgments},
+                  f, indent=2, ensure_ascii=False)
+
+
 def run_judge(
     judge: MultimodalLLMJudge,
     blinded_items: list[dict],
     output_path: Path,
 ) -> list[dict]:
-    """Run a judge on all blinded items with checkpointing.
+    """Run a judge on all blinded items with fingerprint-bound checkpoints.
 
-    Supports resuming from a previous run if interrupted.
-    Saves progress after each item.
+    The checkpoint is bound to a fingerprint of the panel (blinded
+    items), rubric, and model configuration. A checkpoint whose
+    fingerprint does not match the current run (or that predates the
+    wrapped format) is DISCARDED and judging restarts from scratch —
+    stale resume state can never contaminate evidence.
 
     Returns:
         List of judgment records with provenance.
     """
-    # Load checkpoint if exists
+    fingerprint = primary_checkpoint_fingerprint(judge, blinded_items)
+
+    # Load checkpoint if it exists AND matches the current fingerprint
     judgments = []
     start_idx = 0
     checkpoint_path = output_path.with_suffix(".checkpoint.json")
     if checkpoint_path.exists():
         with checkpoint_path.open(encoding="utf-8") as f:
-            judgments = json.load(f)
-        completed_ids = {j["item_id"] for j in judgments}
-        # Find where to resume
-        for i, item in enumerate(blinded_items):
-            if item["item_id"] not in completed_ids:
-                start_idx = i
-                break
+            data = json.load(f)
+        if (isinstance(data, dict)
+                and data.get("fingerprint") == fingerprint):
+            judgments = data.get("judgments", [])
+            completed_ids = {j["item_id"] for j in judgments}
+            # Find where to resume
+            for i, item in enumerate(blinded_items):
+                if item["item_id"] not in completed_ids:
+                    start_idx = i
+                    break
+            else:
+                start_idx = len(blinded_items)
+            print(f"  Resuming Judge {judge.judge_id} from item "
+                  f"{start_idx+1} ({len(judgments)} already done)")
         else:
-            start_idx = len(blinded_items)
-        print(f"  Resuming Judge {judge.judge_id} from item {start_idx+1} "
-              f"({len(judgments)} already done)")
+            print(f"  Stale/mismatched checkpoint for Judge "
+                  f"{judge.judge_id} ignored (fingerprint mismatch); "
+                  f"restarting from item 1")
 
     print(f"  Running Judge {judge.judge_id} ({judge.config.model_id})...")
 
@@ -257,8 +280,7 @@ def run_judge(
         except Exception as e:
             print(f"\n    ERROR on {item['item_id']}: {e}")
             # Save checkpoint before exiting
-            with checkpoint_path.open("w", encoding="utf-8") as f:
-                json.dump(judgments, f, indent=2, ensure_ascii=False)
+            _write_checkpoint(checkpoint_path, fingerprint, judgments)
             raise
 
         # Build judgment record
@@ -284,14 +306,17 @@ def run_judge(
                 "image_hashes": provenance.image_hashes,
                 "provider_response_id": provenance.provider_response_id,
                 "request_hash": provenance.request_hash,
+                "provider_returned_model": (
+                    provenance.provider_returned_model),
+                "provider_system_fingerprint": (
+                    provenance.provider_system_fingerprint),
             },
         }
         judgments.append(rec)
 
-        # Checkpoint after each item
+        # Checkpoint after each item (fingerprint-bound)
         if (i + 1) % 5 == 0 or i == len(blinded_items) - 1:
-            with checkpoint_path.open("w", encoding="utf-8") as f:
-                json.dump(judgments, f, indent=2, ensure_ascii=False)
+            _write_checkpoint(checkpoint_path, fingerprint, judgments)
 
     print(f"    ✓ Judge {judge.judge_id} complete ({len(judgments)} items)")
 

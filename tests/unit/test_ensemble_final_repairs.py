@@ -5,9 +5,13 @@ Covers:
 - adjudicate_pairwise_with_model: routing, agreement passthrough,
   per-call provenance capture, resume reuse
 - runner._verify_label_judge_response_shas: fail-closed SHA gate
-- judge_model_sensitivity: per-judge estimands, qualifiers, intersection
+- judge_model_sensitivity: per-judge estimands, qualifiers, intersection,
+  per-judge bootstrap CIs
+- checkpoint/binding fingerprints: panel/rubric/model/primary binding
+- provider-returned model identification fields
 """
 
+import json
 from dataclasses import dataclass, field
 
 import pytest
@@ -16,7 +20,13 @@ from causal_mllm.evaluation.adjudication import (
     adjudicate_pairwise_with_model,
     judgments_disagree,
 )
+from causal_mllm.evaluation.ensemble import (
+    adjudicator_binding_fingerprint,
+    load_adjudicator_resume,
+    primary_checkpoint_fingerprint,
+)
 from causal_mllm.evaluation.errors import EvaluationError
+from causal_mllm.evaluation.llm_judge import LLMJudgeProvenance
 from causal_mllm.evaluation.runner import _verify_label_judge_response_shas
 from causal_mllm.evaluation.sensitivity import judge_model_sensitivity
 
@@ -293,3 +303,132 @@ class TestJudgeModelSensitivity:
     def test_empty_raises(self):
         with pytest.raises(EvaluationError):
             judge_model_sensitivity({}, theta=0.5)
+
+    def test_per_judge_bootstrap_intervals(self):
+        sens = judge_model_sensitivity(
+            {
+                "judge_A": _family_records("F1", _QUALIFYING),
+                "judge_B": _family_records("F1", _NOT_QUALIFYING),
+            },
+            theta=0.5,
+            primary_judge_ids=("judge_A", "judge_B"),
+            n_bootstrap=50,
+            ci_level=0.95,
+            seed=7,
+        )
+        for judge_id in ("judge_A", "judge_B"):
+            entry = sens["judges"][judge_id]
+            assert entry["bootstrap_config"] == {
+                "n_bootstrap": 50, "ci_level": 0.95, "seed": 7}
+            for name in ("Delta_T", "Delta_V", "Delta_TV",
+                         "order_effect", "history_effect"):
+                ci = entry["bootstrap_ci"][name]
+                assert ci["CI_lower"] <= ci["CI_upper"]
+        # Deterministic for a fixed seed
+        sens2 = judge_model_sensitivity(
+            {"judge_A": _family_records("F1", _QUALIFYING)},
+            theta=0.5, n_bootstrap=50, seed=7)
+        assert (sens["judges"]["judge_A"]["bootstrap_ci"]["Delta_T"]
+                == sens2["judges"]["judge_A"]["bootstrap_ci"]["Delta_T"])
+
+    def test_no_bootstrap_by_default(self):
+        sens = judge_model_sensitivity(
+            {"judge_A": _family_records("F1", _QUALIFYING)}, theta=0.5)
+        assert "bootstrap_ci" not in sens["judges"]["judge_A"]
+
+
+class _StubConfig:
+    def __init__(self, seed=42):
+        self.model_id = "qwen3.8-max"
+        self.provider = "aliyun"
+        self.base_url = "http://endpoint/v1"
+        self.temperature = 0.0
+        self.seed = seed
+
+
+class _StubJudgeForFp:
+    def __init__(self, seed=42):
+        self.config = _StubConfig(seed=seed)
+        self.rubric_version = "1.1"
+        self.rubric_sha256 = "aa" * 32
+
+
+class _StubAdjudicatorForFp:
+    def __init__(self, seed=99):
+        self.judge = _StubJudgeForFp(seed=seed)
+
+
+class TestCheckpointFingerprints:
+    def test_primary_fingerprint_binds_model_config(self):
+        items = [_item("i0")]
+        fp1 = primary_checkpoint_fingerprint(_StubJudgeForFp(42), items)
+        fp_same = primary_checkpoint_fingerprint(_StubJudgeForFp(42), items)
+        fp_seed = primary_checkpoint_fingerprint(_StubJudgeForFp(43), items)
+        assert fp1 == fp_same
+        assert fp1 != fp_seed  # seed is part of the binding
+
+    def test_primary_fingerprint_binds_panel(self):
+        judge = _StubJudgeForFp()
+        fp1 = primary_checkpoint_fingerprint(judge, [_item("i0")])
+        fp2 = primary_checkpoint_fingerprint(judge, [_item("i1")])
+        assert fp1 != fp2
+
+    def test_adjudicator_fingerprint_binds_primary_judgments(self):
+        adj = _StubAdjudicatorForFp()
+        a = [_rec("i0", _j(score=0.4))]
+        b = [_rec("i0", _j(score=0.45))]
+        items = [_item("i0")]
+        fp1 = adjudicator_binding_fingerprint(
+            adj, a, b, items, rubric_sha256="aa" * 32)
+        fp_same = adjudicator_binding_fingerprint(
+            adj, a, b, items, rubric_sha256="aa" * 32)
+        # Mutate a primary judgment -> binding must change
+        a2 = [_rec("i0", _j(score=0.41))]
+        fp_mut = adjudicator_binding_fingerprint(
+            adj, a2, b, items, rubric_sha256="aa" * 32)
+        assert fp1 == fp_same
+        assert fp1 != fp_mut
+
+    def test_load_adjudicator_resume_returns_stored_fingerprint(
+            self, tmp_path):
+        artifact = {
+            "provenance": {"binding_fingerprint": "fp-xyz"},
+            "items": [{"item_id": "i0", "judgment": _j(),
+                       "call_provenance": {}}],
+        }
+        (tmp_path / "llm_labels_adjudicator.json").write_text(
+            json.dumps(artifact), encoding="utf-8")
+        records, stored_fp, present = load_adjudicator_resume(tmp_path)
+        assert present is True
+        assert stored_fp == "fp-xyz"
+        assert set(records) == {"i0"}
+
+    def test_load_adjudicator_resume_missing_file(self, tmp_path):
+        records, stored_fp, present = load_adjudicator_resume(tmp_path)
+        assert records == {} and stored_fp == "" and present is False
+
+    def test_unbound_artifact_reports_no_fingerprint(self, tmp_path):
+        # Artifact written before fingerprint binding existed
+        artifact = {"provenance": {}, "items": [
+            {"item_id": "i0", "judgment": _j(), "call_provenance": {}}]}
+        (tmp_path / "llm_labels_adjudicator.json").write_text(
+            json.dumps(artifact), encoding="utf-8")
+        records, stored_fp, present = load_adjudicator_resume(tmp_path)
+        assert present is False  # caller must discard these records
+        assert set(records) == {"i0"}
+
+
+class TestProviderReturnedModelFields:
+    def test_provenance_carries_provider_model_identification(self):
+        prov = LLMJudgeProvenance(
+            model_id="kimi-k3",
+            provider_returned_model="kimi-k3-2026-08-15",
+            provider_system_fingerprint="fp_abc",
+        )
+        assert prov.provider_returned_model == "kimi-k3-2026-08-15"
+        assert prov.provider_system_fingerprint == "fp_abc"
+
+    def test_provenance_defaults_empty(self):
+        prov = LLMJudgeProvenance()
+        assert prov.provider_returned_model == ""
+        assert prov.provider_system_fingerprint == ""

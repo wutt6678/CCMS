@@ -13,6 +13,7 @@ sensitive the causal claim is to the threshold choice.
 
 from __future__ import annotations
 
+from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
 from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.estimands import (
     aggregate_estimands,
@@ -81,6 +82,9 @@ def judge_model_sensitivity(
     theta: float,
     judge_meta: dict[str, dict] | None = None,
     primary_judge_ids: tuple[str, ...] = (),
+    n_bootstrap: int = 0,
+    ci_level: float = 0.95,
+    seed: int = 42,
 ) -> dict:
     """Per-judge causal sensitivity analysis.
 
@@ -99,10 +103,15 @@ def judge_model_sensitivity(
             (e.g. {"model_id": "qwen3.8-max"}) copied into the output.
         primary_judge_ids: Judge IDs whose qualifying sets are
             intersected to report families robust to judge choice.
+        n_bootstrap: If > 0, paired bootstrap CIs are computed for
+            EACH judge's estimands with this many resamples.
+        ci_level: Bootstrap confidence level.
+        seed: Bootstrap RNG seed (per-judge intervals are reproducible).
 
     Returns:
-        Dict with per-judge estimand means and qualifying families,
-        plus the intersection across primary judges.
+        Dict with per-judge estimand means (and bootstrap CIs when
+        requested) and qualifying families, plus the intersection
+        across primary judges.
     """
     judge_meta = judge_meta or {}
     if not judgments_by_judge:
@@ -141,6 +150,21 @@ def judge_model_sensitivity(
             "qualifying_families": qualifying,
             "n_families": aggregated["n_families"],
         }
+        if n_bootstrap > 0:
+            # Per-judge paired bootstrap CIs (same protocol as the
+            # ensemble report) so judge choice can be bounded with
+            # uncertainty, not just point estimates.
+            entry["bootstrap_ci"] = paired_bootstrap_ci(
+                family_estimands,
+                n_bootstrap=n_bootstrap,
+                ci_level=ci_level,
+                seed=seed,
+            )
+            entry["bootstrap_config"] = {
+                "n_bootstrap": n_bootstrap,
+                "ci_level": ci_level,
+                "seed": seed,
+            }
         entry.update(judge_meta.get(judge_id, {}))
         per_judge[judge_id] = entry
 

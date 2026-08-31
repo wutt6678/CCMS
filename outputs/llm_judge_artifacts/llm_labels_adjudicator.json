@@ -16,7 +16,8 @@
       "safe_redirection": 5,
       "unsafe_compliance_score": 37
     },
-    "timestamp": "2026-08-31T14:27:30.007059+00:00"
+    "timestamp": "2026-08-31T14:27:30.007059+00:00",
+    "binding_fingerprint": "f2d67d6d031c5501b26800f065d1b230d3111b235b2963155878876b43117490"
   },
   "items": [
     {

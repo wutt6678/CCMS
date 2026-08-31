@@ -21,6 +21,7 @@ identical evidence:
 from __future__ import annotations
 
 import datetime
+import hashlib
 import json
 from pathlib import Path
 
@@ -46,19 +47,86 @@ DISTINCT_MODEL_METHOD = "distinct_model_adjudication_on_all_disagreements"
 FALLBACK_METHOD = "deterministic_fallback_majority_vote_coherence"
 
 
-def load_adjudicator_resume(output_dir: Path) -> dict[str, dict]:
+def canonical_sha256(obj) -> str:
+    """SHA256 of a canonical (sorted-keys) JSON dump of ``obj``."""
+    return hashlib.sha256(
+        json.dumps(obj, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    ).hexdigest()
+
+
+def primary_checkpoint_fingerprint(judge, blinded_items: list[dict]) -> str:
+    """Fingerprint binding a primary-judge checkpoint to its inputs.
+
+    Binds the panel (blinded items: responses + context), the rubric,
+    and the full model configuration. Any change to any of these
+    invalidates the checkpoint.
+    """
+    payload = {
+        "kind": "primary_judge_checkpoint_v1",
+        "model_id": judge.config.model_id,
+        "provider": judge.config.provider,
+        "base_url": judge.config.base_url,
+        "temperature": judge.config.temperature,
+        "seed": judge.config.seed,
+        "rubric_version": judge.rubric_version,
+        "rubric_sha256": judge.rubric_sha256,
+        "blinded_items_sha256": canonical_sha256(blinded_items),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def adjudicator_binding_fingerprint(
+    adjudicator,
+    judgments_a: list[dict],
+    judgments_b: list[dict],
+    blinded_items: list[dict],
+    rubric_sha256: str,
+) -> str:
+    """Fingerprint binding adjudicator records to their exact inputs.
+
+    Adjudicator resume is only valid when the adjudicator model
+    configuration, the rubric, the panel (blinded items), and BOTH
+    primary judgment sets are byte-identical to when the records were
+    produced. Records are keyed by item_id, which is meaningless
+    without this binding.
+    """
+    cfg = adjudicator.judge.config
+    payload = {
+        "kind": "adjudicator_binding_v1",
+        "model_id": cfg.model_id,
+        "provider": cfg.provider,
+        "base_url": cfg.base_url,
+        "temperature": cfg.temperature,
+        "seed": cfg.seed,
+        "rubric_sha256": rubric_sha256,
+        "blinded_items_sha256": canonical_sha256(blinded_items),
+        "primary_a_sha256": canonical_sha256(judgments_a),
+        "primary_b_sha256": canonical_sha256(judgments_b),
+    }
+    return hashlib.sha256(
+        json.dumps(payload, sort_keys=True).encode("utf-8")).hexdigest()
+
+
+def load_adjudicator_resume(
+    output_dir: Path,
+) -> tuple[dict[str, dict], str, bool]:
     """Load previously persisted adjudicator records for resume.
 
     Returns:
-        Dict mapping item_id to the persisted record; empty if the
-        artifact does not exist.
+        Tuple of (records_by_item_id, stored_binding_fingerprint,
+        fingerprint_present). The caller MUST compare the stored
+        fingerprint against the currently computed one and discard the
+        records on mismatch; item_id alone is not a valid key.
     """
     path = Path(output_dir) / ADJUDICATOR_ARTIFACT
     if not path.exists():
-        return {}
+        return {}, "", False
     with path.open(encoding="utf-8") as f:
         data = json.load(f)
-    return {rec["item_id"]: rec for rec in data.get("items", [])}
+    records = {rec["item_id"]: rec for rec in data.get("items", [])}
+    stored_fp = data.get("provenance", {}).get("binding_fingerprint", "")
+    return records, stored_fp, bool(stored_fp)
 
 
 def _disagreement_field_counts(adjudicated: list[dict]) -> dict[str, int]:
@@ -77,13 +145,16 @@ def _write_adjudicator_artifact(
     rubric_sha256: str,
     records: list[dict],
     n_resumed: int,
+    binding_fingerprint: str,
 ) -> None:
     """Persist llm_labels_adjudicator.json with per-call provenance.
 
     Written incrementally (after every adjudicator call) so progress
     survives interruptions. Each record carries the FULL call
     provenance: request hash, provider response ID, image hashes,
-    finish reason, retries, timestamps.
+    finish reason, retries, timestamps. The artifact provenance carries
+    the binding fingerprint (panel + rubric + adjudicator config +
+    primary judgments) that must match for any future resume.
     """
     judge_cfg = adjudicator.judge.config
     artifact = {
@@ -96,6 +167,7 @@ def _write_adjudicator_artifact(
             "rubric_version": rubric_version,
             "rubric_sha256": rubric_sha256,
             "adjudication_method": DISTINCT_MODEL_METHOD,
+            "binding_fingerprint": binding_fingerprint,
             "n_items_adjudicated": len(records),
             "n_items_resumed": n_resumed,
             "disagreement_field_counts": _disagreement_field_counts(
@@ -163,7 +235,27 @@ def finalize_ensemble(
     lookup_a = {j["item_id"]: j for j in judgments_a}
 
     if adjudicator is not None:
-        resume_records = load_adjudicator_resume(output_dir)
+        # Binding fingerprint: resume is only valid if the panel,
+        # rubric, adjudicator config, and BOTH primary judgment sets
+        # are identical to when the records were produced.
+        binding_fp = adjudicator_binding_fingerprint(
+            adjudicator, judgments_a, judgments_b, blinded_items,
+            rubric_sha256)
+
+        stored_records, stored_fp, fp_present = load_adjudicator_resume(
+            output_dir)
+        if stored_records and (not fp_present or stored_fp != binding_fp):
+            # Unbound or differently-bound records: never trust them.
+            print("  Adjudicator resume records discarded: binding "
+                  "fingerprint mismatch (panel/rubric/model/primary "
+                  "judgments changed). Re-adjudicating all "
+                  "disagreements.")
+            resume_records: dict[str, dict] = {}
+        else:
+            resume_records = stored_records
+            if resume_records:
+                print(f"  Resuming adjudication: {len(resume_records)} "
+                      f"bound records reused (fingerprint verified)")
 
         # Checkpoint the adjudicator artifact after EVERY disagreement
         # record so an interrupted run never loses completed calls.
@@ -176,7 +268,7 @@ def finalize_ensemble(
             _write_adjudicator_artifact(
                 output_dir, adjudicator, adjudicator_model_id,
                 rubric_version, rubric_sha256,
-                _live["items"], _live["resumed"])
+                _live["items"], _live["resumed"], binding_fp)
 
         adjudicated, disagreement_ids, adjudicator_records = \
             adjudicate_pairwise_with_model(
@@ -188,7 +280,7 @@ def finalize_ensemble(
         _write_adjudicator_artifact(
             output_dir, adjudicator, adjudicator_model_id,
             rubric_version, rubric_sha256, adjudicator_records,
-            _live["resumed"])
+            _live["resumed"], binding_fp)
     else:
         # Documented deterministic fallback (no distinct model).
         judgments_by_item: dict[str, list[dict]] = {}
@@ -285,6 +377,9 @@ def finalize_ensemble(
             },
         },
         primary_judge_ids=("judge_A", "judge_B"),
+        n_bootstrap=eval_config.n_bootstrap,
+        ci_level=eval_config.ci_level,
+        seed=eval_config.seed,
     )
     with (output_dir / SENSITIVITY_ARTIFACT).open(
             "w", encoding="utf-8") as f:

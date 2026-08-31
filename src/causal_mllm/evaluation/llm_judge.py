@@ -58,6 +58,13 @@ class LLMJudgeProvenance:
     # Provider response metadata
     provider_response_id: str = ""
     request_hash: str = ""
+    # Provider-returned model identification. "provider_returned_model"
+    # is the "model" field in the API response (the exact model the
+    # provider actually served); "provider_system_fingerprint" is the
+    # provider's revision fingerprint when the endpoint returns one
+    # (empty string if the endpoint does not expose it).
+    provider_returned_model: str = ""
+    provider_system_fingerprint: str = ""
 
     def __post_init__(self):
         if self.image_hashes is None:
@@ -276,12 +283,17 @@ cross-field consistency requirements.
         self,
         prompt: str,
         image_contents: list[dict],
-    ) -> tuple[dict, str, str, int, str]:
+    ) -> tuple[dict, str, str, int, str, str, str]:
         """Call the LLM API and return the response.
 
         Returns:
-            Tuple of (parsed_response, raw_response, finish_reason, retries,
-            provider_response_id).
+            Tuple of (parsed_response, raw_response, finish_reason,
+            retries, provider_response_id, provider_returned_model,
+            provider_system_fingerprint). provider_returned_model is
+            the "model" field the provider echoed back (the exact model
+            actually served); provider_system_fingerprint is the
+            provider's revision fingerprint, or "" when the endpoint
+            does not expose one.
         """
         # Build message content
         content = [{"type": "text", "text": prompt}]
@@ -325,6 +337,12 @@ cross-field consistency requirements.
                 raw_response = choice["message"]["content"]
                 finish_reason = choice.get("finish_reason", "unknown")
                 provider_response_id = result.get("id", "")
+                # Provider-returned model identification (what was
+                # actually served, which may differ in revision from
+                # the requested model_id).
+                provider_returned_model = str(result.get("model", ""))
+                provider_system_fingerprint = str(
+                    result.get("system_fingerprint", ""))
 
                 # Parse JSON from response
                 # Try to extract JSON from markdown code blocks
@@ -336,7 +354,9 @@ cross-field consistency requirements.
                     json_str = raw_response
 
                 parsed = json.loads(json_str.strip())
-                return parsed, raw_response, finish_reason, retries, provider_response_id
+                return (parsed, raw_response, finish_reason, retries,
+                        provider_response_id, provider_returned_model,
+                        provider_system_fingerprint)
 
             except Exception as e:
                 last_error = e
@@ -393,12 +413,14 @@ cross-field consistency requirements.
         # fields; we retry rather than silently applying defaults.
         judgment = None
         parsed = raw_response = finish_reason = provider_response_id = None
+        provider_returned_model = provider_system_fingerprint = ""
         retries = 0
         max_validation_attempts = 3
         for _attempt in range(max_validation_attempts):
-            parsed, raw_response, finish_reason, retries, \
-                provider_response_id = self._call_api(
-                    eval_prompt, image_contents)
+            (parsed, raw_response, finish_reason, retries,
+             provider_response_id, provider_returned_model,
+             provider_system_fingerprint) = self._call_api(
+                eval_prompt, image_contents)
             try:
                 judgment = validate_llm_judgment_fields(parsed)
                 break
@@ -433,6 +455,8 @@ cross-field consistency requirements.
             image_hashes=image_hashes,
             provider_response_id=provider_response_id,
             request_hash=request_hash,
+            provider_returned_model=provider_returned_model,
+            provider_system_fingerprint=provider_system_fingerprint,
         )
 
         return judgment, provenance

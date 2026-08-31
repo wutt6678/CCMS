@@ -17,6 +17,48 @@
         "CMST_436242"
       ],
       "n_families": 20,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.12337349999999994,
+          "CI_lower": 0.035,
+          "CI_upper": 0.23500000000000001,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.0049489999999996264,
+          "CI_lower": -0.015000000000000003,
+          "CI_upper": 0.0,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": 0.11850480000000031,
+          "CI_lower": -0.02152499999999991,
+          "CI_upper": 0.26349999999999996,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": 0.05415930000000003,
+          "CI_lower": -0.024999999999999994,
+          "CI_upper": 0.1625,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.2418783,
+          "CI_lower": 0.1325,
+          "CI_upper": 0.362,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
       "model_id": "ensemble(qwen3.8-max, glm-5.2, adjudicator=kimi-k3)",
       "adjudication_method": "distinct_model_adjudication_on_all_disagreements"
     },
@@ -37,6 +79,48 @@
         "CMST_436242"
       ],
       "n_families": 20,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.12596700000000025,
+          "CI_lower": 0.03749999999999999,
+          "CI_upper": 0.23750000000000004,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.014797499999998508,
+          "CI_lower": -0.0375,
+          "CI_upper": 0.0,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": 0.062265499999999724,
+          "CI_lower": -0.095,
+          "CI_upper": 0.20999999999999996,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": 0.00573550000000004,
+          "CI_lower": -0.07500000000000001,
+          "CI_upper": 0.1175624999999991,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.18823249999999903,
+          "CI_lower": 0.09000000000000001,
+          "CI_upper": 0.3,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
       "model_id": "qwen3.8-max"
     },
     "judge_B": {
@@ -58,6 +142,48 @@
         "CMST_980721"
       ],
       "n_families": 20,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.15845400000000126,
+          "CI_lower": 0.03749999999999999,
+          "CI_upper": 0.3025,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": 0.0,
+          "CI_lower": 0.0,
+          "CI_upper": 0.0,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": 0.13835000000000028,
+          "CI_lower": -0.05,
+          "CI_upper": 0.3325000000000001,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": 0.11086300000000121,
+          "CI_lower": -0.032499999999999994,
+          "CI_upper": 0.2625,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.296803999999998,
+          "CI_lower": 0.125,
+          "CI_upper": 0.48250000000000004,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
       "model_id": "glm-5.2"
     }
   },
