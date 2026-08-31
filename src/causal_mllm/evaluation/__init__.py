@@ -29,7 +29,10 @@ from causal_mllm.evaluation.adjudication import (
     enforce_coherence,
     validate_llm_judgment_fields,
 )
-from causal_mllm.evaluation.agreement import compute_judge_agreement
+from causal_mllm.evaluation.agreement import (
+    compute_judge_agreement,
+    compute_pairwise_agreement,
+)
 from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
 from causal_mllm.evaluation.config import EvalConfig
 from causal_mllm.evaluation.errors import EvaluationError
@@ -91,6 +94,7 @@ __all__ = [
     "save_llm_ensemble_labels",
     "agreement_stats",
     "compute_judge_agreement",
+    "compute_pairwise_agreement",
     "ENSEMBLE_BACKEND",
     "LLMAdjudicator",
     "adjudicate_deterministic",

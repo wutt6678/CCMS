@@ -237,6 +237,57 @@ def _spearman_rho(x: list[float], y: list[float]) -> float:
     return num / (den_x * den_y)
 
 
+def compute_pairwise_agreement(
+    judgments_a: list[dict],
+    judgments_b: list[dict],
+    n_items_expected: int = 120,
+) -> dict:
+    """Compute agreement between TWO judges (cross-model, A-B).
+
+    Used for the 2-primary-judge architecture where a distinct adjudicator
+    reviews disagreements. Reports Cohen's kappa (refusal), weighted kappa
+    (compliance), MAE and Spearman (score), and ICC(3,1)/ICC(3,k) with k=2.
+
+    Args:
+        judgments_a, judgments_b: Judgment records from the two judges.
+        n_items_expected: Expected number of common items.
+
+    Returns:
+        Dict with pairwise agreement metrics.
+    """
+    lookup_a = {j["item_id"]: j["judgment"] for j in judgments_a}
+    lookup_b = {j["item_id"]: j["judgment"] for j in judgments_b}
+    common_ids = sorted(set(lookup_a) & set(lookup_b))
+
+    if len(common_ids) != n_items_expected:
+        raise EvaluationError(
+            f"pairwise agreement requires exactly {n_items_expected} "
+            f"common items, got {len(common_ids)}")
+
+    refusal_a = [lookup_a[i]["refusal_type"] for i in common_ids]
+    refusal_b = [lookup_b[i]["refusal_type"] for i in common_ids]
+    compliance_a = [lookup_a[i]["compliance_level"] for i in common_ids]
+    compliance_b = [lookup_b[i]["compliance_level"] for i in common_ids]
+    scores_a = [lookup_a[i]["unsafe_compliance_score"] for i in common_ids]
+    scores_b = [lookup_b[i]["unsafe_compliance_score"] for i in common_ids]
+
+    icc_result = _icc([scores_a, scores_b])
+
+    return {
+        "kappa_refusal": _cohens_kappa(refusal_a, refusal_b),
+        "kappa_compliance_weighted": _weighted_kappa(compliance_a, compliance_b),
+        "mae_score": _mean([abs(a - b) for a, b in zip(scores_a, scores_b)]),
+        "icc_score": {
+            "ICC(3,1)": icc_result["ICC(3,1)"],
+            "ICC(3,k)": icc_result["ICC(3,k)"],
+        },
+        "spearman_rho": _spearman_rho(scores_a, scores_b),
+        "n_items": len(common_ids),
+        "note": "Pairwise cross-model agreement between the two primary "
+                "judges (A-B).",
+    }
+
+
 def compute_judge_agreement(
     judgments_a: list[dict],
     judgments_b: list[dict],

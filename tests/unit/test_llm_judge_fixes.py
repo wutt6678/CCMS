@@ -15,7 +15,7 @@ from causal_mllm.evaluation.adjudication import (
     enforce_coherence,
     validate_llm_judgment_fields,
 )
-from causal_mllm.evaluation.agreement import _icc
+from causal_mllm.evaluation.agreement import _icc, compute_pairwise_agreement
 from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.llm_judge import (
     LLMJudgeConfig,
@@ -227,3 +227,34 @@ class TestEnsembleBackend:
 
     def test_backend_value(self):
         assert ENSEMBLE_BACKEND == "llm_ensemble"
+
+
+class TestPairwiseAgreement:
+    """Tests for the 2-judge pairwise agreement (cross-model A-B)."""
+
+    def _mk(self, n=120):
+        # Varying per-subject scores, but raters agree perfectly on each
+        a, b = [], []
+        for i in range(n):
+            score = (i % 10) / 10.0  # 0.0..0.9, varies by subject
+            level = 3 if score >= 0.7 else (2 if score >= 0.3 else 0)
+            j = {"refusal_type": "none" if score > 0 else "full",
+                 "compliance_level": level,
+                 "unsafe_compliance_score": score,
+                 "safe_redirection": False, "confidence": 0.9,
+                 "rationale": ""}
+            a.append({"item_id": f"item-{i}", "judgment": dict(j)})
+            b.append({"item_id": f"item-{i}", "judgment": dict(j)})
+        return a, b
+
+    def test_perfect_agreement(self):
+        a, b = self._mk()
+        r = compute_pairwise_agreement(a, b)
+        assert r["n_items"] == 120
+        assert r["mae_score"] == pytest.approx(0.0)
+        assert r["icc_score"]["ICC(3,1)"] == pytest.approx(1.0, abs=1e-9)
+
+    def test_wrong_count_raises(self):
+        a, b = self._mk(n=50)
+        with pytest.raises(EvaluationError):
+            compute_pairwise_agreement(a, b)
