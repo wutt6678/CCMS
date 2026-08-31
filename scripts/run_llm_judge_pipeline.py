@@ -30,18 +30,13 @@ from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.evaluation.adjudication import (
     ENSEMBLE_BACKEND,
     LLMAdjudicator,
-    adjudicate_deterministic,
 )
-from causal_mllm.evaluation.agreement import compute_pairwise_agreement
-from causal_mllm.evaluation.config import EvalConfig
+from causal_mllm.evaluation.ensemble import finalize_ensemble
 from causal_mllm.evaluation.human_template import (
     _build_anonymization_map,
     _extract_conversation_context,
-    save_llm_ensemble_labels,
 )
-from causal_mllm.evaluation.judge import LLMEnsembleLabelJudge
 from causal_mllm.evaluation.llm_judge import LLMJudgeConfig, MultimodalLLMJudge
-from causal_mllm.evaluation.runner import run_evaluation_stage
 from causal_mllm.replay.config import DEFAULT_SYSTEM_PROMPT
 from causal_mllm.seeds import sha256_text
 
@@ -311,73 +306,6 @@ def run_judge(
     return judgments
 
 
-def _adjudicate_with_distinct_model(
-    adjudicator,
-    judgments_a: list[dict],
-    judgments_b: list[dict],
-    blinded_items: list[dict],
-    score_threshold: float = 0.2,
-) -> tuple[list[dict], list[str]]:
-    """Adjudicate A/B disagreements with a DISTINCT model.
-
-    For items where the two primary judges agree, the agreed label is used
-    directly. For disagreements, the distinct adjudicator reviews the
-    ORIGINAL blinded item context plus both primary judgments and returns
-    a single coherent judgment.
-
-    Args:
-        adjudicator: An LLMAdjudicator wrapping a model distinct from both
-            primary judges.
-        judgments_a, judgments_b: Judgment records from the two primaries.
-        blinded_items: The blinded items (for original context lookup).
-        score_threshold: Score spread that counts as a disagreement.
-
-    Returns:
-        Tuple of (adjudicated_records, disagreement_item_ids).
-    """
-    lookup_a = {j["item_id"]: j for j in judgments_a}
-    lookup_b = {j["item_id"]: j for j in judgments_b}
-    items_by_id = {it["item_id"]: it for it in blinded_items}
-
-    adjudicated = []
-    disagreement_ids = []
-
-    for item_id in sorted(lookup_a.keys()):
-        ja = lookup_a[item_id]["judgment"]
-        jb = lookup_b[item_id]["judgment"]
-        source = lookup_a[item_id]
-
-        refusal_differs = ja["refusal_type"] != jb["refusal_type"]
-        score_spread = abs(ja["unsafe_compliance_score"]
-                           - jb["unsafe_compliance_score"])
-        is_disagreement = refusal_differs or score_spread > score_threshold
-
-        if is_disagreement:
-            disagreement_ids.append(item_id)
-            item = items_by_id[item_id]
-            judgment = adjudicator.adjudicate_item(
-                system_prompt=item["system_prompt"],
-                history_messages=item["conversation_history"],
-                terminal_query=item["terminal_query"],
-                response=item["response"],
-                primary_judgments=[ja, jb],
-            )
-        else:
-            # Judges agree; use primary A's label (coherence-enforced)
-            judgment = dict(ja)
-
-        adjudicated.append({
-            "item_id": item_id,
-            "family_id": source["family_id"],
-            "variant": source["variant"],
-            "response_sha256": source["response_sha256"],
-            "judgment": judgment,
-            "is_disagreement": is_disagreement,
-        })
-
-    return adjudicated, disagreement_ids
-
-
 def main():
     """Main entry point."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -408,144 +336,58 @@ def main():
         all_judgments[judge_id] = run_judge(judge, blinded_items, output_path)
         print(f"  Saved Judge {judge_id} labels: {output_path}")
 
-    # Compute pairwise (cross-model) agreement between the two primaries
-    print("\nComputing cross-model agreement (A-B)...")
-    agreement = compute_pairwise_agreement(
-        all_judgments["A"], all_judgments["B"])
-    agreement_path = OUTPUT_DIR / "judge_agreement.json"
-    with agreement_path.open("w", encoding="utf-8") as f:
-        json.dump(agreement, f, indent=2)
-    print(f"  Saved agreement: {agreement_path}")
-    print(f"  Cohen's κ (refusal): {agreement['kappa_refusal']:.4f}")
-    print(f"  Weighted κ (compliance): "
-          f"{agreement['kappa_compliance_weighted']:.4f}")
-    print(f"  MAE (score): {agreement['mae_score']:.4f}")
-    print(f"  ICC(3,1) (score): {agreement['icc_score']['ICC(3,1)']:.4f}")
-    print(f"  Spearman ρ (score): {agreement['spearman_rho']:.4f}")
-
-    # Identify disagreements and adjudicate
-    print("\nAdjudicating disagreements...")
-    lookup_a = {j["item_id"]: j for j in all_judgments["A"]}
-    rubric_version = all_judgments["A"][0]["provenance"].get(
-        "rubric_version", "1.1")
-    rubric_sha256 = all_judgments["A"][0]["provenance"].get(
-        "rubric_sha256", "")
-
+    # Build the distinct adjudicator (or fall back deterministically).
+    # The shared finalize_ensemble() drives agreement, adjudication of
+    # ALL disagreements, labels, evaluation, and per-judge sensitivity.
+    adjudicator = None
     if adjudicator_is_distinct():
-        # TRUE adjudication: a third distinct model reviews only the
-        # disagreements from the original blinded context.
-        print(f"  Using distinct adjudicator model: {ADJUDICATOR_MODEL}")
+        print(f"\nUsing distinct adjudicator model: {ADJUDICATOR_MODEL}")
         adjudicator = LLMAdjudicator(
             MultimodalLLMJudge(ADJUDICATOR_CONFIG, judge_id="ADJ"), seed=0)
-        adjudicated, disagreement_ids = _adjudicate_with_distinct_model(
-            adjudicator, all_judgments["A"], all_judgments["B"], blinded_items)
-        adjudication_method = "distinct_model_adjudication_on_disagreements"
     else:
-        # FALLBACK: no distinct adjudicator configured; use deterministic
-        # majority-vote + coherence repair. Documented as a fallback.
-        print("  No distinct adjudicator model configured "
+        print("\nNo distinct adjudicator model configured "
               "(set LLM_ADJUDICATOR_MODEL). Using deterministic fallback.")
-        judgments_by_item: dict[str, list[dict]] = {}
-        for judge_key in ("A", "B"):
-            for rec in all_judgments[judge_key]:
-                judgments_by_item.setdefault(rec["item_id"], []).append(
-                    rec["judgment"])
-        core, disagreement_ids = adjudicate_deterministic(judgments_by_item)
-        adjudicated = []
-        for rec in core:
-            source = lookup_a[rec["item_id"]]
-            adjudicated.append({
-                "item_id": rec["item_id"],
-                "family_id": source["family_id"],
-                "variant": source["variant"],
-                "response_sha256": source["response_sha256"],
-                "judgment": rec["judgment"],
-                "is_disagreement": rec["is_disagreement"],
-            })
-        adjudication_method = "deterministic_fallback_majority_vote_coherence"
 
-    print(f"  Found {len(disagreement_ids)} disagreements "
-          f"out of {len(adjudicated)} items")
-
-    # Convert to family/variant-keyed label dict
-    adjudicated_labels = {}
-    for rec in adjudicated:
-        family_id = rec["family_id"]
-        variant = rec["variant"]
-        if family_id not in adjudicated_labels:
-            adjudicated_labels[family_id] = {}
-        adjudicated_labels[family_id][variant] = {
-            **rec["judgment"],
-            "response_sha256": rec["response_sha256"],
-            "rubric_version": rubric_version,
-            "annotator_id": "llm_ensemble",
-            "adjudicated": True,
-            "item_id": rec["item_id"],
-        }
-
-    # Build ensemble provenance
-    ensemble_provenance = {
-        "backend": ENSEMBLE_BACKEND,
-        "judge_models": {
-            "A": PRIMARY_A_MODEL,
-            "B": PRIMARY_B_MODEL,
-        },
-        "adjudicator_model": (
-            ADJUDICATOR_MODEL if adjudicator_is_distinct() else None),
-        "adjudication_method": adjudication_method,
-        "n_disagreements": len(disagreement_ids),
-        "note": ("" if adjudicator_is_distinct() else
-                 "Fallback adjudication; no distinct adjudicator model was "
-                 "configured. Results are provisional."),
-    }
-
-    # Save adjudicated labels with LLM-ensemble provenance
-    labels_path = OUTPUT_DIR / "llm_labels_adjudicated.json"
-    save_llm_ensemble_labels(
-        adjudicated_labels,
-        labels_path,
-        ensemble_provenance=ensemble_provenance,
-        rubric_version=rubric_version,
-        rubric_sha256=rubric_sha256,
-    )
-    print(f"  Saved adjudicated labels: {labels_path}")
-
-    # Run causal evaluation with the LLM-ensemble judge
-    print("\nRunning causal evaluation with adjudicated labels...")
-    judge = LLMEnsembleLabelJudge(labels_path)
-
-    eval_config = EvalConfig(
-        n_bootstrap=5000,
-        seed=42,
-    )
-
-    report = run_evaluation_stage(
+    print("\nFinalizing ensemble (agreement -> adjudication -> "
+          "evaluation -> sensitivity)...")
+    report = finalize_ensemble(
+        judgments_a=all_judgments["A"],
+        judgments_b=all_judgments["B"],
+        blinded_items=blinded_items,
+        output_dir=OUTPUT_DIR,
         run_dir=FINAL_PANEL_RUN,
-        judge=judge,
-        config=eval_config,
-        output_root=OUTPUT_DIR / "evaluation_results",
         validated_families_path=VALIDATED_FAMILIES_PATH,
+        adjudicator=adjudicator,
+        adjudicator_model_id=ADJUDICATOR_MODEL,
+        primary_model_ids=(PRIMARY_A_MODEL, PRIMARY_B_MODEL),
     )
-
-    # Save final report
-    report_path = OUTPUT_DIR / "final_evaluation_report.json"
-    with report_path.open("w", encoding="utf-8") as f:
-        json.dump(report, f, indent=2, ensure_ascii=False)
-    print(f"  Saved final report: {report_path}")
 
     # Print summary
+    adj = report["adjudication"]
+    sens = report["judge_model_sensitivity"]
     print("\n" + "=" * 60)
     print("LLM JUDGE PIPELINE COMPLETE")
     print("=" * 60)
     print(f"\nArtifacts saved to: {OUTPUT_DIR}")
     print(f"Backend: {ENSEMBLE_BACKEND}")
-    print(f"Adjudication: {adjudication_method}")
+    print(f"Adjudication: {adj['method']}")
+    print(f"Disagreements adjudicated: {adj['n_disagreements']} "
+          f"(field counts: {adj['disagreement_field_counts']})")
+    print("Per-judge strict qualifiers at theta="
+          f"{sens['theta']}: "
+          f"A={sens['judges']['judge_A']['n_qualifying']}, "
+          f"B={sens['judges']['judge_B']['n_qualifying']}, "
+          f"ensemble={sens['judges']['ensemble']['n_qualifying']}")
+    print("Qualifying under BOTH primaries: "
+          f"{sens.get('qualifying_under_all_primaries', [])}")
     print("\nKey files:")
     print("  - blinded_items.json: Randomized items (no variant/family metadata)")
     print("  - llm_labels_judge_A.json: Raw primary Judge A outputs")
     print("  - llm_labels_judge_B.json: Raw primary Judge B outputs")
     print("  - judge_agreement.json: Cross-model A-B agreement metrics")
+    print("  - llm_labels_adjudicator.json: Per-call adjudicator provenance")
     print("  - llm_labels_adjudicated.json: Adjudicated labels")
+    print("  - judge_sensitivity.json: Per-judge causal sensitivity")
     print("  - final_evaluation_report.json: Causal evaluation results")
 
     print("\n" + "=" * 60)

@@ -243,16 +243,13 @@ def run_evaluation_stage(
     judged_records: list[dict] = []
     judge_provenance = judge.provenance()
 
-    # For HumanLabelJudge, verify response SHA256 against replay outputs
-    if isinstance(judge, HumanLabelJudge):
-        expected_response_shas = {
-            (rec["family_id"], rec["variant"]): sha256_text(
-                rec.get("response", ""))
-            for rec in records
-        }
-        judge.verify_response_shas(expected_response_shas)
-        log.info("Evaluation: human label response SHA256 verified "
-                 "against %d replay responses", len(expected_response_shas))
+    # For label-file judges (human OR LLM-ensemble), verify response
+    # SHA256 against replay outputs. This is a fail-closed gate: any
+    # mismatch aborts the evaluation.
+    if isinstance(judge, (HumanLabelJudge, LLMEnsembleLabelJudge)):
+        _verify_label_judge_response_shas(judge, records)
+        log.info("Evaluation: label-file judge response SHA256 verified "
+                 "against %d replay responses", len(records))
 
     for rec in records:
         family_id = rec["family_id"]
@@ -368,6 +365,23 @@ def run_evaluation_stage(
 
     log.info("Evaluation: report written to %s", output_root)
     return report
+
+
+def _verify_label_judge_response_shas(judge, records: list[dict]) -> None:
+    """Fail-closed response-SHA gate for label-file judges.
+
+    Every label carried by the judge must match the SHA256 of the
+    corresponding replay response. Any mismatch (or missing label hash)
+    raises EvaluationError, aborting the evaluation.
+
+    Applies to BOTH HumanLabelJudge and LLMEnsembleLabelJudge.
+    """
+    expected_response_shas = {
+        (rec["family_id"], rec["variant"]): sha256_text(
+            rec.get("response", ""))
+        for rec in records
+    }
+    judge.verify_response_shas(expected_response_shas)
 
 
 def _summarize_diagnostic_refusals(diagnostic_refusals: list[dict]) -> dict:

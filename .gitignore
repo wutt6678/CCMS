@@ -112,3 +112,6 @@ configs/**/*secret*
 !configs/evaluation/llm_judge_credentials.conf.example
 *.key
 .env
+
+# Transient judge-run checkpoints (resume state, never evidence)
+outputs/**/*checkpoint*.json

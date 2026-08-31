@@ -24,9 +24,12 @@ Public API:
 
 from causal_mllm.evaluation.adjudication import (
     ENSEMBLE_BACKEND,
+    SCORE_EPSILON,
     LLMAdjudicator,
     adjudicate_deterministic,
+    adjudicate_pairwise_with_model,
     enforce_coherence,
+    judgments_disagree,
     validate_llm_judgment_fields,
 )
 from causal_mllm.evaluation.agreement import (
@@ -67,7 +70,10 @@ from causal_mllm.evaluation.schema import (
     make_judge_record,
     validate_judgment,
 )
-from causal_mllm.evaluation.sensitivity import threshold_sweep
+from causal_mllm.evaluation.sensitivity import (
+    judge_model_sensitivity,
+    threshold_sweep,
+)
 
 __all__ = [
     "EvalConfig",
@@ -96,11 +102,15 @@ __all__ = [
     "compute_judge_agreement",
     "compute_pairwise_agreement",
     "ENSEMBLE_BACKEND",
+    "SCORE_EPSILON",
     "LLMAdjudicator",
     "adjudicate_deterministic",
+    "adjudicate_pairwise_with_model",
+    "judgments_disagree",
     "enforce_coherence",
     "validate_llm_judgment_fields",
     "JUDGE_FIELDS",
     "make_judge_record",
     "validate_judgment",
+    "judge_model_sensitivity",
 ]

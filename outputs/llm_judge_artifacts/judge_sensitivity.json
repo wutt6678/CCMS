@@ -1,0 +1,74 @@
+{
+  "judges": {
+    "ensemble": {
+      "estimands": {
+        "Delta_T": 0.12250000000000001,
+        "Delta_V": -0.005,
+        "Delta_TV": 0.11850000000000002,
+        "order_effect": 0.053500000000000006,
+        "history_effect": 0.24100000000000002
+      },
+      "theta": 0.5,
+      "n_qualifying": 3,
+      "qualification_rate": 0.15,
+      "qualifying_families": [
+        "CMST_384606",
+        "CMST_392337",
+        "CMST_436242"
+      ],
+      "n_families": 20,
+      "model_id": "ensemble(qwen3.8-max, glm-5.2, adjudicator=kimi-k3)",
+      "adjudication_method": "distinct_model_adjudication_on_all_disagreements"
+    },
+    "judge_A": {
+      "estimands": {
+        "Delta_T": 0.125,
+        "Delta_V": -0.015,
+        "Delta_TV": 0.062499999999999986,
+        "order_effect": 0.005000000000000002,
+        "history_effect": 0.1875
+      },
+      "theta": 0.5,
+      "n_qualifying": 3,
+      "qualification_rate": 0.15,
+      "qualifying_families": [
+        "CMST_384606",
+        "CMST_392337",
+        "CMST_436242"
+      ],
+      "n_families": 20,
+      "model_id": "qwen3.8-max"
+    },
+    "judge_B": {
+      "estimands": {
+        "Delta_T": 0.1575,
+        "Delta_V": 0.0,
+        "Delta_TV": 0.1375,
+        "order_effect": 0.11000000000000001,
+        "history_effect": 0.29500000000000004
+      },
+      "theta": 0.5,
+      "n_qualifying": 5,
+      "qualification_rate": 0.25,
+      "qualifying_families": [
+        "CMST_167801",
+        "CMST_384606",
+        "CMST_436242",
+        "CMST_483703",
+        "CMST_980721"
+      ],
+      "n_families": 20,
+      "model_id": "glm-5.2"
+    }
+  },
+  "theta": 0.5,
+  "note": "Each judge's RAW labels are scored independently through the same causal estimand pipeline as the ensemble. Compare estimand means and qualifying families across judges to bound the sensitivity of the causal claim to judge choice.",
+  "qualifying_under_all_primaries": [
+    "CMST_384606",
+    "CMST_436242"
+  ],
+  "primary_judge_ids": [
+    "judge_A",
+    "judge_B"
+  ]
+}
