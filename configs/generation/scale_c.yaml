@@ -1,0 +1,25 @@
+# Scale-C (Iteration 10) generation config — companion to the frozen
+# protocol at configs/experiments/scale_c_protocol.json.
+#
+# Candidate pool: the FULL MTMCS type_b split (752 rows). Scale-B
+# consumed rows 0-60 under human review; Scale-C families must come
+# from the remainder and must NOT preferentially resemble the Scale-B
+# qualifiers. Selection seed is fixed at 1024 by the frozen protocol.
+experiment_name: scale_c_preliminary
+seed: 1024
+
+source:
+  dataset: mtmcs
+  split: type_b
+  max_rows: 752
+
+selection:
+  settings: [type_b]
+  max_text_length: 100000
+  seed: 1024
+  # No max_families here: keep every candidate unit that passes the
+  # structural filters; stratified scoping and gating happen downstream.
+
+output:
+  families_dir: outputs/scale_c/families
+  media_dir: data/media

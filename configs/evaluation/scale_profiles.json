@@ -7,7 +7,7 @@
   },
   "scale_c": {
     "description": "Iteration 10 Scale-C preliminary panel (100 families, 600 trajectories). Dedicated paths; never reuse Scale-B directories.",
-    "validated_families": "outputs/scale_c/families/validated_families.jsonl",
+    "validated_families": "outputs/scale_c/families_panel/validated_families.jsonl",
     "replay_run": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b",
     "output_dir": "outputs/scale_c/llm_judge_artifacts"
   }
