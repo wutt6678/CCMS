@@ -1,8 +1,9 @@
-"""Fail-closed panel validation (Iteration 9).
+"""Fail-closed panel validation (Iteration 9; scale-agnostic in 10).
 
 Before any judging begins, the replay panel must pass a strict gate:
-exactly 20 families × 6 variants = 120 records, zero failures, zero
-truncation, pinned revision, and all finish reasons in {eos, stop}.
+exactly N families × 6 variants records (N declared by the caller —
+Scale-B 20, Scale-C 100), zero failures, zero truncation, pinned
+revision, and all finish reasons in {eos, stop}.
 
 A panel that fails the gate is NEVER judged — EvaluationError halts
 the evaluation stage.
@@ -22,6 +23,8 @@ REPLAY_OUTPUTS_FILE = "replay_outputs.jsonl"
 REPLAY_FAILURES_FILE = "replay_failures.jsonl"
 REPLAY_REPORT_FILE = "replay_report.json"
 
+# Scale-B defaults retained for backwards compatibility; callers for other
+# panels (e.g. Scale-C 100 families) must pass expected_n_families.
 EXPECTED_N_FAMILIES = 20
 EXPECTED_N_VARIANTS = len(ALL_VARIANT_NAMES)  # 6
 EXPECTED_N_RECORDS = EXPECTED_N_FAMILIES * EXPECTED_N_VARIANTS  # 120
@@ -48,18 +51,30 @@ class PanelReport:
         }
 
 
-def validate_panel(run_dir: str | Path) -> tuple[PanelReport, list[dict]]:
+def validate_panel(
+    run_dir: str | Path,
+    expected_n_families: int | None = None,
+) -> tuple[PanelReport, list[dict]]:
     """Validate the replay panel; fail-closed.
+
+    Args:
+        run_dir: Replay run directory carrying the outputs/failures/report.
+        expected_n_families: Declared panel size (from the validated
+            families file). None = legacy Scale-B default (20).
 
     Returns:
         (PanelReport, records) — the report carries run metadata;
-        records is the list of 120 replay output dicts.
+        records is the list of replay output dicts.
 
     Raises:
         EvaluationError: On ANY gate violation.
     """
     run_dir = Path(run_dir)
     errors: list[str] = []
+    exp_families = (
+        expected_n_families
+        if expected_n_families is not None else EXPECTED_N_FAMILIES)
+    exp_records = exp_families * EXPECTED_N_VARIANTS
 
     # --- Load report ---
     report_path = run_dir / REPLAY_REPORT_FILE
@@ -87,17 +102,17 @@ def validate_panel(run_dir: str | Path) -> tuple[PanelReport, list[dict]]:
     records = read_jsonl(outputs_path)
 
     # --- Record count ---
-    if len(records) != EXPECTED_N_RECORDS:
+    if len(records) != exp_records:
         errors.append(
-            f"expected {EXPECTED_N_RECORDS} records "
-            f"({EXPECTED_N_FAMILIES} families × {EXPECTED_N_VARIANTS} "
+            f"expected {exp_records} records "
+            f"({exp_families} families × {EXPECTED_N_VARIANTS} "
             f"variants), got {len(records)}")
 
     # --- Family × variant coverage ---
     unique_families = {r.get("family_id") for r in records}
-    if len(unique_families) != EXPECTED_N_FAMILIES:
+    if len(unique_families) != exp_families:
         errors.append(
-            f"expected {EXPECTED_N_FAMILIES} families, "
+            f"expected {exp_families} families, "
             f"got {len(unique_families)}")
     for family_id in sorted(unique_families):
         family_variants = {
@@ -174,13 +189,13 @@ def validate_panel(run_dir: str | Path) -> tuple[PanelReport, list[dict]]:
                 f"report resolved_model_revision ({resolved_rev}) must match "
                 f"record model_revision ({list(record_revisions)[0]})")
 
-    # 120 unique family/variant pairs
+    # N×6 unique family/variant pairs
     family_variant_pairs = {
         (r.get("family_id"), r.get("variant")) for r in records
     }
-    if len(family_variant_pairs) != EXPECTED_N_RECORDS:
+    if len(family_variant_pairs) != exp_records:
         errors.append(
-            f"expected {EXPECTED_N_RECORDS} unique (family_id, variant) pairs, "
+            f"expected {exp_records} unique (family_id, variant) pairs, "
             f"got {len(family_variant_pairs)}")
 
     # Nonempty responses

@@ -3,8 +3,8 @@
 The evaluation stage consumes a frozen replay panel and produces
 causal estimands with bootstrap CIs.  The pipeline:
 
-  1. Gate: validate panel (fail-closed)
-  2. Judge: run judge over all 120 responses (variant-blind)
+  1. Gate: validate panel (fail-closed, sized to the dataset)
+  2. Judge: run judge over all panel responses (variant-blind)
   3. Diagnostic: run rule-based refusal detector
   4. Estimands: compute family-level causal estimands
   5. Bootstrap: compute paired bootstrap CIs
@@ -218,16 +218,11 @@ def run_evaluation_stage(
 
     log.info("Evaluation: starting stage on %s", run_dir)
 
-    # 1. Gate: validate panel (fail-closed)
-    panel, records = validate_panel(run_dir)
-    log.info("Evaluation: panel gate passed (%d records, %d families)",
-             panel.n_records, panel.n_families)
-
     # Load replay provenance for SHA verification
     provenance = _load_replay_provenance(run_dir)
     expected_families_sha = provenance.get("validated_families_sha256")
 
-    # 2. Load validated families from explicit path
+    # 0. Load validated families from explicit path (declares panel size)
     if validated_families_path is None:
         raise EvaluationError(
             "validated_families_path is required — "
@@ -239,7 +234,13 @@ def run_evaluation_stage(
         "(SHA256 verified)",
         len(families), families_path)
 
-    # 3. Judge: run judge over all 120 responses (variant-blind)
+    # 1. Gate: validate panel (fail-closed), sized to the dataset
+    panel, records = validate_panel(
+        run_dir, expected_n_families=len(families))
+    log.info("Evaluation: panel gate passed (%d records, %d families)",
+             panel.n_records, panel.n_families)
+
+    # 2. Judge: run judge over all panel responses (variant-blind)
     judged_records: list[dict] = []
     judge_provenance = judge.provenance()
 
