@@ -1,0 +1,60 @@
+{
+  "run_dir": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b",
+  "coverage": {
+    "n_families": 100,
+    "n_records": 600,
+    "n_error_records": 0,
+    "ok": true
+  },
+  "provenance": {
+    "issues": [],
+    "ok": true
+  },
+  "terminal_query_equality": {
+    "issues": [],
+    "ok": true
+  },
+  "media": {
+    "issues": [],
+    "ok": true
+  },
+  "truncation": {
+    "overall_rate": 0.0,
+    "per_variant_rate": {
+      "neutral": 0.0,
+      "text_only": 0.0,
+      "vision_only": 0.0,
+      "cross_modal": 0.0,
+      "shuffle": 0.0,
+      "history_reset": 0.0
+    },
+    "per_variant_truncated": {
+      "neutral": 0,
+      "text_only": 0,
+      "vision_only": 0,
+      "cross_modal": 0,
+      "shuffle": 0,
+      "history_reset": 0
+    },
+    "per_variant_mean_output_tokens": {
+      "neutral": 507.5,
+      "text_only": 328.6,
+      "vision_only": 530.4,
+      "cross_modal": 473.4,
+      "shuffle": 441.5,
+      "history_reset": 315.7
+    },
+    "per_variant_max_output_tokens": {
+      "neutral": 1270,
+      "text_only": 996,
+      "vision_only": 1052,
+      "cross_modal": 1291,
+      "shuffle": 865,
+      "history_reset": 717
+    },
+    "ok": true
+  },
+  "verdict": "PASS",
+  "failures": [],
+  "warnings": []
+}
