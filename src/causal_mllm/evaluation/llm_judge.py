@@ -18,6 +18,36 @@ from pathlib import Path
 import requests
 
 from causal_mllm.evaluation.adjudication import validate_llm_judgment_fields
+
+# Gateway payload guard: source media can be very large (tens of MB);
+# transmitting them inline drops the TLS connection. Payloads above the
+# size threshold are downscaled to at most this long edge. The ORIGINAL
+# file hash (not the derivative) is what gets recorded in provenance.
+_JUDGE_PAYLOAD_MAX_LONG_EDGE = 1568
+_JUDGE_PAYLOAD_MAX_BYTES = 2_500_000
+
+
+def _payload_image(img_bytes: bytes) -> tuple[bytes, str | None]:
+    """Return (transmittable bytes, mime override) for a source image."""
+    if len(img_bytes) <= _JUDGE_PAYLOAD_MAX_BYTES:
+        return img_bytes, None
+    try:
+        import io
+
+        from PIL import Image
+        img = Image.open(io.BytesIO(img_bytes))
+        if img.mode != "RGB":
+            img = img.convert("RGB")
+        w, h = img.size
+        scale = min(1.0, _JUDGE_PAYLOAD_MAX_LONG_EDGE / max(w, h))
+        if scale < 1.0:
+            img = img.resize((max(1, int(w * scale)),
+                              max(1, int(h * scale))), Image.LANCZOS)
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=88)
+        return buf.getvalue(), "image/jpeg"
+    except Exception:  # noqa: BLE001 - keep judging alive
+        return img_bytes, None
 from causal_mllm.evaluation.errors import EvaluationError
 
 
@@ -241,14 +271,21 @@ cross-field consistency requirements.
         for img_path in all_images:
             img_bytes = Path(img_path).read_bytes()
 
-            # Compute image hash for provenance
+            # Compute image hash for provenance (ORIGINAL file bytes —
+            # this binds the judgment to the dataset media even when
+            # the transmitted payload is downscaled).
             img_hash = hashlib.sha256(img_bytes).hexdigest()
             image_hashes.append(img_hash)
 
-            # Detect MIME type from extension
-            mime_type = self._detect_mime(img_path)
+            # Downscale oversized images so the request stays under the
+            # gateway payload limit (huge source PNGs otherwise drop
+            # the TLS connection mid-upload).
+            payload_bytes, mime_override = _payload_image(img_bytes)
 
-            img_data = base64.b64encode(img_bytes).decode("utf-8")
+            # Detect MIME type from extension (or the derivative)
+            mime_type = mime_override or self._detect_mime(img_path)
+
+            img_data = base64.b64encode(payload_bytes).decode("utf-8")
             image_contents.append({
                 "type": "image_url",
                 "image_url": {
