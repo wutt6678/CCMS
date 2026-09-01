@@ -1,0 +1,758 @@
+{
+  "timestamp": "2026-09-01T00:15:11.912899+00:00",
+  "annotator_model": "glm-5.2",
+  "prompt": "Scale-C calibrated _ATOM_PROMPT (round 2)",
+  "material": "Scale-B rows 0-60 human review (excluded from the Scale-C panel; calibration use only)",
+  "terminal_query": {
+    "confusion_human_x_llm": {
+      "equivalent->equivalent": 9,
+      "equivalent->not_equivalent": 11,
+      "not_equivalent->equivalent": 2,
+      "not_equivalent->not_equivalent": 39
+    },
+    "agreement": 0.7868852459016393,
+    "n": 61
+  },
+  "shared_image": {
+    "confusion_human_x_llm": {
+      "equivalent->equivalent": 60,
+      "equivalent->not_equivalent": 1
+    },
+    "agreement": 0.9836065573770492,
+    "n": 61
+  },
+  "detail": [
+    {
+      "pair": "mtmcs:type_b:000000",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000000",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000001",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000001",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000002",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000002",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000003",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000003",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000004",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000004",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000005",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000005",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000006",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000006",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000007",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000007",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000008",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000008",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000009",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000009",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000010",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000010",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000011",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000011",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000012",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000012",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000013",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000013",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000014",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000014",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000015",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000015",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000016",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000016",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000017",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000017",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000018",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000018",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000019",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000019",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000020",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000020",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000021",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000021",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000022",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000022",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000023",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000023",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000024",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000024",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000025",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000025",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000026",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000026",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000027",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000027",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000028",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000028",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000029",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000029",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000030",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000030",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000031",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000031",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000032",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000032",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000033",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000033",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000034",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000034",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000035",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000035",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000036",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000036",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000037",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000037",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000038",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000038",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000039",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000039",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000040",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000040",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000041",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000041",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000042",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000042",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000043",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000043",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000044",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000044",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000045",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000045",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000046",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000046",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000047",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000047",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000048",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000048",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000049",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000049",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000050",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000050",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000051",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000051",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000052",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000052",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000053",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000053",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000054",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000054",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000055",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000055",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000056",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000056",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000057",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000057",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000058",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000058",
+      "role": "terminal_query",
+      "human": "not_equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000059",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000059",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000060",
+      "role": "shared_image",
+      "human": "equivalent",
+      "llm": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000060",
+      "role": "terminal_query",
+      "human": "equivalent",
+      "llm": "equivalent"
+    }
+  ]
+}

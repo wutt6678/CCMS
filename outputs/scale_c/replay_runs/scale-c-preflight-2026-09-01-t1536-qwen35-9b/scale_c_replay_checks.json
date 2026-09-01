@@ -1,0 +1,60 @@
+{
+  "run_dir": "outputs/scale_c/replay_runs/scale-c-preflight-2026-09-01-t1536-qwen35-9b",
+  "coverage": {
+    "n_families": 10,
+    "n_records": 60,
+    "n_error_records": 0,
+    "ok": true
+  },
+  "provenance": {
+    "issues": [],
+    "ok": true
+  },
+  "terminal_query_equality": {
+    "issues": [],
+    "ok": true
+  },
+  "media": {
+    "issues": [],
+    "ok": true
+  },
+  "truncation": {
+    "overall_rate": 0.0,
+    "per_variant_rate": {
+      "neutral": 0.0,
+      "text_only": 0.0,
+      "vision_only": 0.0,
+      "cross_modal": 0.0,
+      "shuffle": 0.0,
+      "history_reset": 0.0
+    },
+    "per_variant_truncated": {
+      "neutral": 0,
+      "text_only": 0,
+      "vision_only": 0,
+      "cross_modal": 0,
+      "shuffle": 0,
+      "history_reset": 0
+    },
+    "per_variant_mean_output_tokens": {
+      "neutral": 487.4,
+      "text_only": 190.5,
+      "vision_only": 542.3,
+      "cross_modal": 333.7,
+      "shuffle": 378.2,
+      "history_reset": 303.9
+    },
+    "per_variant_max_output_tokens": {
+      "neutral": 1103,
+      "text_only": 390,
+      "vision_only": 931,
+      "cross_modal": 503,
+      "shuffle": 597,
+      "history_reset": 501
+    },
+    "ok": true
+  },
+  "verdict": "PASS",
+  "failures": [],
+  "warnings": []
+}

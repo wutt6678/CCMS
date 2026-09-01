@@ -1,0 +1,155 @@
+{
+  "timestamp": "2026-09-01T01:51:34.412069+00:00",
+  "n": 21,
+  "r3_human_match": 12,
+  "r1_r2_flip_count": 17,
+  "rows": [
+    {
+      "pair": "mtmcs:type_b:000003",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000004",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "not_equivalent",
+      "r3": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000008",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000010",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000012",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000015",
+      "human": "not_equivalent",
+      "r1": "equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000018",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000022",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000031",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000036",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000037",
+      "human": "not_equivalent",
+      "r1": "equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000038",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000040",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000042",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000043",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "not_equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000048",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000052",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000055",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000057",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "not_equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000058",
+      "human": "not_equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "equivalent"
+    },
+    {
+      "pair": "mtmcs:type_b:000059",
+      "human": "equivalent",
+      "r1": "not_equivalent",
+      "r2": "equivalent",
+      "r3": "not_equivalent"
+    }
+  ]
+}

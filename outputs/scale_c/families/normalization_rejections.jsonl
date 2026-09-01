@@ -1,0 +1,2 @@
+{"source_id": "mtmcs:type_b:383", "stage": "normalization", "error_type": "MediaLoadError", "reason": "Media load error for 'data/media/source/mtmcs_type_b_383_variant2.png': PIL save/verify failed: broken PNG file (incomplete checksum in b'IDAT')"}
+{"source_id": "mtmcs:type_b:709", "stage": "normalization", "error_type": "MediaLoadError", "reason": "Media load error for 'data/media/source/mtmcs_type_b_709_variant1.png': PIL save/verify failed: broken PNG file (incomplete checksum in b'IDAT')"}

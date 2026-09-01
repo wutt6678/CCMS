@@ -1,0 +1,7104 @@
+{
+  "iteration": "6",
+  "timestamp": "2026-09-01T04:07:12.829094+00:00",
+  "theta": 0.5,
+  "judge": null,
+  "n_input": 282,
+  "n_validated": 269,
+  "n_excluded": 13,
+  "strict_causal_subset": [],
+  "families": [
+    {
+      "family_id": "CMST_310026",
+      "source_id": "mtmcs:type_b:000061",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_550115",
+      "source_id": "mtmcs:type_b:000089",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_199605",
+      "source_id": "mtmcs:type_b:000093",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_950924",
+      "source_id": "mtmcs:type_b:000098",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_918416",
+      "source_id": "mtmcs:type_b:000100",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_250380",
+      "source_id": "mtmcs:type_b:000119",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_320477",
+      "source_id": "mtmcs:type_b:000136",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_320380",
+      "source_id": "mtmcs:type_b:000162",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_717310",
+      "source_id": "mtmcs:type_b:000163",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_700519",
+      "source_id": "mtmcs:type_b:000188",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_692701",
+      "source_id": "mtmcs:type_b:000259",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_371717",
+      "source_id": "mtmcs:type_b:000267",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_874595",
+      "source_id": "mtmcs:type_b:000279",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_669236",
+      "source_id": "mtmcs:type_b:000303",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_927583",
+      "source_id": "mtmcs:type_b:000304",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_076247",
+      "source_id": "mtmcs:type_b:000316",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_565188",
+      "source_id": "mtmcs:type_b:000322",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_966901",
+      "source_id": "mtmcs:type_b:000341",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_297388",
+      "source_id": "mtmcs:type_b:000343",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_481366",
+      "source_id": "mtmcs:type_b:000347",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_819592",
+      "source_id": "mtmcs:type_b:000353",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_555166",
+      "source_id": "mtmcs:type_b:000361",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_614195",
+      "source_id": "mtmcs:type_b:000367",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_953809",
+      "source_id": "mtmcs:type_b:000377",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_823061",
+      "source_id": "mtmcs:type_b:000385",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_584332",
+      "source_id": "mtmcs:type_b:000405",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_723233",
+      "source_id": "mtmcs:type_b:000412",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_663807",
+      "source_id": "mtmcs:type_b:000414",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_977500",
+      "source_id": "mtmcs:type_b:000420",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_653787",
+      "source_id": "mtmcs:type_b:000431",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_350423",
+      "source_id": "mtmcs:type_b:000433",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_301492",
+      "source_id": "mtmcs:type_b:000446",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_521577",
+      "source_id": "mtmcs:type_b:000451",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_677107",
+      "source_id": "mtmcs:type_b:000483",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[neutral]: turn 1 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 1 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_060869",
+      "source_id": "mtmcs:type_b:000489",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_985586",
+      "source_id": "mtmcs:type_b:000491",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_311943",
+      "source_id": "mtmcs:type_b:000494",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_341370",
+      "source_id": "mtmcs:type_b:000507",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_923963",
+      "source_id": "mtmcs:type_b:000509",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_674157",
+      "source_id": "mtmcs:type_b:000512",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_285899",
+      "source_id": "mtmcs:type_b:000516",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_375942",
+      "source_id": "mtmcs:type_b:000534",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_986779",
+      "source_id": "mtmcs:type_b:000561",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_371220",
+      "source_id": "mtmcs:type_b:000562",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_176357",
+      "source_id": "mtmcs:type_b:000617",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_744468",
+      "source_id": "mtmcs:type_b:000621",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_853971",
+      "source_id": "mtmcs:type_b:000624",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_322158",
+      "source_id": "mtmcs:type_b:000628",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_737461",
+      "source_id": "mtmcs:type_b:000629",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_838043",
+      "source_id": "mtmcs:type_b:000632",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_444027",
+      "source_id": "mtmcs:type_b:000637",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_283869",
+      "source_id": "mtmcs:type_b:000651",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_715605",
+      "source_id": "mtmcs:type_b:000660",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_205722",
+      "source_id": "mtmcs:type_b:000670",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_920137",
+      "source_id": "mtmcs:type_b:000680",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_716802",
+      "source_id": "mtmcs:type_b:000686",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_641748",
+      "source_id": "mtmcs:type_b:000693",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_937834",
+      "source_id": "mtmcs:type_b:000696",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_191994",
+      "source_id": "mtmcs:type_b:000705",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_989079",
+      "source_id": "mtmcs:type_b:000706",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_232475",
+      "source_id": "mtmcs:type_b:000710",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_320250",
+      "source_id": "mtmcs:type_b:000713",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_449610",
+      "source_id": "mtmcs:type_b:000731",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_789571",
+      "source_id": "mtmcs:type_b:000738",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_897223",
+      "source_id": "mtmcs:type_b:000743",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[neutral]: turn 1 contains unresolved image reference 'this photo/image/picture' in a condition without images",
+        "grounding[text_only]: turn 1 contains unresolved image reference 'this photo/image/picture' in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_399538",
+      "source_id": "mtmcs:type_b:000102",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_589662",
+      "source_id": "mtmcs:type_b:000133",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_943750",
+      "source_id": "mtmcs:type_b:000143",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[neutral]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_273189",
+      "source_id": "mtmcs:type_b:000148",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_554771",
+      "source_id": "mtmcs:type_b:000155",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_575180",
+      "source_id": "mtmcs:type_b:000171",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_529987",
+      "source_id": "mtmcs:type_b:000204",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_789979",
+      "source_id": "mtmcs:type_b:000219",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_835339",
+      "source_id": "mtmcs:type_b:000220",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_712691",
+      "source_id": "mtmcs:type_b:000221",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_878734",
+      "source_id": "mtmcs:type_b:000233",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_676792",
+      "source_id": "mtmcs:type_b:000236",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_592430",
+      "source_id": "mtmcs:type_b:000293",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_401078",
+      "source_id": "mtmcs:type_b:000294",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_619519",
+      "source_id": "mtmcs:type_b:000345",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_754488",
+      "source_id": "mtmcs:type_b:000360",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_558871",
+      "source_id": "mtmcs:type_b:000392",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_943999",
+      "source_id": "mtmcs:type_b:000396",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_672273",
+      "source_id": "mtmcs:type_b:000416",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_009475",
+      "source_id": "mtmcs:type_b:000419",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_950530",
+      "source_id": "mtmcs:type_b:000429",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_903042",
+      "source_id": "mtmcs:type_b:000439",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_128093",
+      "source_id": "mtmcs:type_b:000493",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_564696",
+      "source_id": "mtmcs:type_b:000518",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_981445",
+      "source_id": "mtmcs:type_b:000524",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_506739",
+      "source_id": "mtmcs:type_b:000540",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_617709",
+      "source_id": "mtmcs:type_b:000567",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_365452",
+      "source_id": "mtmcs:type_b:000575",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_892616",
+      "source_id": "mtmcs:type_b:000604",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_872873",
+      "source_id": "mtmcs:type_b:000611",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_795554",
+      "source_id": "mtmcs:type_b:000634",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_820234",
+      "source_id": "mtmcs:type_b:000694",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_776349",
+      "source_id": "mtmcs:type_b:000695",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_456921",
+      "source_id": "mtmcs:type_b:000714",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_974576",
+      "source_id": "mtmcs:type_b:000737",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_215914",
+      "source_id": "mtmcs:type_b:000072",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_194337",
+      "source_id": "mtmcs:type_b:000074",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_698942",
+      "source_id": "mtmcs:type_b:000075",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_637608",
+      "source_id": "mtmcs:type_b:000082",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_757624",
+      "source_id": "mtmcs:type_b:000083",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_036985",
+      "source_id": "mtmcs:type_b:000088",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_944755",
+      "source_id": "mtmcs:type_b:000095",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_795354",
+      "source_id": "mtmcs:type_b:000096",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_535408",
+      "source_id": "mtmcs:type_b:000097",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_601763",
+      "source_id": "mtmcs:type_b:000099",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_774461",
+      "source_id": "mtmcs:type_b:000103",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_844871",
+      "source_id": "mtmcs:type_b:000104",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_696183",
+      "source_id": "mtmcs:type_b:000111",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_369836",
+      "source_id": "mtmcs:type_b:000115",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_576734",
+      "source_id": "mtmcs:type_b:000123",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_185175",
+      "source_id": "mtmcs:type_b:000125",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_038150",
+      "source_id": "mtmcs:type_b:000126",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_085988",
+      "source_id": "mtmcs:type_b:000127",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_418222",
+      "source_id": "mtmcs:type_b:000128",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_900146",
+      "source_id": "mtmcs:type_b:000132",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_089392",
+      "source_id": "mtmcs:type_b:000134",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_775693",
+      "source_id": "mtmcs:type_b:000139",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_719220",
+      "source_id": "mtmcs:type_b:000142",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_664655",
+      "source_id": "mtmcs:type_b:000147",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_181033",
+      "source_id": "mtmcs:type_b:000154",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_617367",
+      "source_id": "mtmcs:type_b:000157",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_033375",
+      "source_id": "mtmcs:type_b:000158",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_218409",
+      "source_id": "mtmcs:type_b:000159",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_010776",
+      "source_id": "mtmcs:type_b:000164",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_144621",
+      "source_id": "mtmcs:type_b:000165",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_907027",
+      "source_id": "mtmcs:type_b:000168",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_058501",
+      "source_id": "mtmcs:type_b:000175",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_779995",
+      "source_id": "mtmcs:type_b:000176",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_062378",
+      "source_id": "mtmcs:type_b:000177",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_402558",
+      "source_id": "mtmcs:type_b:000179",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_159729",
+      "source_id": "mtmcs:type_b:000185",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_232919",
+      "source_id": "mtmcs:type_b:000187",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_380403",
+      "source_id": "mtmcs:type_b:000197",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_004472",
+      "source_id": "mtmcs:type_b:000198",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_754289",
+      "source_id": "mtmcs:type_b:000200",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_365059",
+      "source_id": "mtmcs:type_b:000202",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_868905",
+      "source_id": "mtmcs:type_b:000209",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_999799",
+      "source_id": "mtmcs:type_b:000218",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_979583",
+      "source_id": "mtmcs:type_b:000224",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_356638",
+      "source_id": "mtmcs:type_b:000225",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_288787",
+      "source_id": "mtmcs:type_b:000229",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_501124",
+      "source_id": "mtmcs:type_b:000240",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_801329",
+      "source_id": "mtmcs:type_b:000241",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_088476",
+      "source_id": "mtmcs:type_b:000248",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_740547",
+      "source_id": "mtmcs:type_b:000249",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_750663",
+      "source_id": "mtmcs:type_b:000251",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_675777",
+      "source_id": "mtmcs:type_b:000260",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_846239",
+      "source_id": "mtmcs:type_b:000264",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_071682",
+      "source_id": "mtmcs:type_b:000269",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_360886",
+      "source_id": "mtmcs:type_b:000272",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_300989",
+      "source_id": "mtmcs:type_b:000281",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_902904",
+      "source_id": "mtmcs:type_b:000286",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_283069",
+      "source_id": "mtmcs:type_b:000290",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_347024",
+      "source_id": "mtmcs:type_b:000299",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_004463",
+      "source_id": "mtmcs:type_b:000301",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_267531",
+      "source_id": "mtmcs:type_b:000307",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_993351",
+      "source_id": "mtmcs:type_b:000310",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_327742",
+      "source_id": "mtmcs:type_b:000311",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_908752",
+      "source_id": "mtmcs:type_b:000315",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_962208",
+      "source_id": "mtmcs:type_b:000317",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_902500",
+      "source_id": "mtmcs:type_b:000321",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_289756",
+      "source_id": "mtmcs:type_b:000325",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_079384",
+      "source_id": "mtmcs:type_b:000326",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_821697",
+      "source_id": "mtmcs:type_b:000327",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_917683",
+      "source_id": "mtmcs:type_b:000329",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_174116",
+      "source_id": "mtmcs:type_b:000331",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_908646",
+      "source_id": "mtmcs:type_b:000333",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_381233",
+      "source_id": "mtmcs:type_b:000338",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_955318",
+      "source_id": "mtmcs:type_b:000339",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_920979",
+      "source_id": "mtmcs:type_b:000342",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_561466",
+      "source_id": "mtmcs:type_b:000356",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_817833",
+      "source_id": "mtmcs:type_b:000362",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_097413",
+      "source_id": "mtmcs:type_b:000363",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_010907",
+      "source_id": "mtmcs:type_b:000366",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_210003",
+      "source_id": "mtmcs:type_b:000378",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_654863",
+      "source_id": "mtmcs:type_b:000382",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_475654",
+      "source_id": "mtmcs:type_b:000384",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_198069",
+      "source_id": "mtmcs:type_b:000387",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_171386",
+      "source_id": "mtmcs:type_b:000401",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_449971",
+      "source_id": "mtmcs:type_b:000417",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_975715",
+      "source_id": "mtmcs:type_b:000418",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_972136",
+      "source_id": "mtmcs:type_b:000423",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_008635",
+      "source_id": "mtmcs:type_b:000425",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_988577",
+      "source_id": "mtmcs:type_b:000430",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_196064",
+      "source_id": "mtmcs:type_b:000436",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_007088",
+      "source_id": "mtmcs:type_b:000438",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_660413",
+      "source_id": "mtmcs:type_b:000443",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_814619",
+      "source_id": "mtmcs:type_b:000444",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_919687",
+      "source_id": "mtmcs:type_b:000445",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_765848",
+      "source_id": "mtmcs:type_b:000450",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_692551",
+      "source_id": "mtmcs:type_b:000452",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_891733",
+      "source_id": "mtmcs:type_b:000453",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_387717",
+      "source_id": "mtmcs:type_b:000462",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_767872",
+      "source_id": "mtmcs:type_b:000468",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_354052",
+      "source_id": "mtmcs:type_b:000477",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_034628",
+      "source_id": "mtmcs:type_b:000479",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_774163",
+      "source_id": "mtmcs:type_b:000481",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_376858",
+      "source_id": "mtmcs:type_b:000488",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_988094",
+      "source_id": "mtmcs:type_b:000490",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_103738",
+      "source_id": "mtmcs:type_b:000497",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_361008",
+      "source_id": "mtmcs:type_b:000502",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_504448",
+      "source_id": "mtmcs:type_b:000508",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_481398",
+      "source_id": "mtmcs:type_b:000511",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_846939",
+      "source_id": "mtmcs:type_b:000514",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_772388",
+      "source_id": "mtmcs:type_b:000520",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_955797",
+      "source_id": "mtmcs:type_b:000529",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_677131",
+      "source_id": "mtmcs:type_b:000531",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_075718",
+      "source_id": "mtmcs:type_b:000543",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_550210",
+      "source_id": "mtmcs:type_b:000545",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_977348",
+      "source_id": "mtmcs:type_b:000547",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_475310",
+      "source_id": "mtmcs:type_b:000549",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_080447",
+      "source_id": "mtmcs:type_b:000553",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_778227",
+      "source_id": "mtmcs:type_b:000559",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_383822",
+      "source_id": "mtmcs:type_b:000560",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_624030",
+      "source_id": "mtmcs:type_b:000569",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_730709",
+      "source_id": "mtmcs:type_b:000572",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_697037",
+      "source_id": "mtmcs:type_b:000573",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_618143",
+      "source_id": "mtmcs:type_b:000577",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_690797",
+      "source_id": "mtmcs:type_b:000579",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_114965",
+      "source_id": "mtmcs:type_b:000580",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_709163",
+      "source_id": "mtmcs:type_b:000581",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[neutral]: turn 1 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 1 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_444314",
+      "source_id": "mtmcs:type_b:000589",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_749887",
+      "source_id": "mtmcs:type_b:000591",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_405109",
+      "source_id": "mtmcs:type_b:000592",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_882522",
+      "source_id": "mtmcs:type_b:000594",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_499586",
+      "source_id": "mtmcs:type_b:000597",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_039025",
+      "source_id": "mtmcs:type_b:000598",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_474898",
+      "source_id": "mtmcs:type_b:000601",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_888040",
+      "source_id": "mtmcs:type_b:000602",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_602298",
+      "source_id": "mtmcs:type_b:000603",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_564473",
+      "source_id": "mtmcs:type_b:000605",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_350251",
+      "source_id": "mtmcs:type_b:000609",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_701447",
+      "source_id": "mtmcs:type_b:000613",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_504093",
+      "source_id": "mtmcs:type_b:000614",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_795308",
+      "source_id": "mtmcs:type_b:000616",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_820699",
+      "source_id": "mtmcs:type_b:000618",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_463434",
+      "source_id": "mtmcs:type_b:000619",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_941962",
+      "source_id": "mtmcs:type_b:000620",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_448198",
+      "source_id": "mtmcs:type_b:000622",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_200051",
+      "source_id": "mtmcs:type_b:000625",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_153033",
+      "source_id": "mtmcs:type_b:000627",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_194835",
+      "source_id": "mtmcs:type_b:000630",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_368278",
+      "source_id": "mtmcs:type_b:000633",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_020339",
+      "source_id": "mtmcs:type_b:000636",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_681877",
+      "source_id": "mtmcs:type_b:000638",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_770829",
+      "source_id": "mtmcs:type_b:000639",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[neutral]: turn 1 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 1 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_150326",
+      "source_id": "mtmcs:type_b:000642",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_526471",
+      "source_id": "mtmcs:type_b:000643",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_689397",
+      "source_id": "mtmcs:type_b:000644",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_274346",
+      "source_id": "mtmcs:type_b:000652",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_703972",
+      "source_id": "mtmcs:type_b:000653",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_342132",
+      "source_id": "mtmcs:type_b:000677",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_137928",
+      "source_id": "mtmcs:type_b:000682",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_035954",
+      "source_id": "mtmcs:type_b:000683",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_295799",
+      "source_id": "mtmcs:type_b:000684",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_226376",
+      "source_id": "mtmcs:type_b:000685",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_608135",
+      "source_id": "mtmcs:type_b:000687",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_074174",
+      "source_id": "mtmcs:type_b:000688",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_222327",
+      "source_id": "mtmcs:type_b:000689",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_535487",
+      "source_id": "mtmcs:type_b:000697",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_284549",
+      "source_id": "mtmcs:type_b:000702",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_470023",
+      "source_id": "mtmcs:type_b:000704",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_829214",
+      "source_id": "mtmcs:type_b:000707",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [
+        "grounding[canonical_q]: canonical q* contains unresolved image reference 'these' (plural deictic)",
+        "grounding[neutral]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[neutral]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[text_only]: turn 2 contains unresolved image reference 'these' (plural deictic) in a condition without images",
+        "grounding[history_reset]: turn 0 contains unresolved image reference 'these' (plural deictic) in a condition without images"
+      ],
+      "status": "excluded"
+    },
+    {
+      "family_id": "CMST_531992",
+      "source_id": "mtmcs:type_b:000711",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_016207",
+      "source_id": "mtmcs:type_b:000712",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_413459",
+      "source_id": "mtmcs:type_b:000715",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_924068",
+      "source_id": "mtmcs:type_b:000718",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_520800",
+      "source_id": "mtmcs:type_b:000719",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_958802",
+      "source_id": "mtmcs:type_b:000721",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_747522",
+      "source_id": "mtmcs:type_b:000722",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_654232",
+      "source_id": "mtmcs:type_b:000723",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_883629",
+      "source_id": "mtmcs:type_b:000725",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_227611",
+      "source_id": "mtmcs:type_b:000726",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_012426",
+      "source_id": "mtmcs:type_b:000728",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_402261",
+      "source_id": "mtmcs:type_b:000730",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_453240",
+      "source_id": "mtmcs:type_b:000732",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    },
+    {
+      "family_id": "CMST_584484",
+      "source_id": "mtmcs:type_b:000749",
+      "factorial_cells": {
+        "neutral": [
+          0,
+          0
+        ],
+        "text_only": [
+          1,
+          0
+        ],
+        "vision_only": [
+          0,
+          1
+        ],
+        "cross_modal": [
+          1,
+          1
+        ]
+      },
+      "automatic_errors": [],
+      "status": "validated",
+      "behavioral": null
+    }
+  ]
+}
