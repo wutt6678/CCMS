@@ -258,6 +258,20 @@ def run_judge(
     fingerprint = primary_checkpoint_fingerprint(
         judge, blinded_items, dataset_sha256=dataset_sha256)
 
+    # Fast path: a completed output whose sidecar fingerprint matches
+    # the current run is valid evidence — skip re-judging entirely.
+    sidecar = output_path.with_name(output_path.name + ".fingerprint")
+    if output_path.exists() and sidecar.exists():
+        if sidecar.read_text(encoding="utf-8").strip() == fingerprint:
+            with output_path.open(encoding="utf-8") as f:
+                judgments = json.load(f)
+            print(f"  Judge {judge.judge_id}: complete output matches "
+                  f"the current fingerprint; skipping "
+                  f"({len(judgments)} judgments)")
+            return judgments
+        print(f"  Judge {judge.judge_id}: existing output fingerprint "
+              f"mismatch; re-judging from scratch")
+
     # Load checkpoint if it exists AND matches the current fingerprint
     judgments = []
     start_idx = 0
@@ -349,9 +363,10 @@ def run_judge(
 
     print(f"    ✓ Judge {judge.judge_id} complete ({len(judgments)} items)")
 
-    # Save final outputs
+    # Save final outputs + fingerprint sidecar (enables the skip path)
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(judgments, f, indent=2, ensure_ascii=False)
+    sidecar.write_text(fingerprint, encoding="utf-8")
 
     # Remove checkpoint file after successful completion
     if checkpoint_path.exists():
@@ -379,11 +394,16 @@ def main():
         json.dump(blinded_items, f, indent=2, ensure_ascii=False)
     print(f"  Saved blinded items: {blinded_path}")
 
-    # Run the two DISTINCT primary judges
-    print("\nRunning primary LLM judges (A, B)...")
+    # Run the two DISTINCT primary judges. CCMS_JUDGES (default "A,B")
+    # selects a subset so A and B can run as parallel processes; the
+    # fingerprint sidecar makes completed judges skip-safe on re-runs.
+    selected = [j.strip().upper() for j in
+                os.environ.get("CCMS_JUDGES", "A,B").split(",") if j.strip()]
+    print("\nRunning primary LLM judges...")
     print(f"  Scale: {SCALE}")
     print(f"  Primary A model: {PRIMARY_A_MODEL}")
     print(f"  Primary B model: {PRIMARY_B_MODEL}")
+    print(f"  Judges selected this process: {selected}")
     dataset_sha = None
     if VALIDATED_FAMILIES_PATH.exists():
         dataset_sha = hashlib.sha256(
@@ -391,12 +411,36 @@ def main():
         print(f"  Dataset sha256: {dataset_sha[:16]}...")
     all_judgments = {}
     for judge_id, config in PRIMARY_JUDGE_CONFIGS.items():
+        if judge_id not in selected:
+            print(f"  Judge {judge_id} skipped (CCMS_JUDGES filter)")
+            continue
         judge = MultimodalLLMJudge(config, judge_id=judge_id)
         output_path = OUTPUT_DIR / f"llm_labels_judge_{judge_id}.json"
         all_judgments[judge_id] = run_judge(
             judge, blinded_items, output_path,
             dataset_sha256=dataset_sha)
         print(f"  Saved Judge {judge_id} labels: {output_path}")
+
+    # In split runs, finalize only when BOTH primary outputs exist.
+    # Split-mode processes (CCMS_JUDGES != "A,B") NEVER finalize — the
+    # final consolidation is run once, in full mode, after both judges
+    # complete, to avoid concurrent adjudication/writes.
+    split_mode = sorted(selected) != ["A", "B"]
+    if split_mode:
+        print("\nSplit mode: judging done; run the full pipeline "
+              "(CCMS_JUDGES unset) to finalize once both judges are "
+              "complete.")
+        return
+    for judge_id in PRIMARY_JUDGE_CONFIGS:
+        labels_path = OUTPUT_DIR / f"llm_labels_judge_{judge_id}.json"
+        if judge_id not in all_judgments:
+            if not labels_path.exists():
+                print(f"\nJudge {judge_id} labels missing "
+                      f"({labels_path}); run that judge before "
+                      f"finalizing. Stopping here.")
+                return
+            with labels_path.open(encoding="utf-8") as f:
+                all_judgments[judge_id] = json.load(f)
 
     # Build the distinct adjudicator (or fall back deterministically).
     # The shared finalize_ensemble() drives agreement, adjudication of
