@@ -335,12 +335,24 @@ class LLMEnsembleLabelJudge:
             for variant, label in variants.items():
                 self._lookup[(family_id, variant)] = label
 
-        # Require exact 120-key coverage
+        # Require full factorial coverage: exactly six variant labels
+        # per family, consistent with the declared family count (works
+        # for any panel size — Scale-B 20x6, Scale-C 100x6, ...).
         n_labels = len(self._lookup)
-        if n_labels != 120:
+        n_families = len(labels_data)
+        bad = [fid for fid, vs in labels_data.items() if len(vs) != 6]
+        if bad or n_labels != 6 * n_families:
             raise EvaluationError(
-                f"LLM ensemble labels file {self._path} has {n_labels} "
-                f"labels, expected exactly 120 (20 families × 6 variants)")
+                f"LLM ensemble labels file {self._path} does not have "
+                f"exactly six variant labels per family "
+                f"({n_labels} labels over {n_families} families; "
+                f"families without six variants: {bad[:5]})")
+        declared = prov.get("n_families")
+        if declared is not None and int(declared) != n_families:
+            raise EvaluationError(
+                f"LLM ensemble labels file {self._path}: provenance "
+                f"declares {declared} families but the file carries "
+                f"{n_families}")
 
     def verify_response_shas(
         self,
