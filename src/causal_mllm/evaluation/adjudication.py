@@ -347,15 +347,17 @@ def adjudicate_pairwise_with_model(
     disagreement_ids: list[str] = []
     adjudicator_records: list[dict] = []
 
+    # First pass: agreements resolve immediately; disagreements are
+    # collected for (parallel) adjudicator calls.
+    pending: list[tuple[str, dict, dict, list[str]]] = []
+    agreement_records: dict[str, dict] = {}
     for item_id in sorted(lookup_a.keys()):
         rec_a = lookup_a[item_id]
         ja = rec_a["judgment"]
         jb = lookup_b[item_id]["judgment"]
         differing = judgments_disagree([ja, jb])
-
         if not differing:
-            # Full agreement: use the agreed label directly.
-            adjudicated.append({
+            agreement_records[item_id] = {
                 "item_id": item_id,
                 "family_id": rec_a["family_id"],
                 "variant": rec_a["variant"],
@@ -364,39 +366,65 @@ def adjudicate_pairwise_with_model(
                 "is_disagreement": False,
                 "disagreement_fields": [],
                 "adjudicated_by": "primary_agreement",
-            })
-            continue
+            }
+        else:
+            disagreement_ids.append(item_id)
+            pending.append((item_id, rec_a, jb, differing))
 
-        disagreement_ids.append(item_id)
-
+    def _adjudicate_one(entry):
+        item_id, rec_a, jb, differing = entry
         if item_id in resume_records:
             # Reuse a previously persisted adjudicator call.
-            prev = resume_records[item_id]
-            judgment = prev["judgment"]
-            record = prev
-            if on_record is not None:
-                on_record(record, True)
-        else:
-            item = items_by_id[item_id]
-            judgment, provenance = adjudicator.adjudicate_item(
-                system_prompt=item["system_prompt"],
-                history_messages=item["conversation_history"],
-                terminal_query=item["terminal_query"],
-                response=item["response"],
-                primary_judgments=[ja, jb],
-            )
-            record = {
-                "item_id": item_id,
-                "family_id": rec_a["family_id"],
-                "variant": rec_a["variant"],
-                "response_sha256": rec_a["response_sha256"],
-                "disagreement_fields": differing,
-                "judgment": judgment,
-                "call_provenance": asdict(provenance),
-            }
-            if on_record is not None:
-                on_record(record, False)
+            return item_id, resume_records[item_id], True
+        item = items_by_id[item_id]
+        judgment, provenance = adjudicator.adjudicate_item(
+            system_prompt=item["system_prompt"],
+            history_messages=item["conversation_history"],
+            terminal_query=item["terminal_query"],
+            response=item["response"],
+            primary_judgments=[rec_a["judgment"], jb],
+        )
+        record = {
+            "item_id": item_id,
+            "family_id": rec_a["family_id"],
+            "variant": rec_a["variant"],
+            "response_sha256": rec_a["response_sha256"],
+            "disagreement_fields": differing,
+            "judgment": judgment,
+            "call_provenance": asdict(provenance),
+        }
+        return item_id, record, False
 
+    # Adjudicator calls are independent; run them concurrently (the
+    # gateway is the bottleneck). Checkpointing via on_record keeps an
+    # interrupted run resumable.
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Lock
+    record_lock = Lock()
+    done_records: dict[str, dict] = {}
+    pending_new = [e for e in pending if e[0] not in resume_records]
+    pending_resumed = [e for e in pending if e[0] in resume_records]
+    for item_id, record, _ in (_adjudicate_one(e)
+                               for e in pending_resumed):
+        done_records[item_id] = record
+        if on_record is not None:
+            on_record(record, True)
+    if pending_new:
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            for item_id, record, _resumed in ex.map(
+                    _adjudicate_one, pending_new):
+                with record_lock:
+                    done_records[item_id] = record
+                    if on_record is not None:
+                        on_record(record, False)
+
+    # Merge in canonical item order.
+    for item_id in sorted(lookup_a.keys()):
+        if item_id in agreement_records:
+            adjudicated.append(agreement_records[item_id])
+            continue
+        rec_a = lookup_a[item_id]
+        record = done_records[item_id]
         adjudicator_records.append(record)
         adjudicated.append({
             "item_id": item_id,
@@ -405,7 +433,7 @@ def adjudicate_pairwise_with_model(
             "response_sha256": rec_a["response_sha256"],
             "judgment": record["judgment"],
             "is_disagreement": True,
-            "disagreement_fields": differing,
+            "disagreement_fields": record.get("disagreement_fields", []),
             "adjudicated_by": "distinct_model",
         })
 
