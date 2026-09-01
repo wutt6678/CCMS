@@ -257,4 +257,13 @@ class TestPairwiseAgreement:
     def test_wrong_count_raises(self):
         a, b = self._mk(n=50)
         with pytest.raises(EvaluationError):
-            compute_pairwise_agreement(a, b)
+            compute_pairwise_agreement(a, b, n_items_expected=120)
+
+    def test_inferred_coverage_requires_mutual_match(self):
+        a, b = self._mk(n=50)
+        # Full mutual coverage passes with the inferred count...
+        res = compute_pairwise_agreement(a, b)
+        assert res["n_items"] == 50
+        # ...but an asymmetric pair fails loudly.
+        with pytest.raises(EvaluationError):
+            compute_pairwise_agreement(a[:-1], b)

@@ -240,7 +240,7 @@ def _spearman_rho(x: list[float], y: list[float]) -> float:
 def compute_pairwise_agreement(
     judgments_a: list[dict],
     judgments_b: list[dict],
-    n_items_expected: int = 120,
+    n_items_expected: int | None = None,
 ) -> dict:
     """Compute agreement between TWO judges (cross-model, A-B).
 
@@ -250,7 +250,9 @@ def compute_pairwise_agreement(
 
     Args:
         judgments_a, judgments_b: Judgment records from the two judges.
-        n_items_expected: Expected number of common items.
+        n_items_expected: Expected number of common items. None = infer
+            from the inputs and require FULL mutual coverage (every
+            record of each judge matches the other).
 
     Returns:
         Dict with pairwise agreement metrics.
@@ -259,7 +261,14 @@ def compute_pairwise_agreement(
     lookup_b = {j["item_id"]: j["judgment"] for j in judgments_b}
     common_ids = sorted(set(lookup_a) & set(lookup_b))
 
-    if len(common_ids) != n_items_expected:
+    if n_items_expected is None:
+        if not common_ids or len(common_ids) != len(lookup_a) \
+                or len(common_ids) != len(lookup_b):
+            raise EvaluationError(
+                "pairwise agreement requires full mutual item coverage, "
+                f"got {len(common_ids)} common of "
+                f"{len(lookup_a)}/{len(lookup_b)}")
+    elif len(common_ids) != n_items_expected:
         raise EvaluationError(
             f"pairwise agreement requires exactly {n_items_expected} "
             f"common items, got {len(common_ids)}")
