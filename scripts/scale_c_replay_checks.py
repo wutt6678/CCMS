@@ -123,12 +123,19 @@ def main() -> None:
     report["provenance"] = {"issues": prov_issues, "ok": not prov_issues}
 
     # ---- terminal-query equality ----------------------------------------
+    # The replay must hash the CANONICAL q* (harmonized), which is what
+    # every variant carries as its terminal message — NOT the skeleton's
+    # original terminal field.
     panel = {}
     for line in PANEL_PATH.read_text().splitlines():
         if line.strip():
             fam = json.loads(line)
-            tq = fam["terminal_query"]
-            text = tq["text"] if isinstance(tq, dict) else tq
+            th = (fam.get("validation") or {}).get(
+                "terminal_harmonization") or {}
+            text = th.get("canonical_q")
+            if not text:
+                tq = fam["terminal_query"]
+                text = tq["text"] if isinstance(tq, dict) else tq
             panel[fam["family_id"]] = text
     term_issues = []
     for fid, recs in by_family.items():
