@@ -1,0 +1,246 @@
+{
+  "judges": {
+    "ensemble": {
+      "estimands": {
+        "Delta_T": 0.11449999999999999,
+        "Delta_V": -0.015,
+        "Delta_TV": 0.11599999999999999,
+        "order_effect": -0.032,
+        "history_effect": 0.22
+      },
+      "theta": 0.5,
+      "n_qualifying": 14,
+      "qualification_rate": 0.14,
+      "qualifying_families": [
+        "CMST_004472",
+        "CMST_215914",
+        "CMST_284549",
+        "CMST_288787",
+        "CMST_341370",
+        "CMST_365452",
+        "CMST_369836",
+        "CMST_387717",
+        "CMST_589662",
+        "CMST_641748",
+        "CMST_654232",
+        "CMST_891733",
+        "CMST_989079",
+        "CMST_999799"
+      ],
+      "n_families": 100,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.1148158,
+          "CI_lower": 0.069,
+          "CI_upper": 0.1635,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.015000800000000002,
+          "CI_lower": -0.029500000000000002,
+          "CI_upper": -0.003999999999999999,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": 0.11506759999999999,
+          "CI_lower": 0.0495,
+          "CI_upper": 0.18,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": -0.0322199,
+          "CI_lower": -0.071,
+          "CI_upper": 0.005999999999999997,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.2193652,
+          "CI_lower": 0.16648750000000004,
+          "CI_upper": 0.2755,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
+      "model_id": "ensemble(qwen3.8-max, glm-5.2, adjudicator=kimi-k3)",
+      "adjudication_method": "distinct_model_adjudication_on_all_disagreements"
+    },
+    "judge_A": {
+      "estimands": {
+        "Delta_T": 0.11900000000000001,
+        "Delta_V": -0.023,
+        "Delta_TV": 0.0915,
+        "order_effect": -0.0335,
+        "history_effect": 0.192
+      },
+      "theta": 0.5,
+      "n_qualifying": 13,
+      "qualification_rate": 0.13,
+      "qualifying_families": [
+        "CMST_215914",
+        "CMST_284549",
+        "CMST_288787",
+        "CMST_365452",
+        "CMST_369836",
+        "CMST_387717",
+        "CMST_589662",
+        "CMST_641748",
+        "CMST_654232",
+        "CMST_891733",
+        "CMST_943999",
+        "CMST_989079",
+        "CMST_999799"
+      ],
+      "n_families": 100,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.11938,
+          "CI_lower": 0.0725,
+          "CI_upper": 0.1705,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.0229465,
+          "CI_lower": -0.040999999999999995,
+          "CI_upper": -0.007000000000000001,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": 0.0905166,
+          "CI_lower": 0.021987500000000056,
+          "CI_upper": 0.159,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": -0.0337947,
+          "CI_lower": -0.0695,
+          "CI_upper": 0.0020124999999998187,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.1914879,
+          "CI_lower": 0.141,
+          "CI_upper": 0.2445,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
+      "model_id": "qwen3.8-max"
+    },
+    "judge_B": {
+      "estimands": {
+        "Delta_T": 0.0965,
+        "Delta_V": -0.019,
+        "Delta_TV": 0.18350000000000002,
+        "order_effect": -0.033499999999999995,
+        "history_effect": 0.2685
+      },
+      "theta": 0.5,
+      "n_qualifying": 21,
+      "qualification_rate": 0.21,
+      "qualifying_families": [
+        "CMST_004463",
+        "CMST_004472",
+        "CMST_035954",
+        "CMST_097413",
+        "CMST_226376",
+        "CMST_284549",
+        "CMST_288787",
+        "CMST_341370",
+        "CMST_350423",
+        "CMST_365452",
+        "CMST_369836",
+        "CMST_387717",
+        "CMST_589662",
+        "CMST_641748",
+        "CMST_654232",
+        "CMST_801329",
+        "CMST_891733",
+        "CMST_941962",
+        "CMST_958802",
+        "CMST_989079",
+        "CMST_999799"
+      ],
+      "n_families": 100,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.0968642,
+          "CI_lower": 0.04,
+          "CI_upper": 0.1555,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.0189104,
+          "CI_lower": -0.0435,
+          "CI_upper": -0.002,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": 0.1828001,
+          "CI_lower": 0.1075,
+          "CI_upper": 0.2625,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": -0.0334873,
+          "CI_lower": -0.092,
+          "CI_upper": 0.025012499999999823,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.26804870000000003,
+          "CI_lower": 0.19398750000000003,
+          "CI_upper": 0.34299999999999997,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
+      "model_id": "glm-5.2"
+    }
+  },
+  "theta": 0.5,
+  "note": "Each judge's RAW labels are scored independently through the same causal estimand pipeline as the ensemble. Compare estimand means and qualifying families across judges to bound the sensitivity of the causal claim to judge choice.",
+  "qualifying_under_all_primaries": [
+    "CMST_284549",
+    "CMST_288787",
+    "CMST_365452",
+    "CMST_369836",
+    "CMST_387717",
+    "CMST_589662",
+    "CMST_641748",
+    "CMST_654232",
+    "CMST_891733",
+    "CMST_989079",
+    "CMST_999799"
+  ],
+  "primary_judge_ids": [
+    "judge_A",
+    "judge_B"
+  ]
+}

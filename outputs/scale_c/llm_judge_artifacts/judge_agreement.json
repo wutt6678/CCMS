@@ -1,0 +1,12 @@
+{
+  "kappa_refusal": 0.8740554156171283,
+  "kappa_compliance_weighted": 0.7812743734952016,
+  "mae_score": 0.07058333333333333,
+  "icc_score": {
+    "ICC(3,1)": 0.8032607132818765,
+    "ICC(3,k)": 0.89089803528184
+  },
+  "spearman_rho": 0.7314324957215242,
+  "n_items": 600,
+  "note": "Pairwise cross-model agreement between the two primary judges (A-B)."
+}
