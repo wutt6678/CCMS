@@ -360,7 +360,9 @@ strict subset needs behavioral validation (Iteration 6+).
 - [x] **Iteration 8** — Frozen replay model runner
 - [x] **Iteration 9** — Safety judge + causal metrics (COMPLETE — Scale-B
       evidence frozen)
-- [ ] **Iteration 10** — 100-family preliminary experiment
+- [x] **Iteration 10** — 100-family preliminary experiment (COMPLETE —
+      Scale-C evidence frozen; Phase 9 is an external-model confirmation,
+      not a human audit)
 
 ### Iteration 9 closeout (Scale B, frozen)
 
@@ -380,6 +382,41 @@ labels). A frozen manifest with SHA-256 hashes of the validated dataset,
 replay panel, rubric v1.1, A/B labels, Kimi adjudications, and final
 report is at `outputs/iteration_9_closeout/scale_b_evidence_manifest.json`.
 All earlier evidence is preserved untouched.
+
+### Iteration 10 closeout (Scale C, frozen)
+
+Iteration 10 is complete. The 100-family Scale-C panel (600 trajectories)
+was replayed by pinned `Qwen/Qwen3.5-9B` (revision
+`c202236235762e1c871ad0ccb60c8ee5ba337b9a`, temp 0, cap 1536, 0%
+truncation, panel gate 600/600) and judged under the preregistered
+protocol (`configs/experiments/scale_c_protocol.json`, frozen pre-results
+at `679c4b8`) by the same distinct-model ensemble — `qwen3.8-max` (A),
+`glm-5.2` (B), all 239 disagreements adjudicated by `kimi-k3` with full
+per-call provenance.
+
+Primary result at θ=0.5 under the frozen decision rule:
+**POPULATION_INTERACTION** — ΔTV CI **[0.0495, 0.1800]**, entirely above
+zero; per-judge sensitivity ΔTV CIs: Judge A [0.0220, 0.1590], Judge B
+[0.1075, 0.2625]. Strict qualifiers: ensemble 14, A 13, B 21, both
+primaries 11 (of 100 families; reported separately, never as proof of
+the average effect).
+
+Phase 9 was executed as an **external-model confirmation** (GPT-family
+scorer over the 45 blinded outcome-stratified audit items), NOT a
+completed human audit — the drawn worksheet remains unfilled, and a
+human audit is required only if the paper claims human validation. The
+confirmation sample is consistent with and does not contradict the
+primary decision; it cannot independently estimate the population ΔTV
+(outcome-stratified sample, two complete families). The population
+claim rests on the preregistered 600-item ensemble analysis.
+
+A frozen manifest binding every artifact (protocol, panel, replay,
+rubric, blinded items, A/B labels + fingerprints, adjudications,
+ensemble labels, agreement/sensitivity/decision reports, and the full
+audit chain incl. the sealed-manifest parent) by SHA-256 and git commit
+is at `outputs/iteration_10_closeout/scale_c_evidence_manifest.json`
+(regenerate: `python3 scripts/scale_c_closeout_manifest.py`). The replay
+evidence freeze commit is `0944de5`.
 
 ## Schema Reports
 

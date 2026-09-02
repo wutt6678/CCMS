@@ -1,0 +1,220 @@
+{
+  "closeout": {
+    "iteration": "10",
+    "scale": "C (100-family preliminary)",
+    "status": "COMPLETE \u2014 frozen",
+    "timestamp": "2026-09-02T05:41:36.682158+00:00",
+    "protocol_freeze_commit": "679c4b8",
+    "replay_freeze_commit": "0944de5",
+    "phase_9_kind": "external-model confirmation (GPT-family scorer over 45 blinded outcome-stratified items); NOT a completed human audit \u2014 the drawn worksheet remains unfilled. A human audit is required only if the paper claims human validation."
+  },
+  "primary_results": {
+    "panel_gate": "passed (600/600, 0 failures, 0 truncation, revision pinned, clean tree)",
+    "primary_threshold_theta": 0.5,
+    "decision": "POPULATION_INTERACTION",
+    "delta_tv": {
+      "mean": 0.11506759999999999,
+      "CI_lower": 0.0495,
+      "CI_upper": 0.18,
+      "n_bootstrap": 5000,
+      "ci_level": 0.95
+    },
+    "delta_tv_judge_A": {
+      "mean": 0.0905166,
+      "CI_lower": 0.021987500000000056,
+      "CI_upper": 0.159,
+      "n_bootstrap": 5000,
+      "ci_level": 0.95
+    },
+    "delta_tv_judge_B": {
+      "mean": 0.1828001,
+      "CI_lower": 0.1075,
+      "CI_upper": 0.2625,
+      "n_bootstrap": 5000,
+      "ci_level": 0.95
+    },
+    "qualifiers_at_theta": {
+      "ensemble": 14,
+      "judge_A": 13,
+      "judge_B": 21,
+      "both_primaries": 11,
+      "n_families": 100
+    },
+    "adjudication": "distinct_model_adjudication_on_all_disagreements (239/239, kimi-k3)",
+    "cross_model_kappa_refusal": 0.8740554156171283,
+    "replay_model": "Qwen/Qwen3.5-9B",
+    "resolved_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a"
+  },
+  "external_confirmation_summary": {
+    "n_items": 45,
+    "answers_sha256": "df7b7f6e39aeaf560a3571d34e8a3ff33f32e64c675d9c2d97c587012a05ee4d",
+    "conclusion": "consistent with and does not contradict the primary decision; cannot independently estimate population Delta_TV (outcome-stratified sample, 2 complete families)",
+    "population_claim_basis": "preregistered 600-item ensemble analysis (delta_tv CIs above)",
+    "details": "outputs/scale_c/human_audit/audit_report.json + outputs/scale_c/human_audit/AUDIT_NOTES.md"
+  },
+  "artifacts": {
+    "frozen_preregistered_protocol": {
+      "path": "configs/experiments/scale_c_protocol.json",
+      "sha256": "7ff3aa5d9620428e1a68731a3a8d285c10e33c1b10364d16cfcc324bbe0d6a3f",
+      "bytes": 4579,
+      "git_commit": "a32e757"
+    },
+    "finalized_100_family_panel": {
+      "path": "outputs/scale_c/families_panel/validated_families.jsonl",
+      "sha256": "97b8bb7cb3a69903c1988c6a1a8fb1ff9167fdd135c9e5b4b3bd69828fc69863",
+      "bytes": 2054255,
+      "git_commit": "a32e757"
+    },
+    "replay_outputs_600": {
+      "path": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b/replay_outputs.jsonl",
+      "sha256": "f86d45e9f0f56d55f5a8be21825c9b0f294b9240a22a7f3fa575722705d1562c",
+      "bytes": 1772344,
+      "git_commit": "0944de5"
+    },
+    "replay_report": {
+      "path": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b/replay_report.json",
+      "sha256": "365ddea283f64173613e2d9ba8802885bfa6370bb3eb2cbd00dbfc6ecdd573ba",
+      "bytes": 2468,
+      "git_commit": "0944de5"
+    },
+    "replay_failures_empty": {
+      "path": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "git_commit": "0944de5"
+    },
+    "replay_checks": {
+      "path": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b/scale_c_replay_checks.json",
+      "sha256": "2d7b0512e88db1cd26cf4247b0a7c82f354c1160f1467d253647269a58bc40f7",
+      "bytes": 1232,
+      "git_commit": "0944de5"
+    },
+    "rubric_v1_1": {
+      "path": "src/causal_mllm/evaluation/annotation_rubric_v1_1.md",
+      "sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
+      "bytes": 7357,
+      "git_commit": "071c5c3"
+    },
+    "blinded_items_600": {
+      "path": "outputs/scale_c/llm_judge_artifacts/blinded_items.json",
+      "sha256": "01bc092f78afbb57d0cb12b8562393991dbdb9c218817494ba900346ca92e308",
+      "bytes": 2053537,
+      "git_commit": "f417e18"
+    },
+    "judge_A_labels": {
+      "path": "outputs/scale_c/llm_judge_artifacts/llm_labels_judge_A.json",
+      "sha256": "3165049b3c05e67324f32df0549ebe4543254b44bf51974991edfab0c4b756f0",
+      "bytes": 1142037,
+      "git_commit": "f417e18"
+    },
+    "judge_A_binding_fingerprint": {
+      "path": "outputs/scale_c/llm_judge_artifacts/llm_labels_judge_A.json.fingerprint",
+      "sha256": "2dbe0f74c1c58f7344e920bcb45cdcc7f63394e0d2fb091f6d6ef026cc420cbd",
+      "bytes": 64,
+      "git_commit": "f417e18"
+    },
+    "judge_B_labels": {
+      "path": "outputs/scale_c/llm_judge_artifacts/llm_labels_judge_B.json",
+      "sha256": "62d1067b0ea53a7ea6a1c1e55e18418a2a9f6a2d3031e9e0a300088c5779b477",
+      "bytes": 1065158,
+      "git_commit": "f417e18"
+    },
+    "judge_B_binding_fingerprint": {
+      "path": "outputs/scale_c/llm_judge_artifacts/llm_labels_judge_B.json.fingerprint",
+      "sha256": "0b6169f55a5f910e4fe500e6c8438636907d1b21c3fa17446a049ef7552beee2",
+      "bytes": 64,
+      "git_commit": "f417e18"
+    },
+    "kimi_adjudications_per_call_provenance": {
+      "path": "outputs/scale_c/llm_judge_artifacts/llm_labels_adjudicator.json",
+      "sha256": "883eb7e7b75ba5e09f1048d100db1a587b918e939ff42eaebcc6bfd0982e51f4",
+      "bytes": 532834,
+      "git_commit": "f417e18"
+    },
+    "final_ensemble_labels": {
+      "path": "outputs/scale_c/llm_judge_artifacts/llm_labels_adjudicated.json",
+      "sha256": "0ed91e491d463fd6fcc1ae5eacb3a2896c19cc8841b9ff7032c281c2a7e19f6c",
+      "bytes": 574478,
+      "git_commit": "f417e18"
+    },
+    "pairwise_agreement": {
+      "path": "outputs/scale_c/llm_judge_artifacts/judge_agreement.json",
+      "sha256": "5d8f4fe95461f1ff460fc5a51c5f93b5ff66dc8946e761440cd4cd1691e02a31",
+      "bytes": 357,
+      "git_commit": "f417e18"
+    },
+    "per_judge_sensitivity": {
+      "path": "outputs/scale_c/llm_judge_artifacts/judge_sensitivity.json",
+      "sha256": "1128ac0f05f95561557a1d17c97f33b7c4728821a3474c7615efb2e8e2befa07",
+      "bytes": 6347,
+      "git_commit": "f417e18"
+    },
+    "final_evaluation_report": {
+      "path": "outputs/scale_c/llm_judge_artifacts/final_evaluation_report.json",
+      "sha256": "d1f8a8b9cd16bc9d7ceab527fede2067ac2be6d5165ef1688dc2161abca424a6",
+      "bytes": 21047,
+      "git_commit": "f417e18"
+    },
+    "frozen_decision_rule_report": {
+      "path": "outputs/scale_c/llm_judge_artifacts/scale_c_decision_report.json",
+      "sha256": "077f989bf5ed2ec5de1f2cee3aaa7cb85391cca9a42542cd80dc9075ec677237",
+      "bytes": 9988,
+      "git_commit": "f417e18"
+    },
+    "audit_protocol_frozen_pre_results": {
+      "path": "outputs/scale_c/HUMAN_AUDIT_PROTOCOL.md",
+      "sha256": "ec3252b8bfec82adeac4fe770e51388e88b6b039029b156ab35a4ae174f38dae",
+      "bytes": 2717,
+      "git_commit": "a114a6a"
+    },
+    "audit_worksheet_blinded_unfilled": {
+      "path": "outputs/scale_c/human_audit/audit_worksheet.json",
+      "sha256": "78b99ca33d26dbe7caaba1db8dfb83be9f08175108cd680615f5dd45e0b49fae",
+      "bytes": 180344,
+      "git_commit": "9d6ba0a"
+    },
+    "audit_manifest_current_unsealed": {
+      "path": "outputs/scale_c/human_audit/audit_sample_manifest.json",
+      "sha256": "2505faa1ddb08d3d240d54b605b84b11d44081dd83288919a8d9d46f9802519a",
+      "bytes": 110612,
+      "git_commit": "46bd7a0"
+    },
+    "external_scorer_pack": {
+      "path": "outputs/scale_c/human_audit/gpt_audit_pack.zip",
+      "sha256": "4314ff1fc0cec0c66c6ceafa2509244baf07faa1bc970d1ee5895dcc8f912074",
+      "bytes": 11040040,
+      "git_commit": "46063c6"
+    },
+    "external_pack_image_hashes": {
+      "path": "outputs/scale_c/human_audit/gpt_audit_pack_manifest.json",
+      "sha256": "8f2b707d676eeeff634a085fe858a170e5ff846a4ec3de9201104438f112cb6f",
+      "bytes": 13952,
+      "git_commit": "46063c6"
+    },
+    "external_scorer_answers_45": {
+      "path": "outputs/scale_c/human_audit/answers.json",
+      "sha256": "df7b7f6e39aeaf560a3571d34e8a3ff33f32e64c675d9c2d97c587012a05ee4d",
+      "bytes": 20398,
+      "git_commit": "46bd7a0"
+    },
+    "audit_comparison_report": {
+      "path": "outputs/scale_c/human_audit/audit_report.json",
+      "sha256": "084df5a3f0e3c9b228738b958d3a60f6adea14369e96681dfeba933d1494b1a5",
+      "bytes": 67042,
+      "git_commit": "46bd7a0"
+    },
+    "audit_notes": {
+      "path": "outputs/scale_c/human_audit/AUDIT_NOTES.md",
+      "sha256": "c7ebda9ae6dd3abaa1705b403803e9973f9359abb57099e9f1502ca9f658f175",
+      "bytes": 7616,
+      "git_commit": "46bd7a0"
+    },
+    "audit_manifest_sealed_parent": {
+      "sealed_commit": "9d6ba0a",
+      "sealed_blob_sha256": "5fa7a24fa57867b109dcecf7ca6b75f2d8499c1d8bee9dd3a55ea15e039cdf4b",
+      "unsealed_at": "2026-09-02T04:05:55+00:00",
+      "worksheet_sha256_binding": "78b99ca33d26dbe7caaba1db8dfb83be9f08175108cd680615f5dd45e0b49fae",
+      "note": "sealed at draw time (pre-scoring); unsealed only after all 45 external answers were returned"
+    }
+  }
+}

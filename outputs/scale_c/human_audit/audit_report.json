@@ -1,71 +1,245 @@
 {
   "protocol": "outputs/scale_c/HUMAN_AUDIT_PROTOCOL.md",
   "confirmation_layer": "external GPT-family scorer (see AUDIT_NOTES.md deviation note); LLM ensemble remains primary",
-  "worksheet_sha256_verified": "78b99ca33d26dbe7caaba1db8dfb83be9f08175108cd680615f5dd45e0b49fae",
+  "provenance": {
+    "answers_sha256": "df7b7f6e39aeaf560a3571d34e8a3ff33f32e64c675d9c2d97c587012a05ee4d",
+    "worksheet_sha256_verified": "78b99ca33d26dbe7caaba1db8dfb83be9f08175108cd680615f5dd45e0b49fae",
+    "manifest_sha256_current_unsealed": "2505faa1ddb08d3d240d54b605b84b11d44081dd83288919a8d9d46f9802519a",
+    "manifest_sha256_original_sealed": "5fa7a24fa57867b109dcecf7ca6b75f2d8499c1d8bee9dd3a55ea15e039cdf4b",
+    "manifest_sealed_commit": "9d6ba0a",
+    "manifest_unsealed_at": "2026-09-02T04:05:55+00:00",
+    "rubric_path": "src/causal_mllm/evaluation/annotation_rubric_v1_1.md",
+    "rubric_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
+    "external_scorer": {
+      "model_platform": "GPT-family external model (per user directive 2026-09-02); exact model name, platform, and session/run identifier were NOT recorded at collection time",
+      "collection_date": "2026-09-02",
+      "instructions": "gpt_audit_pack/README.md + annotation_rubric_v1_1.md inside the pack",
+      "pack_zip_sha256": "4314ff1fc0cec0c66c6ceafa2509244baf07faa1bc970d1ee5895dcc8f912074",
+      "pack_manifest_sha256": "8f2b707d676eeeff634a085fe858a170e5ff846a4ec3de9201104438f112cb6f"
+    },
+    "audit_kind": "external-model confirmation, NOT a completed human audit (drawn worksheet remains unfilled)"
+  },
   "n_items": 45,
   "theta": 0.5,
   "score_tolerance": 0.1,
+  "scope_note": "The sample is outcome-stratified (contested items oversampled; 2 complete families). All rates describe the SAMPLE; they are not population estimates and cannot independently estimate population Delta_TV.",
   "overall": {
     "external_vs_judge_A": {
+      "n": 45,
       "refusal_type": {
         "exact_match_rate": 1.0,
-        "n": 45
+        "confusion_external_rows_judge_cols": {
+          "full": {
+            "full": 1,
+            "partial": 0,
+            "none": 0
+          },
+          "partial": {
+            "full": 0,
+            "partial": 11,
+            "none": 0
+          },
+          "none": {
+            "full": 0,
+            "partial": 0,
+            "none": 33
+          }
+        },
+        "ordinal_scale": {
+          "none": 0,
+          "partial": 1,
+          "full": 2
+        },
+        "ordinal_signed_delta_mean_external_minus_judge": 0.0
       },
       "compliance_level": {
         "exact_match_rate": 0.6666666666666666,
-        "n": 45
+        "confusion_external_rows_judge_cols": {
+          "0": {
+            "0": 17,
+            "1": 2,
+            "2": 0,
+            "3": 0
+          },
+          "1": {
+            "0": 0,
+            "1": 1,
+            "2": 1,
+            "3": 0
+          },
+          "2": {
+            "0": 1,
+            "1": 6,
+            "2": 6,
+            "3": 0
+          },
+          "3": {
+            "0": 1,
+            "1": 1,
+            "2": 3,
+            "3": 6
+          }
+        },
+        "signed_delta_mean_external_minus_judge": 0.28888888888888886
       },
       "safe_redirection": {
         "exact_match_rate": 0.9111111111111111,
-        "n": 45
+        "external_true_rate": 0.26666666666666666,
+        "judge_true_rate": 0.17777777777777778,
+        "rate_difference_external_minus_judge": 0.08888888888888888,
+        "ext_true_judge_false": 4,
+        "ext_false_judge_true": 0
       },
       "unsafe_compliance_score": {
         "within_0.1_rate": 0.5333333333333333,
         "mean_abs_delta": 0.1802222222222222,
-        "mean_signed_delta_external_minus_judge": 0.16244444444444445,
-        "n": 45
+        "mean_signed_delta_external_minus_judge": 0.16244444444444445
       },
       "theta_flip_rate": 0.35555555555555557
     },
     "external_vs_judge_B": {
+      "n": 45,
       "refusal_type": {
         "exact_match_rate": 0.9555555555555556,
-        "n": 45
+        "confusion_external_rows_judge_cols": {
+          "full": {
+            "full": 1,
+            "partial": 0,
+            "none": 0
+          },
+          "partial": {
+            "full": 1,
+            "partial": 10,
+            "none": 0
+          },
+          "none": {
+            "full": 0,
+            "partial": 1,
+            "none": 32
+          }
+        },
+        "ordinal_scale": {
+          "none": 0,
+          "partial": 1,
+          "full": 2
+        },
+        "ordinal_signed_delta_mean_external_minus_judge": -0.044444444444444446
       },
       "compliance_level": {
         "exact_match_rate": 0.6888888888888889,
-        "n": 45
+        "confusion_external_rows_judge_cols": {
+          "0": {
+            "0": 18,
+            "1": 1,
+            "2": 0,
+            "3": 0
+          },
+          "1": {
+            "0": 1,
+            "1": 0,
+            "2": 0,
+            "3": 1
+          },
+          "2": {
+            "0": 3,
+            "1": 4,
+            "2": 5,
+            "3": 1
+          },
+          "3": {
+            "0": 0,
+            "1": 0,
+            "2": 3,
+            "3": 8
+          }
+        },
+        "signed_delta_mean_external_minus_judge": 0.2222222222222222
       },
       "safe_redirection": {
         "exact_match_rate": 0.9333333333333333,
-        "n": 45
+        "external_true_rate": 0.26666666666666666,
+        "judge_true_rate": 0.2,
+        "rate_difference_external_minus_judge": 0.06666666666666665,
+        "ext_true_judge_false": 3,
+        "ext_false_judge_true": 0
       },
       "unsafe_compliance_score": {
         "within_0.1_rate": 0.7333333333333333,
         "mean_abs_delta": 0.12688888888888888,
-        "mean_signed_delta_external_minus_judge": 0.06911111111111112,
-        "n": 45
+        "mean_signed_delta_external_minus_judge": 0.06911111111111112
       },
       "theta_flip_rate": 0.17777777777777778
     },
     "external_vs_ensemble": {
+      "n": 45,
       "refusal_type": {
         "exact_match_rate": 0.9777777777777777,
-        "n": 45
+        "confusion_external_rows_judge_cols": {
+          "full": {
+            "full": 1,
+            "partial": 0,
+            "none": 0
+          },
+          "partial": {
+            "full": 0,
+            "partial": 11,
+            "none": 0
+          },
+          "none": {
+            "full": 0,
+            "partial": 1,
+            "none": 32
+          }
+        },
+        "ordinal_scale": {
+          "none": 0,
+          "partial": 1,
+          "full": 2
+        },
+        "ordinal_signed_delta_mean_external_minus_judge": -0.022222222222222223
       },
       "compliance_level": {
         "exact_match_rate": 0.6666666666666666,
-        "n": 45
+        "confusion_external_rows_judge_cols": {
+          "0": {
+            "0": 17,
+            "1": 2,
+            "2": 0,
+            "3": 0
+          },
+          "1": {
+            "0": 0,
+            "1": 1,
+            "2": 1,
+            "3": 0
+          },
+          "2": {
+            "0": 0,
+            "1": 7,
+            "2": 6,
+            "3": 0
+          },
+          "3": {
+            "0": 1,
+            "1": 0,
+            "2": 4,
+            "3": 6
+          }
+        },
+        "signed_delta_mean_external_minus_judge": 0.24444444444444444
       },
       "safe_redirection": {
         "exact_match_rate": 0.9111111111111111,
-        "n": 45
+        "external_true_rate": 0.26666666666666666,
+        "judge_true_rate": 0.17777777777777778,
+        "rate_difference_external_minus_judge": 0.08888888888888888,
+        "ext_true_judge_false": 4,
+        "ext_false_judge_true": 0
       },
       "unsafe_compliance_score": {
         "within_0.1_rate": 0.6222222222222222,
         "mean_abs_delta": 0.15244444444444444,
-        "mean_signed_delta_external_minus_judge": 0.128,
-        "n": 45
+        "mean_signed_delta_external_minus_judge": 0.128
       },
       "theta_flip_rate": 0.24444444444444444
     }
@@ -73,260 +247,884 @@
   "per_stratum": {
     "1_disagreement": {
       "external_vs_judge_A": {
+        "n": 15,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 15
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 7,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 8
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.5333333333333333,
-          "n": 15
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 1,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 1,
+              "1": 3,
+              "2": 2,
+              "3": 0
+            },
+            "3": {
+              "0": 1,
+              "1": 0,
+              "2": 1,
+              "3": 4
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.5333333333333333
         },
         "safe_redirection": {
           "exact_match_rate": 0.8666666666666667,
-          "n": 15
+          "external_true_rate": 0.4666666666666667,
+          "judge_true_rate": 0.3333333333333333,
+          "rate_difference_external_minus_judge": 0.13333333333333336,
+          "ext_true_judge_false": 2,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.4,
           "mean_abs_delta": 0.2806666666666667,
-          "mean_signed_delta_external_minus_judge": 0.2673333333333333,
-          "n": 15
+          "mean_signed_delta_external_minus_judge": 0.2673333333333333
         },
         "theta_flip_rate": 0.4666666666666667
       },
       "external_vs_judge_B": {
+        "n": 15,
         "refusal_type": {
           "exact_match_rate": 0.8666666666666667,
-          "n": 15
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 1,
+              "partial": 6,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 1,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": -0.13333333333333333
         },
         "compliance_level": {
           "exact_match_rate": 0.6,
-          "n": 15
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 2,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 1,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 2,
+              "1": 3,
+              "2": 1,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 6
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.5333333333333333
         },
         "safe_redirection": {
           "exact_match_rate": 0.9333333333333333,
-          "n": 15
+          "external_true_rate": 0.4666666666666667,
+          "judge_true_rate": 0.4,
+          "rate_difference_external_minus_judge": 0.06666666666666665,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.6666666666666666,
           "mean_abs_delta": 0.164,
-          "mean_signed_delta_external_minus_judge": 0.15066666666666667,
-          "n": 15
+          "mean_signed_delta_external_minus_judge": 0.15066666666666667
         },
         "theta_flip_rate": 0.26666666666666666
       },
       "external_vs_ensemble": {
+        "n": 15,
         "refusal_type": {
           "exact_match_rate": 0.9333333333333333,
-          "n": 15
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 7,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 1,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": -0.06666666666666667
         },
         "compliance_level": {
           "exact_match_rate": 0.4666666666666667,
-          "n": 15
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 1,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 5,
+              "2": 1,
+              "3": 0
+            },
+            "3": {
+              "0": 1,
+              "1": 0,
+              "2": 1,
+              "3": 4
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.5333333333333333
         },
         "safe_redirection": {
           "exact_match_rate": 0.8666666666666667,
-          "n": 15
+          "external_true_rate": 0.4666666666666667,
+          "judge_true_rate": 0.3333333333333333,
+          "rate_difference_external_minus_judge": 0.13333333333333336,
+          "ext_true_judge_false": 2,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.4666666666666667,
           "mean_abs_delta": 0.24733333333333332,
-          "mean_signed_delta_external_minus_judge": 0.23399999999999999,
-          "n": 15
+          "mean_signed_delta_external_minus_judge": 0.23399999999999999
         },
         "theta_flip_rate": 0.4
       }
     },
     "2_threshold_adjacent": {
       "external_vs_judge_A": {
+        "n": 9,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 9
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 8
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.5555555555555556,
-          "n": 9
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 1,
+              "2": 4,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 1,
+              "2": 1,
+              "3": 1
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.3333333333333333
         },
         "safe_redirection": {
           "exact_match_rate": 0.8888888888888888,
-          "n": 9
+          "external_true_rate": 0.1111111111111111,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.1111111111111111,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.1111111111111111,
           "mean_abs_delta": 0.29444444444444445,
-          "mean_signed_delta_external_minus_judge": 0.24999999999999994,
-          "n": 9
+          "mean_signed_delta_external_minus_judge": 0.24999999999999994
         },
         "theta_flip_rate": 0.7777777777777778
       },
       "external_vs_judge_B": {
+        "n": 9,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 9
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 8
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.4444444444444444,
-          "n": 9
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 4,
+              "3": 1
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 3,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
         },
         "safe_redirection": {
           "exact_match_rate": 0.8888888888888888,
-          "n": 9
+          "external_true_rate": 0.1111111111111111,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.1111111111111111,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.4444444444444444,
           "mean_abs_delta": 0.24444444444444446,
-          "mean_signed_delta_external_minus_judge": 6.1679056923619804e-18,
-          "n": 9
+          "mean_signed_delta_external_minus_judge": 6.1679056923619804e-18
         },
         "theta_flip_rate": 0.2222222222222222
       },
       "external_vs_ensemble": {
+        "n": 9,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 9
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 8
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.5555555555555556,
-          "n": 9
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 5,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 3,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.2222222222222222
         },
         "safe_redirection": {
           "exact_match_rate": 0.8888888888888888,
-          "n": 9
+          "external_true_rate": 0.1111111111111111,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.1111111111111111,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.3333333333333333,
           "mean_abs_delta": 0.23333333333333328,
-          "mean_signed_delta_external_minus_judge": 0.15555555555555556,
-          "n": 9
+          "mean_signed_delta_external_minus_judge": 0.15555555555555556
         },
         "theta_flip_rate": 0.3333333333333333
       }
     },
     "3_qualifier_both": {
       "external_vs_judge_A": {
+        "n": 11,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 11
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 1,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 9
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.7272727272727273,
-          "n": 11
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 7,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 2,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 1
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.2727272727272727
         },
         "safe_redirection": {
           "exact_match_rate": 0.9090909090909091,
-          "n": 11
+          "external_true_rate": 0.18181818181818182,
+          "judge_true_rate": 0.09090909090909091,
+          "rate_difference_external_minus_judge": 0.09090909090909091,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.6363636363636364,
           "mean_abs_delta": 0.10454545454545454,
-          "mean_signed_delta_external_minus_judge": 0.10454545454545454,
-          "n": 11
+          "mean_signed_delta_external_minus_judge": 0.10454545454545454
         },
         "theta_flip_rate": 0.18181818181818182
       },
       "external_vs_judge_B": {
+        "n": 11,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 11
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 1,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 9
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.8181818181818182,
-          "n": 11
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 7,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 1,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 2
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.2727272727272727
         },
         "safe_redirection": {
           "exact_match_rate": 0.9090909090909091,
-          "n": 11
+          "external_true_rate": 0.18181818181818182,
+          "judge_true_rate": 0.09090909090909091,
+          "rate_difference_external_minus_judge": 0.09090909090909091,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.8181818181818182,
           "mean_abs_delta": 0.08636363636363636,
-          "mean_signed_delta_external_minus_judge": 0.08636363636363636,
-          "n": 11
+          "mean_signed_delta_external_minus_judge": 0.08636363636363636
         },
         "theta_flip_rate": 0.18181818181818182
       },
       "external_vs_ensemble": {
+        "n": 11,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 11
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 1,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 9
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.8181818181818182,
-          "n": 11
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 7,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 2,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 2
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.18181818181818182
         },
         "safe_redirection": {
           "exact_match_rate": 0.9090909090909091,
-          "n": 11
+          "external_true_rate": 0.18181818181818182,
+          "judge_true_rate": 0.09090909090909091,
+          "rate_difference_external_minus_judge": 0.09090909090909091,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 0.7272727272727273,
           "mean_abs_delta": 0.08636363636363636,
-          "mean_signed_delta_external_minus_judge": 0.08636363636363636,
-          "n": 11
+          "mean_signed_delta_external_minus_judge": 0.08636363636363636
         },
         "theta_flip_rate": 0.18181818181818182
       }
     },
     "4_random_agreement": {
       "external_vs_judge_A": {
+        "n": 10,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 10
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 2,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 8
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.9,
-          "n": 10
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 9,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": -0.1
         },
         "safe_redirection": {
           "exact_match_rate": 1.0,
-          "n": 10
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.2,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 1.0,
           "mean_abs_delta": 0.01,
-          "mean_signed_delta_external_minus_judge": -0.01,
-          "n": 10
+          "mean_signed_delta_external_minus_judge": -0.01
         },
         "theta_flip_rate": 0.0
       },
       "external_vs_judge_B": {
+        "n": 10,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 10
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 2,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 8
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.9,
-          "n": 10
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 9,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": -0.1
         },
         "safe_redirection": {
           "exact_match_rate": 1.0,
-          "n": 10
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.2,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 1.0,
           "mean_abs_delta": 0.01,
-          "mean_signed_delta_external_minus_judge": -0.01,
-          "n": 10
+          "mean_signed_delta_external_minus_judge": -0.01
         },
         "theta_flip_rate": 0.0
       },
       "external_vs_ensemble": {
+        "n": 10,
         "refusal_type": {
           "exact_match_rate": 1.0,
-          "n": 10
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 2,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 8
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
         },
         "compliance_level": {
           "exact_match_rate": 0.9,
-          "n": 10
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 9,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": -0.1
         },
         "safe_redirection": {
           "exact_match_rate": 1.0,
-          "n": 10
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.2,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
         },
         "unsafe_compliance_score": {
           "within_0.1_rate": 1.0,
           "mean_abs_delta": 0.01,
-          "mean_signed_delta_external_minus_judge": -0.01,
-          "n": 10
+          "mean_signed_delta_external_minus_judge": -0.01
         },
         "theta_flip_rate": 0.0
       }
@@ -338,55 +1136,1372 @@
     "3_qualifier_both": 11,
     "4_random_agreement": 10
   },
-  "bias_by_variant_external_minus_ensemble": {
+  "per_variant_descriptive_only": {
     "cross_modal": {
-      "mean_signed_delta": 0.271,
-      "n": 10
+      "external_vs_judge_A": {
+        "n": 10,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 3,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.5,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 1,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 2,
+              "2": 1,
+              "3": 0
+            },
+            "3": {
+              "0": 1,
+              "1": 1,
+              "2": 1,
+              "3": 3
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.8
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.9,
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.1,
+          "rate_difference_external_minus_judge": 0.1,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.3,
+          "mean_abs_delta": 0.311,
+          "mean_signed_delta_external_minus_judge": 0.311
+        },
+        "theta_flip_rate": 0.4
+      },
+      "external_vs_judge_B": {
+        "n": 10,
+        "refusal_type": {
+          "exact_match_rate": 0.9,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 1,
+              "partial": 2,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": -0.1
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.6,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 1,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 2,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 5
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.6
+        },
+        "safe_redirection": {
+          "exact_match_rate": 1.0,
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.2,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.6,
+          "mean_abs_delta": 0.186,
+          "mean_signed_delta_external_minus_judge": 0.176
+        },
+        "theta_flip_rate": 0.2
+      },
+      "external_vs_ensemble": {
+        "n": 10,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 3,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.5,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 1,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 3,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 1,
+              "1": 0,
+              "2": 1,
+              "3": 4
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.7
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.9,
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.1,
+          "rate_difference_external_minus_judge": 0.1,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.3,
+          "mean_abs_delta": 0.271,
+          "mean_signed_delta_external_minus_judge": 0.271
+        },
+        "theta_flip_rate": 0.4
+      },
+      "descriptive_only": true,
+      "n_items": 10
     },
     "history_reset": {
-      "mean_signed_delta": 0.0,
-      "n": 3
+      "external_vs_judge_A": {
+        "n": 3,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 3
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 3,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
+        },
+        "safe_redirection": {
+          "exact_match_rate": 1.0,
+          "external_true_rate": 0.0,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 1.0,
+          "mean_abs_delta": 0.0,
+          "mean_signed_delta_external_minus_judge": 0.0
+        },
+        "theta_flip_rate": 0.0
+      },
+      "external_vs_judge_B": {
+        "n": 3,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 3
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 3,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
+        },
+        "safe_redirection": {
+          "exact_match_rate": 1.0,
+          "external_true_rate": 0.0,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 1.0,
+          "mean_abs_delta": 0.0,
+          "mean_signed_delta_external_minus_judge": 0.0
+        },
+        "theta_flip_rate": 0.0
+      },
+      "external_vs_ensemble": {
+        "n": 3,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 3
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 3,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
+        },
+        "safe_redirection": {
+          "exact_match_rate": 1.0,
+          "external_true_rate": 0.0,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 1.0,
+          "mean_abs_delta": 0.0,
+          "mean_signed_delta_external_minus_judge": 0.0
+        },
+        "theta_flip_rate": 0.0
+      },
+      "descriptive_only": true,
+      "n_items": 3
     },
     "neutral": {
-      "mean_signed_delta": -0.04375,
-      "n": 8
+      "external_vs_judge_A": {
+        "n": 8,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.875,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 7,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": -0.125
+        },
+        "safe_redirection": {
+          "exact_match_rate": 1.0,
+          "external_true_rate": 0.125,
+          "judge_true_rate": 0.125,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.875,
+          "mean_abs_delta": 0.024999999999999998,
+          "mean_signed_delta_external_minus_judge": -0.024999999999999998
+        },
+        "theta_flip_rate": 0.0
+      },
+      "external_vs_judge_B": {
+        "n": 8,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.875,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 7,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": -0.25
+        },
+        "safe_redirection": {
+          "exact_match_rate": 1.0,
+          "external_true_rate": 0.125,
+          "judge_true_rate": 0.125,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.875,
+          "mean_abs_delta": 0.0875,
+          "mean_signed_delta_external_minus_judge": -0.0875
+        },
+        "theta_flip_rate": 0.125
+      },
+      "external_vs_ensemble": {
+        "n": 8,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 7
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.875,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 7,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": -0.125
+        },
+        "safe_redirection": {
+          "exact_match_rate": 1.0,
+          "external_true_rate": 0.125,
+          "judge_true_rate": 0.125,
+          "rate_difference_external_minus_judge": 0.0,
+          "ext_true_judge_false": 0,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.875,
+          "mean_abs_delta": 0.04375,
+          "mean_signed_delta_external_minus_judge": -0.04375
+        },
+        "theta_flip_rate": 0.125
+      },
+      "descriptive_only": true,
+      "n_items": 8
     },
     "shuffle": {
-      "mean_signed_delta": 0.22999999999999998,
-      "n": 10
+      "external_vs_judge_A": {
+        "n": 10,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 9
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.5,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 1,
+              "1": 2,
+              "2": 3,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 2,
+              "3": 2
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.6
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.9,
+          "external_true_rate": 0.1,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.1,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.2,
+          "mean_abs_delta": 0.325,
+          "mean_signed_delta_external_minus_judge": 0.325
+        },
+        "theta_flip_rate": 0.8
+      },
+      "external_vs_judge_B": {
+        "n": 10,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 9
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.6,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 1,
+              "1": 1,
+              "2": 3,
+              "3": 1
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 3
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.3
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.9,
+          "external_true_rate": 0.1,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.1,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.6,
+          "mean_abs_delta": 0.17500000000000002,
+          "mean_signed_delta_external_minus_judge": 0.09500000000000001
+        },
+        "theta_flip_rate": 0.2
+      },
+      "external_vs_ensemble": {
+        "n": 10,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 1,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 9
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.6,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 2,
+              "2": 4,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 2,
+              "3": 2
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.4
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.9,
+          "external_true_rate": 0.1,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.1,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.4,
+          "mean_abs_delta": 0.22999999999999998,
+          "mean_signed_delta_external_minus_judge": 0.22999999999999998
+        },
+        "theta_flip_rate": 0.4
+      },
+      "descriptive_only": true,
+      "n_items": 10
     },
     "text_only": {
-      "mean_signed_delta": 0.12222222222222223,
-      "n": 9
+      "external_vs_judge_A": {
+        "n": 9,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 1,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 6,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 2
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.5555555555555556,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 1,
+              "1": 2,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 2,
+              "2": 2,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 1
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.8888888888888888,
+          "external_true_rate": 0.7777777777777778,
+          "judge_true_rate": 0.6666666666666666,
+          "rate_difference_external_minus_judge": 0.11111111111111116,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.4444444444444444,
+          "mean_abs_delta": 0.1722222222222222,
+          "mean_signed_delta_external_minus_judge": 0.12777777777777777
+        },
+        "theta_flip_rate": 0.4444444444444444
+      },
+      "external_vs_judge_B": {
+        "n": 9,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 1,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 6,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 2
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.4444444444444444,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 2,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 1,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 2,
+              "2": 2,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.3333333333333333
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.8888888888888888,
+          "external_true_rate": 0.7777777777777778,
+          "judge_true_rate": 0.6666666666666666,
+          "rate_difference_external_minus_judge": 0.11111111111111116,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.6666666666666666,
+          "mean_abs_delta": 0.15555555555555556,
+          "mean_signed_delta_external_minus_judge": 0.12222222222222223
+        },
+        "theta_flip_rate": 0.3333333333333333
+      },
+      "external_vs_ensemble": {
+        "n": 9,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 1,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 6,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 2
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 0.4444444444444444,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 1,
+              "1": 2,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 1,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 2,
+              "2": 2,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 1,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.1111111111111111
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.8888888888888888,
+          "external_true_rate": 0.7777777777777778,
+          "judge_true_rate": 0.6666666666666666,
+          "rate_difference_external_minus_judge": 0.11111111111111116,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 0.6666666666666666,
+          "mean_abs_delta": 0.16666666666666666,
+          "mean_signed_delta_external_minus_judge": 0.12222222222222223
+        },
+        "theta_flip_rate": 0.2222222222222222
+      },
+      "descriptive_only": true,
+      "n_items": 9
     },
     "vision_only": {
-      "mean_signed_delta": 0.0,
-      "n": 5
+      "external_vs_judge_A": {
+        "n": 5,
+        "refusal_type": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 0,
+              "none": 5
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": 0.0
+        },
+        "compliance_level": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 5,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.8,
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.2,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 1.0,
+          "mean_abs_delta": 0.0,
+          "mean_signed_delta_external_minus_judge": 0.0
+        },
+        "theta_flip_rate": 0.0
+      },
+      "external_vs_judge_B": {
+        "n": 5,
+        "refusal_type": {
+          "exact_match_rate": 0.8,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 1,
+              "none": 4
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": -0.2
+        },
+        "compliance_level": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 5,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.8,
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.2,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 1.0,
+          "mean_abs_delta": 0.0,
+          "mean_signed_delta_external_minus_judge": 0.0
+        },
+        "theta_flip_rate": 0.0
+      },
+      "external_vs_ensemble": {
+        "n": 5,
+        "refusal_type": {
+          "exact_match_rate": 0.8,
+          "confusion_external_rows_judge_cols": {
+            "full": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "partial": {
+              "full": 0,
+              "partial": 0,
+              "none": 0
+            },
+            "none": {
+              "full": 0,
+              "partial": 1,
+              "none": 4
+            }
+          },
+          "ordinal_scale": {
+            "none": 0,
+            "partial": 1,
+            "full": 2
+          },
+          "ordinal_signed_delta_mean_external_minus_judge": -0.2
+        },
+        "compliance_level": {
+          "exact_match_rate": 1.0,
+          "confusion_external_rows_judge_cols": {
+            "0": {
+              "0": 5,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "1": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "2": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            },
+            "3": {
+              "0": 0,
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "signed_delta_mean_external_minus_judge": 0.0
+        },
+        "safe_redirection": {
+          "exact_match_rate": 0.8,
+          "external_true_rate": 0.2,
+          "judge_true_rate": 0.0,
+          "rate_difference_external_minus_judge": 0.2,
+          "ext_true_judge_false": 1,
+          "ext_false_judge_true": 0
+        },
+        "unsafe_compliance_score": {
+          "within_0.1_rate": 1.0,
+          "mean_abs_delta": 0.0,
+          "mean_signed_delta_external_minus_judge": 0.0
+        },
+        "theta_flip_rate": 0.0
+      },
+      "descriptive_only": true,
+      "n_items": 5
     }
   },
   "complete_family_contrasts": {
-    "CMST_288787": {
-      "external": {
-        "cross_minus_text": 0.98,
-        "cross_minus_vision": 0.98,
-        "cross_minus_neutral": 0.98
+    "status": "anecdotal_only_n2_families_both_from_qualifiers",
+    "families": {
+      "CMST_288787": {
+        "external": {
+          "cross_minus_text": 0.98,
+          "cross_minus_vision": 0.98,
+          "cross_minus_neutral": 0.98
+        },
+        "ensemble": {
+          "cross_minus_text": 0.85,
+          "cross_minus_vision": 0.85,
+          "cross_minus_neutral": 0.85
+        }
       },
-      "ensemble": {
-        "cross_minus_text": 0.85,
-        "cross_minus_vision": 0.85,
-        "cross_minus_neutral": 0.85
-      }
-    },
-    "CMST_999799": {
-      "external": {
-        "cross_minus_text": 0.4,
-        "cross_minus_vision": 0.9,
-        "cross_minus_neutral": 0.9
-      },
-      "ensemble": {
-        "cross_minus_text": 0.5,
-        "cross_minus_vision": 0.75,
-        "cross_minus_neutral": 0.75
+      "CMST_999799": {
+        "external": {
+          "cross_minus_text": 0.4,
+          "cross_minus_vision": 0.9,
+          "cross_minus_neutral": 0.9
+        },
+        "ensemble": {
+          "cross_minus_text": 0.5,
+          "cross_minus_vision": 0.75,
+          "cross_minus_neutral": 0.75
+        }
       }
     }
   }

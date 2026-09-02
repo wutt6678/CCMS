@@ -97,43 +97,61 @@ Worksheet sha256 verified against the sealed manifest before unsealing
 vs individual judges: Judge B is closer to the external scorer
 (within ±0.1: 0.733, bias +0.069) than Judge A (0.533, +0.162).
 
-### Stratified pattern (by design, contested items are oversampled)
+### Stratified pattern (contested items are oversampled BY DESIGN)
 
-- **4_random_agreement** (represents the 361/600 population region
-  where judges agree): within ±0.1 = **1.000**, bias **−0.010** —
-  near-perfect confirmation where the ensemble is stable.
+- **4_random_agreement** (drawn from the 361/600 items where the two
+  judges agreed): within ±0.1 = **1.000**, bias **−0.010** — external
+  scores align closely with the ensemble in the agreement region.
 - **1_disagreement** / **2_threshold_adjacent**: within ±0.1 = 0.467 /
   0.333 with positive bias (+0.234 / +0.156) — divergence concentrates
-  exactly on the contested items the sample oversampled.
-- **3_qualifier_both**: refusal match 1.000, bias +0.086 — the
-  qualifier verdicts are confirmed (external rates them equally or
-  MORE unsafe).
+  on the contested items the sample deliberately oversampled.
+- **3_qualifier_both**: refusal match 1.000, bias +0.086 — external
+  scores for these items are equal or higher than the ensemble's.
 
-### Directional bias and the primary decision
+Because the sample is outcome-stratified, these per-stratum rates
+describe the sampled items only; they are not population estimates
+without stratum reweighting.
 
-- External − ensemble signed bias is **+0.128 overall** (external is
-  harsher): the ensemble is, if anything, CONSERVATIVE — it does not
-  inflate unsafe compliance.
-- Bias by variant is not uniform: cross_modal +0.271 and shuffle
-  +0.230 vs neutral −0.044, vision_only 0.000, history_reset 0.000.
-  The external scorer pushes the cross-modal conditions UP more than
-  the baselines — i.e., the ensemble UNDERSTATES the cross-modal
-  contrast relative to the confirmation scorer.
-- Within-family contrasts on the two fully-sampled qualifier families:
-  sign and rough magnitude replicate (CMST_288787 cross−text:
-  external +0.98 vs ensemble +0.85; CMST_999799: +0.40 vs +0.50).
+### Directional bias and the primary decision (corrected after review)
 
-### Robustness note (protocol §3)
+- Overall external − ensemble signed bias is **+0.128** (external is
+  harsher on this contested-oversampled sample). Per-variant bias
+  values (cross_modal +0.271, shuffle +0.230, text_only +0.122,
+  neutral −0.044, vision_only 0.000, history_reset 0.000; n = 3–10 per
+  variant) are **DESCRIPTIVE ONLY**: the audit sample is
+  outcome-stratified, so variant-specific biases cannot be generalized
+  to the 100-family population.
+- **The external confirmation sample is consistent with and does not
+  contradict the primary Scale-C decision. It cannot independently
+  estimate the population ΔTV because the audit sample is
+  outcome-stratified and contains only two complete families** (both
+  drawn from successful qualifiers; their within-family contrast
+  replication is anecdotal at n = 2 families, not confirmatory).
+- **The population claim itself remains supported by the
+  preregistered 600-item ensemble analysis: ensemble ΔTV CI
+  [0.0495, 0.1800], Judge A [0.0220, 0.1590], and Judge B
+  [0.1075, 0.2625]** — all entirely above zero at 95% (5000 paired
+  bootstrap resamples, seed 42; `judge_sensitivity.json`).
 
-Validity is NOT materially below expectations. The primary decision
-(**POPULATION_INTERACTION**, ΔTV CI [0.0495, 0.1800]) is confirmed in
-direction and strengthened: measurement bias runs opposite to the
-effect (ensemble leniency on exactly the cross-modal/shuffle
-conditions). Caveats to carry into the write-up: (1) confirmation
-layer is a distinct MODEL, not a human reviewer (deviation above);
-(2) compliance_level banding is the weakest field (0.667 exact);
-(3) contested-item scores carry a +0.2 external harshness bias, so
-absolute per-item scores — not the causal contrasts — are the
-uncertain quantity; (4) single external scorer, n=45 stratified
-(oversampled contested items — overall rates understate
-population-level agreement).
+### Robustness note (protocol §3, corrected after review)
+
+No material validity failure was detected in the sampled items, but
+the confirmation has clear limits:
+
+1. The confirmation layer is a distinct MODEL, not a human reviewer —
+   Phase 9 is an **external-model confirmation, not a completed human
+   audit**. The original drawn worksheet remains unfilled. An actual
+   human audit is needed only if the paper intends to claim human
+   validation.
+2. compliance_level banding is the weakest field (0.667 exact match).
+3. Contested-item scores carry a +0.2 external harshness bias;
+   absolute per-item scores on contested items — not the causal
+   contrasts — are the uncertain quantity.
+4. Single external scorer, n = 45, outcome-stratified: overall
+   agreement rates neither generalize to the population nor
+   independently verify ΔTV.
+
+Directional-bias detail per categorical field (refusal-type and
+compliance-level confusion matrices with ordinal signed differences,
+safe-redirection rate differences, per stratum and per variant
+[descriptive]) is in `audit_report.json`.
