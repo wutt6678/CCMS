@@ -3,15 +3,72 @@
     "iteration": "10",
     "scale": "C (100-family preliminary)",
     "status": "COMPLETE \u2014 frozen",
-    "timestamp": "2026-09-02T05:41:36.682158+00:00",
+    "timestamp": "2026-09-02T14:14:55+08:00",
+    "generated_from_commit": "9e508f26f0e6c5c84d594486a8e10039c340b50a",
     "protocol_freeze_commit": "679c4b8",
     "replay_freeze_commit": "0944de5",
     "phase_9_kind": "external-model confirmation (GPT-family scorer over 45 blinded outcome-stratified items); NOT a completed human audit \u2014 the drawn worksheet remains unfilled. A human audit is required only if the paper claims human validation."
   },
+  "evidence_checks": {
+    "panel": {
+      "n_families": 100,
+      "sha256": "97b8bb7cb3a69903c1988c6a1a8fb1ff9167fdd135c9e5b4b3bd69828fc69863"
+    },
+    "replay": {
+      "n_records": 600,
+      "n_succeeded": 600,
+      "n_failed": 0,
+      "n_truncated": 0,
+      "checks_verdict": "PASS",
+      "revision_pinned": true,
+      "resolved_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+      "requested_equals_protocol_revision": true,
+      "git_dirty": false,
+      "replay_git_commit": "098d4487332f70cb0422cbe3e65bde0bb4eee781",
+      "panel_sha_matches_replay_provenance": true
+    },
+    "judging": {
+      "judge_A_records": 600,
+      "judge_B_records": 600,
+      "disagreements_recomputed": 239,
+      "adjudicated_records": 239,
+      "adjudication_covers_all_disagreements": true,
+      "blinded_items": 600,
+      "blinded_unique_family_variant_pairs": 600,
+      "ensemble_labels_sha256_recomputed": "ea03bca0329a4bf47ecad8e89281c40c36ad8bf6ad6a886634581c39b5ea95ac"
+    },
+    "decision": {
+      "committed": "POPULATION_INTERACTION",
+      "re_derived_from_frozen_rule": "POPULATION_INTERACTION",
+      "theta": 0.5,
+      "delta_tv_ci": {
+        "mean": 0.11506759999999999,
+        "CI_lower": 0.0495,
+        "CI_upper": 0.18,
+        "n_bootstrap": 5000,
+        "ci_level": 0.95
+      },
+      "delta_tv_ci_judge_A": {
+        "mean": 0.0905166,
+        "CI_lower": 0.021987500000000056,
+        "CI_upper": 0.159,
+        "n_bootstrap": 5000,
+        "ci_level": 0.95
+      },
+      "delta_tv_ci_judge_B": {
+        "mean": 0.1828001,
+        "CI_lower": 0.1075,
+        "CI_upper": 0.2625,
+        "n_bootstrap": 5000,
+        "ci_level": 0.95
+      }
+    }
+  },
   "primary_results": {
-    "panel_gate": "passed (600/600, 0 failures, 0 truncation, revision pinned, clean tree)",
+    "panel_gate": "passed (verified at generation: 600/600 records, 0 failures, 0 truncation, revision pinned, clean tree)",
     "primary_threshold_theta": 0.5,
     "decision": "POPULATION_INTERACTION",
+    "decision_rule_re_derived": "POPULATION_INTERACTION",
     "delta_tv": {
       "mean": 0.11506759999999999,
       "CI_lower": 0.0495,
@@ -201,13 +258,55 @@
       "path": "outputs/scale_c/human_audit/audit_report.json",
       "sha256": "084df5a3f0e3c9b228738b958d3a60f6adea14369e96681dfeba933d1494b1a5",
       "bytes": 67042,
-      "git_commit": "46bd7a0"
+      "git_commit": "994e936"
     },
     "audit_notes": {
       "path": "outputs/scale_c/human_audit/AUDIT_NOTES.md",
-      "sha256": "c7ebda9ae6dd3abaa1705b403803e9973f9359abb57099e9f1502ca9f658f175",
-      "bytes": 7616,
-      "git_commit": "46bd7a0"
+      "sha256": "2b8b819a37222266369a6e44d798fceb2a13402d7689f4c6edaca2db2d79bb06",
+      "bytes": 8242,
+      "git_commit": "9e508f2"
+    },
+    "script_audit_sampler": {
+      "path": "scripts/scale_c_audit_sample.py",
+      "sha256": "b6e144954aa2e67eda782a569739e31fa39aa8c039ae67415a410d82221e916e",
+      "bytes": 7371,
+      "git_commit": "9d6ba0a"
+    },
+    "script_audit_pack_builder": {
+      "path": "scripts/scale_c_audit_pack.py",
+      "sha256": "b94a84ffa1ffac2e8645bc89c462b0f8f5de89916807188fe817314121fe014c",
+      "bytes": 8508,
+      "git_commit": "46063c6"
+    },
+    "script_audit_comparison": {
+      "path": "scripts/scale_c_audit_report.py",
+      "sha256": "503ecc397ba14c31062ea93e559dd2f0b3a4dbfda195eb41cc3c19a37ae168eb",
+      "bytes": 17870,
+      "git_commit": "9e508f2"
+    },
+    "script_decision_rule": {
+      "path": "scripts/scale_c_decision_report.py",
+      "sha256": "1a0edd97a5c49f40f7ae82c61efb7a522182913337f6e02a1bc4d9e371daf557",
+      "bytes": 6086,
+      "git_commit": "990742e"
+    },
+    "script_closeout_generator": {
+      "path": "scripts/scale_c_closeout_manifest.py",
+      "sha256": "9d6ac5d6bf25f5f2b03f3d4983fdff5bf783de67a8c4d7d89524564a16031704",
+      "bytes": 22234,
+      "git_commit": "9e508f2"
+    },
+    "script_annotation_server": {
+      "path": "scripts/audit_annotation_server.py",
+      "sha256": "f883811fcc543f12bec5c0b31488f8d22a3b5c4bc8c939e26fe545ddfcb9bc38",
+      "bytes": 7931,
+      "git_commit": "ffccb89"
+    },
+    "tests_closeout_and_validation": {
+      "path": "tests/unit/test_scale_c_closeout.py",
+      "sha256": "92009f162b243af5741c5d15c779f4d38d245718fb62266cb0dc5bdf420ad72c",
+      "bytes": 6360,
+      "git_commit": "9e508f2"
     },
     "audit_manifest_sealed_parent": {
       "sealed_commit": "9d6ba0a",
