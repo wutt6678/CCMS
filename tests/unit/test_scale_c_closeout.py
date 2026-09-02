@@ -157,4 +157,10 @@ class TestCommittedManifestBindings:
         if not (ROOT / "outputs/iteration_10_closeout"
                 / "scale_c_evidence_manifest.json").exists():
             pytest.skip("manifest not generated yet")
+        if not closeout._commit_exists(closeout.SEALED_MANIFEST_COMMIT):
+            # Shallow clone (e.g. CI without fetch-depth: 0): the sealed
+            # parent blob cannot be resolved; verify() would fail-closed.
+            pytest.skip(
+                "shallow clone: sealed commit "
+                f"{closeout.SEALED_MANIFEST_COMMIT[:7]} unavailable")
         assert closeout.verify() == 0

@@ -164,6 +164,14 @@ def _blob_at(commit: str, path: str) -> bytes:
     return _git("show", f"{commit}:{path}", binary=True)
 
 
+def _commit_exists(commit: str) -> bool:
+    """True if the commit object is present in this clone (not shallow)."""
+    r = subprocess.run(
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
+        cwd=ROOT, capture_output=True)
+    return r.returncode == 0
+
+
 def _last_commit_for(path: str) -> str | None:
     out = _git("log", "-1", "--format=%h", "--", path)
     return out or None
@@ -465,7 +473,20 @@ def verify() -> int:
     failures = []
     for role, a in artifacts.items():
         if role == "audit_manifest_sealed_parent":
-            blob = _blob_at(a["sealed_commit"], SEALED_MANIFEST_PATH)
+            if not _commit_exists(a["sealed_commit"]):
+                failures.append(
+                    f"{role}: sealed commit {a['sealed_commit']} not "
+                    f"present in this clone (shallow history — use "
+                    f"`git fetch --unshallow` or checkout with "
+                    f"fetch-depth: 0)")
+                continue
+            try:
+                blob = _blob_at(a["sealed_commit"], SEALED_MANIFEST_PATH)
+            except subprocess.CalledProcessError:
+                failures.append(
+                    f"{role}: blob {a['sealed_commit']}:"
+                    f"{SEALED_MANIFEST_PATH} not found in git")
+                continue
             if _sha256_bytes(blob) != a["sealed_blob_sha256"]:
                 failures.append(f"{role}: sealed blob sha mismatch")
             continue
