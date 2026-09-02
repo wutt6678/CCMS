@@ -3,8 +3,8 @@
     "iteration": "10",
     "scale": "C (100-family preliminary)",
     "status": "COMPLETE \u2014 frozen",
-    "timestamp": "2026-09-02T14:14:55+08:00",
-    "generated_from_commit": "9e508f26f0e6c5c84d594486a8e10039c340b50a",
+    "timestamp": "2026-09-02T14:22:55+08:00",
+    "generated_from_commit": "502ce016ccc35e1a06df8d63ac085de95f0f3df9",
     "protocol_freeze_commit": "679c4b8",
     "replay_freeze_commit": "0944de5",
     "phase_9_kind": "external-model confirmation (GPT-family scorer over 45 blinded outcome-stratified items); NOT a completed human audit \u2014 the drawn worksheet remains unfilled. A human audit is required only if the paper claims human validation."
@@ -292,9 +292,9 @@
     },
     "script_closeout_generator": {
       "path": "scripts/scale_c_closeout_manifest.py",
-      "sha256": "9d6ac5d6bf25f5f2b03f3d4983fdff5bf783de67a8c4d7d89524564a16031704",
-      "bytes": 22234,
-      "git_commit": "9e508f2"
+      "sha256": "83bdbbfffe34238e0f4102a0b83934215e8f558f20841720e3f7606c153037a7",
+      "bytes": 23115,
+      "git_commit": "502ce01"
     },
     "script_annotation_server": {
       "path": "scripts/audit_annotation_server.py",
@@ -304,9 +304,9 @@
     },
     "tests_closeout_and_validation": {
       "path": "tests/unit/test_scale_c_closeout.py",
-      "sha256": "92009f162b243af5741c5d15c779f4d38d245718fb62266cb0dc5bdf420ad72c",
-      "bytes": 6360,
-      "git_commit": "9e508f2"
+      "sha256": "00b5cc35669f111a5568770694123b5ec51349e782c4d82d0ad7bf13114101fe",
+      "bytes": 6723,
+      "git_commit": "502ce01"
     },
     "audit_manifest_sealed_parent": {
       "sealed_commit": "9d6ba0a",
