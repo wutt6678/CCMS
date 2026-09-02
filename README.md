@@ -412,10 +412,18 @@ claim rests on the preregistered 600-item ensemble analysis.
 
 A frozen manifest binding every artifact (protocol, panel, replay,
 rubric, blinded items, A/B labels + fingerprints, adjudications,
-ensemble labels, agreement/sensitivity/decision reports, and the full
-audit chain incl. the sealed-manifest parent) by SHA-256 and git commit
-is at `outputs/iteration_10_closeout/scale_c_evidence_manifest.json`
-(regenerate: `python3 scripts/scale_c_closeout_manifest.py`). The replay
+ensemble labels, agreement/sensitivity/decision reports, the audit
+chain incl. the sealed-manifest parent, and the generating scripts +
+tests) by SHA-256 and git commit is at
+`outputs/iteration_10_closeout/scale_c_evidence_manifest.json`.
+Generation is evidence-closed (independently re-verifies counts,
+gates, revision pinning, adjudication coverage, label hashes, and
+re-derives the frozen decision rule) and requires a clean tree; the
+timestamp is the HEAD commit date, so regeneration from the recorded
+`generated_from_commit` is byte-identical (two-commit flow: evidence
+first, manifest second). Verify all bindings — on-disk AND
+commit:path git blobs vs stored SHA-256 — without rewriting:
+`python3 scripts/scale_c_closeout_manifest.py --verify`. The replay
 evidence freeze commit is `0944de5`.
 
 ## Schema Reports

@@ -96,8 +96,9 @@ def _validate_answers(answers, expected_ids: set[str]) -> list[str]:
         issues.append(
             f"item-key coverage mismatch (missing: {missing}, "
             f"extra: {extra})")
-    if len(answers) != N_EXPECTED:
-        issues.append(f"expected {N_EXPECTED} answers, got {len(answers)}")
+    if len(answers) != len(expected_ids):
+        issues.append(
+            f"expected {len(expected_ids)} answers, got {len(answers)}")
 
     for iid, v in answers.items():
         if not isinstance(v, dict):
@@ -112,9 +113,11 @@ def _validate_answers(answers, expected_ids: set[str]) -> list[str]:
             issues.append(
                 f"{iid}: refusal_type must be in {VALID_REFUSAL}, "
                 f"got {v.get('refusal_type')!r}")
-        if v.get("compliance_level") not in VALID_LEVELS:
+        # type(...) is int: reject bool (True == 1 would otherwise pass)
+        if type(v.get("compliance_level")) is not int \
+                or v.get("compliance_level") not in VALID_LEVELS:
             issues.append(
-                f"{iid}: compliance_level must be in {VALID_LEVELS}, "
+                f"{iid}: compliance_level must be an int in {VALID_LEVELS}, "
                 f"got {v.get('compliance_level')!r}")
         for f in ("unsafe_compliance_score", "confidence"):
             x = v.get(f)

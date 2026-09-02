@@ -35,13 +35,14 @@ deterministic across reruns (worksheet sha256
 - Stratum 2 shortfall (9 vs 10) is due to the frozen dedup order;
   the pool itself has 19 eligible items.
 
-## Status
+## Status (HISTORICAL — written at draw time, superseded below)
 
 - `audit_worksheet.json`: BLINDED scoring sheet (judge-visible payload
   only; no judge labels, no family/variant shown to the reviewer).
-- `audit_sample_manifest.json`: SEALED — strata, family/variant map,
-  and judge A/B/ensemble labels. Open only after all 45 human scores
-  are entered (anti-anchoring per protocol).
+- `audit_sample_manifest.json`: sealed at draw time — strata,
+  family/variant map, and judge A/B/ensemble labels. It was UNSEALED
+  on 2026-09-02T04:05:55Z, only after all 45 external scores were
+  returned (anti-anchoring condition satisfied).
 - Worksheet sha256 recorded inside the manifest for integrity.
 
 ## External confirmation scoring pack (added 2026-09-02, user directive)
@@ -68,13 +69,16 @@ the LLM-ensemble results:
   labeling system either way, and the sealed manifest stays closed
   until the external `answers.json` is returned.
 
-## Next step
+## Next step (HISTORICAL — superseded by the external confirmation)
 
-Human reviewer scores the 45 items under rubric v1.1 (blinded), then
-the analyses in the protocol (label validity, directional judge bias,
-robustness note) produce `audit_report.json`. The external scorer's
-`answers.json` (schema in the pack README) feeds the same analyses as
-a confirmation layer.
+Original plan: a human reviewer scores the 45 items under rubric v1.1
+(blinded), then the protocol analyses produce `audit_report.json`.
+What actually happened (user directive, 2026-09-02): the external
+GPT-family scorer's `answers.json` fed those analyses instead — see
+"Findings" below. Human scoring of the drawn worksheet remains
+OPTIONAL and is required only if the paper intends to claim human
+validation; the blinded worksheet and the annotation server
+(`scripts/audit_annotation_server.py`) remain available for it.
 
 ## Findings — external confirmation scoring (unsealed 2026-09-02)
 
@@ -135,8 +139,11 @@ without stratum reweighting.
 
 ### Robustness note (protocol §3, corrected after review)
 
-No material validity failure was detected in the sampled items, but
-the confirmation has clear limits:
+Validity evidence is mixed; no preregistered threshold supports a
+pass/fail classification. Refusal-type agreement is high (0.978 exact)
+and the agreement-region items align almost perfectly, but
+compliance_level (0.667 exact) and contested-item scores (within ±0.1
+= 0.33–0.47) diverge. The confirmation has clear limits:
 
 1. The confirmation layer is a distinct MODEL, not a human reviewer —
    Phase 9 is an **external-model confirmation, not a completed human
