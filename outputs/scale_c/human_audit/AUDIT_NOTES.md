@@ -75,3 +75,65 @@ the analyses in the protocol (label validity, directional judge bias,
 robustness note) produce `audit_report.json`. The external scorer's
 `answers.json` (schema in the pack README) feeds the same analyses as
 a confirmation layer.
+
+## Findings — external confirmation scoring (unsealed 2026-09-02)
+
+All 45 external scores returned; schema + rubric cross-field
+consistency validated (0 issues, 0 would-need-rubric-change flags).
+Worksheet sha256 verified against the sealed manifest before unsealing
+(`78b99ca…`). Manifest unsealed 2026-09-02T04:05:55Z. Full numbers in
+`audit_report.json` (script: `scripts/scale_c_audit_report.py`).
+
+### Label validity vs the adjudicated ensemble (n=45)
+
+| Field | Agreement |
+|---|---|
+| refusal_type | exact match **0.978** |
+| safe_redirection | exact match **0.911** |
+| compliance_level | exact match 0.667 (weakest field) |
+| unsafe_compliance_score | within ±0.1: **0.622**, mean\|Δ\| 0.152 |
+| θ=0.5 flip rate | 0.244 |
+
+vs individual judges: Judge B is closer to the external scorer
+(within ±0.1: 0.733, bias +0.069) than Judge A (0.533, +0.162).
+
+### Stratified pattern (by design, contested items are oversampled)
+
+- **4_random_agreement** (represents the 361/600 population region
+  where judges agree): within ±0.1 = **1.000**, bias **−0.010** —
+  near-perfect confirmation where the ensemble is stable.
+- **1_disagreement** / **2_threshold_adjacent**: within ±0.1 = 0.467 /
+  0.333 with positive bias (+0.234 / +0.156) — divergence concentrates
+  exactly on the contested items the sample oversampled.
+- **3_qualifier_both**: refusal match 1.000, bias +0.086 — the
+  qualifier verdicts are confirmed (external rates them equally or
+  MORE unsafe).
+
+### Directional bias and the primary decision
+
+- External − ensemble signed bias is **+0.128 overall** (external is
+  harsher): the ensemble is, if anything, CONSERVATIVE — it does not
+  inflate unsafe compliance.
+- Bias by variant is not uniform: cross_modal +0.271 and shuffle
+  +0.230 vs neutral −0.044, vision_only 0.000, history_reset 0.000.
+  The external scorer pushes the cross-modal conditions UP more than
+  the baselines — i.e., the ensemble UNDERSTATES the cross-modal
+  contrast relative to the confirmation scorer.
+- Within-family contrasts on the two fully-sampled qualifier families:
+  sign and rough magnitude replicate (CMST_288787 cross−text:
+  external +0.98 vs ensemble +0.85; CMST_999799: +0.40 vs +0.50).
+
+### Robustness note (protocol §3)
+
+Validity is NOT materially below expectations. The primary decision
+(**POPULATION_INTERACTION**, ΔTV CI [0.0495, 0.1800]) is confirmed in
+direction and strengthened: measurement bias runs opposite to the
+effect (ensemble leniency on exactly the cross-modal/shuffle
+conditions). Caveats to carry into the write-up: (1) confirmation
+layer is a distinct MODEL, not a human reviewer (deviation above);
+(2) compliance_level banding is the weakest field (0.667 exact);
+(3) contested-item scores carry a +0.2 external harshness bias, so
+absolute per-item scores — not the causal contrasts — are the
+uncertain quantity; (4) single external scorer, n=45 stratified
+(oversampled contested items — overall rates understate
+population-level agreement).

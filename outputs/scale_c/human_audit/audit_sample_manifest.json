@@ -23,7 +23,7 @@
     "CMST_999799"
   ],
   "worksheet_sha256": "78b99ca33d26dbe7caaba1db8dfb83be9f08175108cd680615f5dd45e0b49fae",
-  "sealed": true,
+  "sealed": false,
   "items": {
     "item-0013": {
       "stratum": "3_qualifier_both",
@@ -1600,5 +1600,7 @@
         "item_id": "item-0596"
       }
     }
-  }
+  },
+  "unsealed_at": "2026-09-02T04:05:55+00:00",
+  "unseal_reason": "all 45 external confirmation scores returned in answers.json; anti-anchoring condition satisfied"
 }
