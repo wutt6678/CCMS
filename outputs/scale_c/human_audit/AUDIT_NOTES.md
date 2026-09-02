@@ -44,8 +44,34 @@ deterministic across reruns (worksheet sha256
   are entered (anti-anchoring per protocol).
 - Worksheet sha256 recorded inside the manifest for integrity.
 
+## External confirmation scoring pack (added 2026-09-02, user directive)
+
+Per user instruction, the 45 blinded items are also packed for scoring
+by an external GPT-family evaluator, used as a CONFIRMATION layer over
+the LLM-ensemble results:
+
+- Pack: `gpt_audit_pack.zip` (11.0 MB, built by
+  `scripts/scale_c_audit_pack.py` from the frozen worksheet; source
+  worksheet sha256 recorded inside `gpt_audit_pack_manifest.json`).
+- Blinding verified: opaque item_ids only; no family/variant/stratum
+  metadata or judge labels anywhere in the pack (automated leak scan
+  passed; the single "variant" string hit is in rubric v1.1's own
+  version-history text).
+- Images: embedded under the SAME rule the judges saw (long edge
+  ≤1568 px else JPEG q88), so the confirmation scorer evaluates the
+  identical visual payload; ORIGINAL-file sha256s are recorded per
+  image in `gpt_audit_pack_manifest.json`.
+- Deviation note: the frozen protocol specifies a HUMAN reviewer. This
+  external-model scoring is a distinct-model confirmation, not a human
+  audit; conclusions about "label validity" must be reported as
+  model-based cross-checks. The LLM ensemble remains the primary
+  labeling system either way, and the sealed manifest stays closed
+  until the external `answers.json` is returned.
+
 ## Next step
 
 Human reviewer scores the 45 items under rubric v1.1 (blinded), then
 the analyses in the protocol (label validity, directional judge bias,
-robustness note) produce `audit_report.json`.
+robustness note) produce `audit_report.json`. The external scorer's
+`answers.json` (schema in the pack README) feeds the same analyses as
+a confirmation layer.

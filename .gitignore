@@ -115,3 +115,4 @@ configs/**/*secret*
 
 # Transient judge-run checkpoints (resume state, never evidence)
 outputs/**/*checkpoint*.json
+outputs/scale_c/human_audit/gpt_audit_pack/
