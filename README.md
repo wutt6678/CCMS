@@ -363,6 +363,9 @@ strict subset needs behavioral validation (Iteration 6+).
 - [x] **Iteration 10** — 100-family preliminary experiment (COMPLETE —
       Scale-C evidence frozen; Phase 9 is an external-model confirmation,
       not a human audit)
+- [ ] **Iteration 11** — Cross-model scale & family transportability
+      (IN PROGRESS — 11.0 protocol freeze complete; 4 new targets:
+      Qwen3.5-2B/4B, Ministral-3-3B, Phi-4-multimodal)
 
 ### Iteration 9 closeout (Scale B, frozen)
 
@@ -425,6 +428,46 @@ first, manifest second). Verify all bindings — on-disk AND
 commit:path git blobs vs stored SHA-256 — without rewriting:
 `python3 scripts/scale_c_closeout_manifest.py --verify`. The replay
 evidence freeze commit is `0944de5`.
+
+### Iteration 11 (cross-model scale & family transportability, in progress)
+
+Iteration 11 extends the frozen Iteration 10 experiment from Qwen3.5-9B to
+four more open-weight MLLMs — Qwen3.5-2B, Qwen3.5-4B, Ministral-3-3B
+(`mistralai/Ministral-3-3B-Instruct-2512-BF16`), and Phi-4-multimodal
+(`microsoft/Phi-4-multimodal-instruct`) — reusing the frozen 100-family
+panel, six variants, prompts, causal estimands, rubric v1.1, judging
+policy, and analysis semantics. It supports two analyses: within-Qwen scale
+(2B/4B/9B, reported as a three-checkpoint trend, NOT a scaling law) and
+matched-scale cross-family transportability (Qwen3.5-4B vs Ministral-3-3B
+vs Phi-4-multimodal).
+
+**11.0 (protocol freeze) is complete.** The frozen protocol, model
+registry, machine-readable reference to the immutable 9B run, and baseline
+inventory are under `outputs/iteration_11/protocol/`, generated
+deterministically by `scripts/iter11_freeze_protocol.py`:
+
+```
+python3 scripts/iter11_freeze_protocol.py               # freeze (writes outputs/iteration_11/ only)
+python3 scripts/iter11_freeze_protocol.py --verify-gate  # read-only acceptance gate
+```
+
+The generator is evidence-closed: it re-verifies Iteration 10 before
+freezing (`scale_c_closeout_manifest.py --verify`, re-derives the frozen
+POPULATION_INTERACTION decision, checks the frozen prompt/panel/revision
+hashes) and refuses to write if any check fails. It never modifies
+Iteration 8–10 evidence. Key frozen decisions: BF16 without quantization
+for all new confirmatory runs; greedy decoding (cap 1536, `num_beams 1`,
+inert sampling values normalized to omitted); Phi-4 loaded via a
+shared-env shim (`sdpa` + direct bf16 loader + `prepare_inputs_for_generation`
+/ gradient-checkpointing shims) on transformers 5.14.1; `gemma-3-4b-it` is
+the ONLY fallback and only on an unrecoverable technical eligibility gate;
+InternVL3.5-4B and Molmo2-4B are excluded (Qwen3 backbone). Confirmatory
+hypotheses H1–H5 test the sign of ΔTV against the Iteration 10 estimate,
+with Holm–Bonferroni correction across the four new-model tests.
+
+Iterations 11.1–11.8 (registry/adapter contract, per-family adapters,
+12-family eligibility preflight, full 2,400-output generation, frozen
+judging, and cross-model analysis) are roadmap-only until 11.0 is reviewed.
 
 ## Schema Reports
 

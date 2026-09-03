@@ -1,0 +1,121 @@
+models:
+  qwen35_2b:
+    model_id: Qwen/Qwen3.5-2B
+    revision: null
+    adapter: qwen35
+    dtype: bfloat16
+    quantization: none
+    trust_remote_code: false
+    thinking_mode: false
+    role: Lower Qwen scale
+    license: Apache-2.0
+    size_metadata:
+      marketed_label: 2B
+      language_parameters: null
+      vision_parameters: null
+      published_total_parameters: null
+      checkpoint_parameter_count: null
+      checkpoint_size_bytes: null
+      source_url: null
+  qwen35_4b:
+    model_id: Qwen/Qwen3.5-4B
+    revision: null
+    adapter: qwen35
+    dtype: bfloat16
+    quantization: none
+    trust_remote_code: false
+    thinking_mode: false
+    role: Middle Qwen scale and matched-scale anchor
+    license: Apache-2.0
+    size_metadata:
+      marketed_label: 4B
+      note: ~5B checkpoint total (spec)
+      language_parameters: null
+      vision_parameters: null
+      published_total_parameters: null
+      checkpoint_parameter_count: null
+      checkpoint_size_bytes: null
+      source_url: null
+  qwen35_9b:
+    model_id: Qwen/Qwen3.5-9B
+    revision: c202236235762e1c871ad0ccb60c8ee5ba337b9a
+    adapter: qwen35
+    dtype: bfloat16
+    quantization: none
+    trust_remote_code: false
+    thinking_mode: false
+    role: Existing upper Qwen reference (frozen Iteration 10)
+    license: Apache-2.0
+    size_metadata:
+      marketed_label: 9B
+      language_parameters: null
+      vision_parameters: null
+      published_total_parameters: null
+      checkpoint_parameter_count: null
+      checkpoint_size_bytes: null
+      source_url: null
+  ministral3_3b:
+    model_id: mistralai/Ministral-3-3B-Instruct-2512-BF16
+    revision: null
+    adapter: ministral3
+    dtype: bfloat16
+    quantization: none
+    trust_remote_code: false
+    thinking_mode: false
+    role: Independent family A
+    license: Apache-2.0
+    size_metadata:
+      marketed_label: 3B
+      language_parameters: 3400000000
+      vision_parameters: 400000000
+      note: ~4B checkpoint total (spec)
+      published_total_parameters: null
+      checkpoint_parameter_count: null
+      checkpoint_size_bytes: null
+      source_url: null
+  phi4_mm:
+    model_id: microsoft/Phi-4-multimodal-instruct
+    revision: null
+    adapter: phi4_multimodal
+    dtype: bfloat16
+    quantization: none
+    trust_remote_code: true
+    thinking_mode: false
+    role: Independent family B
+    license: MIT
+    size_metadata:
+      marketed_label: Phi-4-multimodal
+      architectural_parameters: 5600000000
+      note: ~6B checkpoint total (spec)
+      language_parameters: null
+      vision_parameters: null
+      published_total_parameters: null
+      checkpoint_parameter_count: null
+      checkpoint_size_bytes: null
+      source_url: null
+fallback:
+  model_key: gemma3_4b
+  model_id: google/gemma-3-4b-it
+  replaces: phi4_mm
+  revision: null
+  license: gemma
+  allowed_reason: technical_eligibility_gate_only
+  rule: May replace phi4_mm ONLY if Phi-4 fails a technical eligibility gate that
+    cannot be repaired without changing the frozen protocol (cannot represent the
+    common prompt, irreproducible image processing, or unresolved runtime incompatibility).
+    NEVER for low effect size, high refusal, or an unexpected result.
+  on_invoke:
+  - preserve the complete failed Phi-4 preflight
+  - write a machine-readable failure report
+  - state the eligibility criterion that failed
+  - replace BEFORE inspecting any full-panel causal result
+  - pin the gemma3_4b exact revision
+excluded_models:
+- model_id: InternVL3.5-4B
+  reason: language backbone based on Qwen3 — not independent
+- model_id: Molmo2-4B
+  reason: language backbone based on Qwen3 — not independent
+revision_policy:
+  preflight: revision may be null; resolved to a full SHA
+  confirmatory: revision MUST be an immutable 40-hex SHA; null/branch/'main' are rejected
+  lock_file: resolved_models.lock.yaml (written at preflight)

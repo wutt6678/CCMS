@@ -1,0 +1,90 @@
+{
+  "iteration": "11.0",
+  "generated_from_commit": "5e29f253e927040daa5c25d26208afb61c92dcb4",
+  "timestamp": "2026-09-02T14:28:31+08:00",
+  "starting_state": {
+    "head_commit": "5e29f253e927040daa5c25d26208afb61c92dcb4",
+    "baseline_spec_commit": "5e29f253e927040daa5c25d26208afb61c92dcb4",
+    "baseline_is_ancestor_of_head": true,
+    "head_equals_baseline": true
+  },
+  "entrypoints": {
+    "generation_runner": "src/causal_mllm/replay/runner.py",
+    "generation_backend_protocol": "src/causal_mllm/replay/backend.py",
+    "generation_config": "src/causal_mllm/replay/config.py",
+    "generation_cli": "src/causal_mllm/cli/replay.py",
+    "provenance_fingerprint": "src/causal_mllm/replay/runner.py:resolved_fingerprint",
+    "replay_checks": "scripts/scale_c_replay_checks.py",
+    "judging_pipeline": "scripts/run_llm_judge_pipeline.py",
+    "judging_core": [
+      "src/causal_mllm/evaluation/llm_judge.py",
+      "src/causal_mllm/evaluation/ensemble.py",
+      "src/causal_mllm/evaluation/adjudication.py"
+    ],
+    "analysis": [
+      "src/causal_mllm/evaluation/runner.py",
+      "src/causal_mllm/evaluation/estimands.py",
+      "src/causal_mllm/evaluation/bootstrap.py",
+      "src/causal_mllm/evaluation/sensitivity.py",
+      "src/causal_mllm/evaluation/gate.py"
+    ],
+    "closeout_verify": "scripts/scale_c_closeout_manifest.py",
+    "scale_profiles": "configs/evaluation/scale_profiles.json"
+  },
+  "frozen_9b_reproduction": {
+    "system_prompt_sha256_matches": true,
+    "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+    "generation_config": {
+      "temperature": 0.0,
+      "top_p": 1.0,
+      "do_sample": false,
+      "max_new_tokens": 1536,
+      "seed": 42
+    },
+    "resolved_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+    "resolved_sha256": "390539228f4fb6c096b88356b3ecd3c2291948774a60c6a5febb0fade3aec75d",
+    "config_sha256": "5b821f6817ed2ea06c69706b377504620f4e28fab7522cfbf71d01ef3b39dbd6",
+    "enable_thinking": false,
+    "torch_dtype": "bfloat16"
+  },
+  "artifact_hashes": {
+    "panel_validated_families_sha256": "97b8bb7cb3a69903c1988c6a1a8fb1ff9167fdd135c9e5b4b3bd69828fc69863",
+    "rubric_v1_1_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
+    "scale_c_protocol_sha256": "7ff3aa5d9620428e1a68731a3a8d285c10e33c1b10364d16cfcc324bbe0d6a3f",
+    "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
+    "image_manifest": {
+      "n_unique_images": 100,
+      "present_on_disk_locally": 100,
+      "aggregate_manifest_sha256": "4f4202e3ae6538af3dba2cf430d9e050cf2b3dd5fc8e4a29d9e533759e5a705d",
+      "source": "recorded source_media sha256 in the committed panel",
+      "ci_reproducible": true,
+      "note": "Aggregate is computed from panel-recorded hashes, so it is CI-reproducible even though the media files are gitignored."
+    }
+  },
+  "judge_identities": {
+    "primary_A": "qwen3.8-max",
+    "primary_B": "glm-5.2",
+    "adjudicator": "kimi-k3",
+    "rubric_version": "v1.1"
+  },
+  "iteration_10_validation": {
+    "closeout_verify_rc": 0,
+    "decision_re_derived": "POPULATION_INTERACTION",
+    "decision_committed": "POPULATION_INTERACTION",
+    "decision_matches": true,
+    "system_prompt_sha_ok": true,
+    "panel_sha_ok": true,
+    "revision_pinned_ok": true,
+    "git_dirty_false": true,
+    "all_ok": true
+  },
+  "model_availability_local_cache": {
+    "Qwen/Qwen3.5-9B": true,
+    "Qwen/Qwen3.5-2B": true,
+    "Qwen/Qwen3.5-4B": true,
+    "mistralai/Ministral-3-3B-Instruct-2512-BF16": false,
+    "microsoft/Phi-4-multimodal-instruct": true,
+    "google/gemma-3-4b-it": false,
+    "note": "Ministral-3-3B and gemma-3-4b-it require download at 11.3/preflight; not needed for 11.0."
+  }
+}

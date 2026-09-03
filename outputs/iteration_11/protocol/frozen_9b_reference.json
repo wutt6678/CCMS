@@ -1,0 +1,34 @@
+{
+  "purpose": "Machine-readable reference to the immutable Iteration 10 Qwen3.5-9B run. Reference ONLY — never copied into an Iteration 11 dir and presented as newly generated.",
+  "run_dir": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b",
+  "run_id": "scale-c-100-t1536-qwen35-9b",
+  "model": "Qwen/Qwen3.5-9B",
+  "resolved_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "requested_model_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "processor_revision": "c202236235762e1c871ad0ccb60c8ee5ba337b9a",
+  "revision_pinned": true,
+  "enable_thinking": false,
+  "torch_dtype": "bfloat16",
+  "generation_config": {
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "do_sample": false,
+    "max_new_tokens": 1536,
+    "seed": 42
+  },
+  "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+  "prompt_template_revision": "v1",
+  "config_sha256": "5b821f6817ed2ea06c69706b377504620f4e28fab7522cfbf71d01ef3b39dbd6",
+  "resolved_sha256": "390539228f4fb6c096b88356b3ecd3c2291948774a60c6a5febb0fade3aec75d",
+  "validated_families_sha256": "97b8bb7cb3a69903c1988c6a1a8fb1ff9167fdd135c9e5b4b3bd69828fc69863",
+  "replay_git_commit": "098d4487332f70cb0422cbe3e65bde0bb4eee781",
+  "git_dirty": false,
+  "runtime_versions": {
+    "transformers": "5.14.1",
+    "torch": "2.8.0+cu128",
+    "cuda": "12.8"
+  },
+  "n_families": 100,
+  "n_succeeded": 600,
+  "truncation": 0
+}
