@@ -413,14 +413,41 @@ class HFAdapterBase(TargetModelAdapter):
         meta.update(self.extra_runtime_metadata())
         return meta
 
+    def _active_device_index(self, torch) -> int | None:
+        """The CUDA slot the weights actually live on.
+
+        ``torch.cuda.current_device()`` is NOT reliable here: loading with
+        ``device_map="cuda:3"`` leaves the current device at 0, which
+        would record the wrong hardware. Read the parameters instead and
+        fall back to the configured device string.
+        """
+        try:
+            param = next(self.model.parameters(), None)
+            if param is not None and param.device.type == "cuda" \
+                    and param.device.index is not None:
+                return int(param.device.index)
+        except Exception:
+            pass
+        if isinstance(self.device, str) and ":" in self.device:
+            suffix = self.device.rsplit(":", 1)[-1]
+            if suffix.isdigit():
+                return int(suffix)
+        try:
+            return int(torch.cuda.current_device())
+        except Exception:
+            return None
+
     def _hardware_metadata(self, torch) -> dict | None:
         if not torch.cuda.is_available():
             return None
+        index = self._active_device_index(torch)
+        if index is None:
+            return None
         try:
-            index = torch.cuda.current_device()
             props = torch.cuda.get_device_properties(index)
             return {
                 "device_index": index,
+                "requested_device": self.device,
                 "gpu_name": props.name,
                 "total_memory_mb": int(props.total_memory / (1024 ** 2)),
                 "compute_capability": f"{props.major}.{props.minor}",

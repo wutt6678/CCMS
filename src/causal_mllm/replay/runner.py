@@ -102,6 +102,30 @@ def resolved_fingerprint(backend: ReplayBackend,
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+#: Hardware keys that identify the SCHEDULING SLOT rather than the
+#: hardware class. They are recorded for operational honesty but must
+#: not enter the run fingerprint.
+HARDWARE_SCHEDULING_KEYS = frozenset(
+    {"device_index", "requested_device", "device"})
+
+
+def fingerprint_hardware(hardware: dict | None) -> dict | None:
+    """Hardware identity that determines output behaviour.
+
+    The scheduling slot (``device_index`` / ``requested_device``) is
+    deliberately EXCLUDED: the frozen ``resolved_fingerprint`` never
+    bound the device either, all four local GPUs are the same model, and
+    cross-slot generation was verified byte-identical during the 11.2
+    preflight — so moving a run between slots must not invalidate
+    resume.  The hardware CLASS (name, compute capability, memory) is
+    retained, because that can change numerics.
+    """
+    if not isinstance(hardware, dict):
+        return None
+    return {key: value for key, value in sorted(hardware.items())
+            if key not in HARDWARE_SCHEDULING_KEYS}
+
+
 def iteration11_run_fingerprint(
     backend: ReplayBackend,
     config: ReplayConfig,
@@ -112,20 +136,25 @@ def iteration11_run_fingerprint(
     """Iteration 11 resolved-run fingerprint.
 
     Extends the frozen ``resolved_fingerprint`` payload with the model
-    dimension (model_key, adapter, dtype, quantization, hardware) so the
-    9B reference and each new target are separately identified, while
-    ``resolved_fingerprint`` itself is left unchanged for the legacy
-    single-model path. Hashed identically (sha256 over sort_keys JSON).
+    dimension (model_key, adapter, dtype, quantization, hardware class)
+    so the 9B reference and each new target are separately identified,
+    while ``resolved_fingerprint`` itself is left unchanged for the
+    legacy single-model path.  Hashed identically (sha256 over sort_keys
+    JSON).
+
+    Like the frozen fingerprint this binds what DETERMINES the output,
+    not the scheduling slot: ``config.fingerprint()`` is intentionally
+    NOT included because it serializes ``device``.
     """
     validated_path = input_dir / "validated_families.jsonl"
     payload: dict[str, Any] = {
+        "backend": config.backend,
         "model": backend.model_name(),
         "requested_model_revision": config.model_revision,
         "resolved_model_revision": backend.model_revision(),
         "processor_revision": backend.processor_revision(),
         "prompt_template_revision": config.prompt_template_revision,
         "system_prompt_sha256": sha256_text(config.system_prompt),
-        "config_fingerprint": config.fingerprint(),
         "generation_config": config.generation_settings(),
         "enable_thinking": config.enable_thinking,
         "torch_dtype": config.torch_dtype,
@@ -134,7 +163,7 @@ def iteration11_run_fingerprint(
         "torch_version": backend.torch_version(),
         "cuda_version": backend.cuda_version(),
         "code_commit": get_git_commit(),
-        "hardware": hardware,
+        "hardware": fingerprint_hardware(hardware),
     }
     if model_spec is not None:
         payload["model_key"] = model_spec.model_key

@@ -30,6 +30,7 @@ from causal_mllm.replay import (
     assert_confirmatory_revision,
     build_adapter,
     build_chat_messages,
+    fingerprint_hardware,
     is_immutable_revision,
     iteration11_run_fingerprint,
     load_registry,
@@ -588,6 +589,148 @@ class TestRunnerIteration11Provenance:
             assert record["resolved_run_fingerprint"]
             assert record["error"]["category"] == "oom"
             assert record["response"] is None
+
+
+# ---------------------------------------------------------------------
+# Hardware identity: the scheduling slot is not a scientific variable
+# ---------------------------------------------------------------------
+class TestHardwareFingerprinting:
+    def test_scheduling_slot_keys_are_excluded(self):
+        hardware = {"device_index": 3, "requested_device": "cuda:3",
+                    "gpu_name": "NVIDIA RTX 6000 Ada",
+                    "compute_capability": "8.9", "total_memory_mb": 48508}
+        bound = fingerprint_hardware(hardware)
+        assert "device_index" not in bound
+        assert "requested_device" not in bound
+        assert bound == {"compute_capability": "8.9",
+                         "gpu_name": "NVIDIA RTX 6000 Ada",
+                         "total_memory_mb": 48508}
+
+    @pytest.mark.parametrize("value", [None, "cuda:3", 3, []])
+    def test_non_dict_hardware_is_not_bound(self, value):
+        assert fingerprint_hardware(value) is None
+
+    def test_fingerprint_invariant_to_the_gpu_slot(self, tmp_path):
+        _families(tmp_path, 1)
+        spec = _spec()
+        config = ReplayConfig(max_new_tokens=1536)
+        stub = _StubAdapter(spec)
+        base = stub.runtime_metadata()["hardware"]
+        slots = [dict(base, device_index=i) for i in (0, 1, 3)]
+        fingerprints = {
+            iteration11_run_fingerprint(stub, config, tmp_path, spec, hw)
+            for hw in slots}
+        assert len(fingerprints) == 1
+
+    def test_fingerprint_sensitive_to_the_hardware_class(self, tmp_path):
+        _families(tmp_path, 1)
+        spec = _spec()
+        config = ReplayConfig(max_new_tokens=1536)
+        stub = _StubAdapter(spec)
+        base = stub.runtime_metadata()["hardware"]
+        ada = iteration11_run_fingerprint(
+            stub, config, tmp_path, spec, base)
+        other = iteration11_run_fingerprint(
+            stub, config, tmp_path, spec,
+            dict(base, gpu_name="NVIDIA A100-SXM4-80GB"))
+        assert ada != other
+
+    def test_fingerprint_invariant_to_config_device(self, tmp_path):
+        # config.fingerprint() serializes `device`, so it must NOT feed
+        # the Iteration 11 run fingerprint.
+        _families(tmp_path, 1)
+        spec = _spec()
+        stub = _StubAdapter(spec)
+        hw = stub.runtime_metadata()["hardware"]
+        fingerprints = {
+            iteration11_run_fingerprint(
+                stub, ReplayConfig(max_new_tokens=1536, device=device),
+                tmp_path, spec, hw)
+            for device in ("cuda:0", "cuda:1", "cuda:3")}
+        assert len(fingerprints) == 1
+
+    def test_resume_survives_a_gpu_slot_change(self, tmp_path):
+        _families(tmp_path, 2)
+        spec = _spec()
+        first = ReplayConfig(model_name=spec.model_id, device="cuda:0")
+        run_replay_stage(tmp_path, tmp_path / "runs", config=first,
+                         backend=_StubAdapter(spec, fail_after=6),
+                         run_id="iter11-run", model_spec=spec)
+        # Interrupted, then resumed on a DIFFERENT slot of the same GPU
+        # class: this must continue rather than report a mismatch.
+        resumed = ReplayConfig(model_name=spec.model_id, device="cuda:3")
+        stub = _StubAdapter(spec)
+        report = run_replay_stage(
+            tmp_path, tmp_path / "runs", config=resumed, backend=stub,
+            run_id="iter11-run", model_spec=spec, resume=True)
+        assert stub.n_calls == 6
+        assert report["n_succeeded"] == 12 and report["n_failed"] == 0
+
+
+class _FakeDevice:
+    def __init__(self, type_, index):
+        self.type = type_
+        self.index = index
+
+
+class _FakeParam:
+    def __init__(self, type_, index):
+        self.device = _FakeDevice(type_, index)
+
+
+class _FakeModel:
+    def __init__(self, params):
+        self._params = params
+
+    def parameters(self):
+        return iter(self._params)
+
+
+class _FakeCuda:
+    @staticmethod
+    def is_available():
+        return True
+
+    @staticmethod
+    def current_device():
+        # The trap: loading with device_map="cuda:3" leaves the CURRENT
+        # device at 0.
+        return 0
+
+
+class _FakeTorch:
+    cuda = _FakeCuda
+
+
+class TestActiveDeviceIndex:
+    """Regression: the recorded hardware must be the slot the WEIGHTS
+    occupy, not ``torch.cuda.current_device()``."""
+
+    def test_reads_the_device_of_the_loaded_weights(self):
+        adapter = build_adapter(_spec(), ReplayConfig(device="cuda:3"))
+        adapter.model = _FakeModel([_FakeParam("cuda", 3)])
+        assert adapter._active_device_index(_FakeTorch) == 3
+
+    def test_ignores_a_misleading_current_device(self):
+        adapter = build_adapter(_spec(), ReplayConfig(device="cuda:3"))
+        adapter.model = _FakeModel([_FakeParam("cuda", 3)])
+        assert _FakeTorch.cuda.current_device() == 0
+        assert adapter._active_device_index(_FakeTorch) != 0
+
+    def test_falls_back_to_the_configured_device_string(self):
+        adapter = build_adapter(_spec(), ReplayConfig(device="cuda:3"))
+        adapter.model = _FakeModel([])
+        assert adapter._active_device_index(_FakeTorch) == 3
+
+    def test_cpu_weights_fall_back_to_the_configured_device(self):
+        adapter = build_adapter(_spec(), ReplayConfig(device="cuda:3"))
+        adapter.model = _FakeModel([_FakeParam("cpu", None)])
+        assert adapter._active_device_index(_FakeTorch) == 3
+
+    def test_bare_cuda_device_uses_the_current_device(self):
+        adapter = build_adapter(_spec(), ReplayConfig(device="cuda"))
+        adapter.model = _FakeModel([])
+        assert adapter._active_device_index(_FakeTorch) == 0
 
 
 # ---------------------------------------------------------------------

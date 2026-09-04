@@ -43,6 +43,7 @@ from causal_mllm.replay.registry import (
 )
 from causal_mllm.replay.runner import (
     build_chat_messages,
+    fingerprint_hardware,
     iteration11_run_fingerprint,
     resolved_fingerprint,
     run_replay_stage,
@@ -67,6 +68,7 @@ __all__ = [
     "build_adapter",
     "build_chat_messages",
     "classify_error",
+    "fingerprint_hardware",
     "is_immutable_revision",
     "iteration11_run_fingerprint",
     "load_lock",

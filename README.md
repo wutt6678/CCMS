@@ -465,9 +465,76 @@ InternVL3.5-4B and Molmo2-4B are excluded (Qwen3 backbone). Confirmatory
 hypotheses H1–H5 test the sign of ΔTV against the Iteration 10 estimate,
 with Holm–Bonferroni correction across the four new-model tests.
 
-Iterations 11.1–11.8 (registry/adapter contract, per-family adapters,
-12-family eligibility preflight, full 2,400-output generation, frozen
-judging, and cross-model analysis) are roadmap-only until 11.0 is reviewed.
+**11.1 (adapter contract + registry) is complete.** One shared generation
+pipeline with thin model-family adapters, so the four targets never fork
+the runner:
+
+- `src/causal_mllm/replay/registry.py` resolves each `model_key` exactly
+  once from the frozen registry plus an optional `resolved_models.lock.yaml`.
+  The revision policy fails closed: confirmatory runs require an immutable
+  40-hex SHA and reject `null` / branch / `main` / `latest`; preflight may
+  resolve at load time. A non-null floating value is rejected in both modes.
+- `src/causal_mllm/replay/adapters/` defines the `TargetModelAdapter`
+  contract (`load` / `serialize_messages` / `generate` / `decode_new_tokens`
+  / `count_input_tokens` / `count_output_tokens` / `runtime_metadata`) and
+  `HFAdapterBase`, which mirrors the frozen `HFLocalBackend` line for line
+  so Qwen behaviour is unchanged by construction. `Qwen35Adapter` adds only
+  `enable_thinking` from the frozen registry entry. Quantized checkpoints
+  fail closed rather than being silently compared against the bf16 panel.
+- `run_replay_stage` gained optional `model_spec` and `resume`. Iteration 11
+  records carry the full per-record provenance (model key/adapter/dtype,
+  sample and variant ids, code commit, dataset manifest hash,
+  `resolved_run_fingerprint`, semantic + serialized prompt hashes, ordered
+  image hashes, requested/effective seed, determinism flag, runtime
+  versions, hardware, `truncated`). Resume works at
+  `(family_id, variant)` granularity and rejects a differing run
+  fingerprint or model key and duplicate stored records.
+- `python -m causal_mllm.cli.replay --model-key … [--preflight] [--resume]`
+  writes to a model-separated root (`outputs/iteration_11/generations/<model_key>`).
+
+The legacy single-model path is provably untouched: with `model_spec=None`
+the record key set is exactly the 21 frozen keys, the report keeps
+`iteration: "8"`, `resolved_fingerprint` is unchanged, and
+`ReplayConfig(..., device='cuda:3').fingerprint()` still reproduces the
+frozen Iteration 10 `config_sha256` `5b821f68…` bit-for-bit.
+
+**11.2 (Qwen3.5-2B / 4B) is complete.** Both targets pass the GPU
+technical preflight (`scripts/iter11_model_preflight.py`, evidence under
+`outputs/iteration_11/preflight/`):
+
+| target | resolved revision | checkpoint parameters (language / vision / aux) | smoke |
+| --- | --- | --- | --- |
+| `qwen35_2b` | `15852e8c16360a2fea060d615a32b45270f8a8fc` | 2,274,069,824 (1.88B / 331M / 60.8M) | PASS, repeat-stable |
+| `qwen35_4b` | `851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a` | 4,659,865,088 (4.21B / 334M / 120.6M) | PASS, repeat-stable |
+
+Declared sizes are read from safetensors **header shapes**, never inferred
+from a response and never from `total_size / bytes_per_param` — the Qwen3.5
+checkpoints store a mixed BF16/F32 tensor population, so that shortcut is
+wrong. Every parameter is attributed (0 unclassified).
+
+Two comparability results are pinned as evidence:
+
+- The 2B/4B scale arm renders **byte-identical serialized prompts and image
+  hashes** with identical input/image token counts, while responses differ —
+  so scale-arm differences are attributable to the weights alone.
+- The GPU **scheduling slot is not a scientific variable**: the same
+  checkpoint on `cuda:3` and `cuda:0` produced byte-identical responses
+  (`preflight_cross_slot_check.json`). The slot is therefore excluded from
+  `iteration11_run_fingerprint` (as it is from the frozen
+  `resolved_fingerprint`), while the hardware *class* remains bound, so a
+  run can be resumed on another GPU but not on different hardware.
+
+Runs use `cuda:3` per the current standing instruction (the frozen
+protocol's `hardware_note` records the earlier `cuda:1` instruction and is
+left unmodified; the slot actually used is recorded per run). Greedy
+decoding is repeat-stable, but `torch.use_deterministic_algorithms` is
+deliberately left disabled for parity with the frozen 9B reference — the
+preflight reports the flag and the empirical repeat-stability separately
+rather than conflating them.
+
+Iterations 11.3–11.8 (Ministral-3 and Phi-4 adapters, 12-family
+eligibility preflight, full 2,400-output generation, frozen judging, and
+cross-model analysis) remain roadmap-only.
 
 ## Schema Reports
 
