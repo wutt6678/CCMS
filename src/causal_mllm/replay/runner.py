@@ -102,6 +102,51 @@ def resolved_fingerprint(backend: ReplayBackend,
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
+def iteration11_run_fingerprint(
+    backend: ReplayBackend,
+    config: ReplayConfig,
+    input_dir: Path,
+    model_spec: "ResolvedModel | None" = None,
+    hardware: dict | None = None,
+) -> str:
+    """Iteration 11 resolved-run fingerprint.
+
+    Extends the frozen ``resolved_fingerprint`` payload with the model
+    dimension (model_key, adapter, dtype, quantization, hardware) so the
+    9B reference and each new target are separately identified, while
+    ``resolved_fingerprint`` itself is left unchanged for the legacy
+    single-model path. Hashed identically (sha256 over sort_keys JSON).
+    """
+    validated_path = input_dir / "validated_families.jsonl"
+    payload: dict[str, Any] = {
+        "model": backend.model_name(),
+        "requested_model_revision": config.model_revision,
+        "resolved_model_revision": backend.model_revision(),
+        "processor_revision": backend.processor_revision(),
+        "prompt_template_revision": config.prompt_template_revision,
+        "system_prompt_sha256": sha256_text(config.system_prompt),
+        "config_fingerprint": config.fingerprint(),
+        "generation_config": config.generation_settings(),
+        "enable_thinking": config.enable_thinking,
+        "torch_dtype": config.torch_dtype,
+        "validated_families_sha256": _file_sha256(validated_path),
+        "transformers_version": backend.transformers_version(),
+        "torch_version": backend.torch_version(),
+        "cuda_version": backend.cuda_version(),
+        "code_commit": get_git_commit(),
+        "hardware": hardware,
+    }
+    if model_spec is not None:
+        payload["model_key"] = model_spec.model_key
+        payload["adapter"] = model_spec.adapter
+        payload["dtype"] = model_spec.dtype
+        payload["quantization"] = model_spec.quantization
+        payload["trust_remote_code"] = model_spec.trust_remote_code
+        payload["thinking_mode"] = model_spec.thinking_mode
+    blob = json.dumps(payload, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
 def default_run_id(config: ReplayConfig) -> str:
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime(
         "%Y%m%dT%H%M%SZ")
@@ -161,10 +206,12 @@ def build_chat_messages(family: CausalFamily, variant_name: str,
 
 
 def _base_record(run_id: str, family: CausalFamily, variant: str,
-                 config: ReplayConfig, backend: ReplayBackend) -> dict:
+                 config: ReplayConfig, backend: ReplayBackend,
+                 model_spec: "ResolvedModel | None" = None,
+                 run_prov: dict | None = None) -> dict:
     terminal = family.variants[variant].messages[-1]
     n_images = sum(len(m.images) for m in family.variants[variant].messages)
-    return {
+    record = {
         "run_id": run_id,
         "family_id": family.family_id,
         "source_id": family.source.get("source_id"),
@@ -188,12 +235,44 @@ def _base_record(run_id: str, family: CausalFamily, variant: str,
         "response": None,
         "error": None,
     }
+    if model_spec is not None:
+        # Iteration 11 additive provenance (spec Section 8). Legacy
+        # single-model records (model_spec=None) keep the exact shape
+        # above, so frozen Iteration 8-10 evidence is unaffected.
+        rp = run_prov or {}
+        record.update({
+            "model_key": model_spec.model_key,
+            "model_id": model_spec.model_id,
+            "adapter": model_spec.adapter,
+            "dtype": model_spec.dtype,
+            "quantization": model_spec.quantization,
+            "sample_id": family.source.get("source_id"),
+            "variant_id": variant,
+            "code_commit": rp.get("code_commit"),
+            "dataset_manifest_hash": rp.get("dataset_manifest_hash"),
+            "resolved_run_fingerprint": rp.get("resolved_run_fingerprint"),
+            "semantic_prompt_hash": None,
+            "serialized_prompt_hash": None,
+            "ordered_image_hashes": None,
+            "requested_seed": config.seed,
+            "effective_seed": config.seed,
+            "deterministic_algorithms": rp.get("deterministic_algorithms"),
+            "runtime_versions": rp.get("runtime_versions"),
+            "hardware": rp.get("hardware"),
+            "truncated": None,
+        })
+    return record
 
 
 def _replay_family(run_id: str, family: CausalFamily, config: ReplayConfig,
-                   backend: ReplayBackend) -> tuple[list[dict], list[dict]]:
+                   backend: ReplayBackend,
+                   model_spec: "ResolvedModel | None" = None,
+                   run_prov: dict | None = None,
+                   skip_variants: set | None = None
+                   ) -> tuple[list[dict], list[dict]]:
     outputs: list[dict] = []
     failures: list[dict] = []
+    skip = skip_variants or set()
 
     # Verify ALL media immediately before inference; fail loudly and
     # never let a missing/corrupt file masquerade as a response.
@@ -205,13 +284,19 @@ def _replay_family(run_id: str, family: CausalFamily, config: ReplayConfig,
     except Exception as exc:  # media problems are per-family
         error = classify_error(exc)
         for variant in ALL_VARIANT_NAMES:
-            record = _base_record(run_id, family, variant, config, backend)
+            if variant in skip:
+                continue
+            record = _base_record(run_id, family, variant, config, backend,
+                                  model_spec, run_prov)
             record["error"] = error
             failures.append(record)
         return outputs, failures
 
     for variant in ALL_VARIANT_NAMES:
-        record = _base_record(run_id, family, variant, config, backend)
+        if variant in skip:
+            continue
+        record = _base_record(run_id, family, variant, config, backend,
+                              model_spec, run_prov)
         try:
             result = backend.generate(
                 build_chat_messages(family, variant, config))
@@ -225,8 +310,16 @@ def _replay_family(run_id: str, family: CausalFamily, config: ReplayConfig,
         record["output_token_count"] = result.get("output_token_count")
         record["finish_reason"] = result.get("finish_reason")
         record["hit_max_new_tokens"] = result.get("hit_max_new_tokens")
+        if model_spec is not None:
+            record["semantic_prompt_hash"] = result.get("semantic_prompt_hash")
+            record["serialized_prompt_hash"] = result.get(
+                "serialized_prompt_hash")
+            record["ordered_image_hashes"] = result.get("ordered_image_hashes")
+            record["effective_decoding"] = result.get("effective_decoding")
+            record["truncated"] = result.get("finish_reason") == "length"
         outputs.append(record)
     return outputs, failures
+
 
 
 def run_replay_stage(
@@ -237,6 +330,8 @@ def run_replay_stage(
     max_families: int | None = None,
     run_id: str | None = None,
     overwrite: bool = False,
+    model_spec: "ResolvedModel | None" = None,
+    resume: bool = False,
 ) -> dict:
     """Replay validated families; persist outputs/failures/report.
 
@@ -270,7 +365,11 @@ def run_replay_stage(
         families = families[:max_families]
 
     if backend is None:
-        if config.backend == "hf_local":
+        if model_spec is not None:
+            from causal_mllm.replay.adapters import build_adapter
+            backend = build_adapter(model_spec, config)
+            backend.load()
+        elif config.backend == "hf_local":
             backend = HFLocalBackend(config).load()
         else:
             raise ReplayError(f"Unknown backend '{config.backend}'")
@@ -284,11 +383,66 @@ def run_replay_stage(
             f"{config.model_revision!r} but loaded "
             f"{backend.model_revision()!r}")
 
+    # Iteration 11 run-level provenance (empty for the legacy path, so
+    # single-model records/reports are unchanged).
+    run_prov: dict = {}
+    if model_spec is not None:
+        rt = (backend.runtime_metadata()
+              if hasattr(backend, "runtime_metadata") else {})
+        hardware = rt.get("hardware")
+        run_prov = {
+            "model_key": model_spec.model_key,
+            "adapter": model_spec.adapter,
+            "code_commit": get_git_commit(),
+            "dataset_manifest_hash": _file_sha256(source_path),
+            "resolved_run_fingerprint": iteration11_run_fingerprint(
+                backend, config, input_dir, model_spec, hardware),
+            "deterministic_algorithms": rt.get("deterministic_algorithms"),
+            "runtime_versions": {
+                "transformers": backend.transformers_version(),
+                "torch": backend.torch_version(),
+                "cuda": backend.cuda_version(),
+            },
+            "hardware": hardware,
+        }
+
     run_id = run_id or default_run_id(config)
     run_dir = Path(output_root) / run_id
-    # Evidence-protection guard: refuse to overwrite existing evidence
-    # unless the caller explicitly opts in.
-    if run_dir.exists() and not overwrite:
+
+    # Resume: continue an interrupted run at (family_id, variant)
+    # granularity, refusing to mix records from a different resolved run
+    # fingerprint / model_key.  Only successful outputs count as
+    # complete; failed variants are retried.
+    existing_outputs: list[dict] = []
+    done: set[tuple[str, str]] = set()
+    if resume:
+        if (run_dir / REPLAY_OUTPUTS_FILE).exists():
+            existing_outputs = read_jsonl(run_dir / REPLAY_OUTPUTS_FILE)
+            cur_fp = run_prov.get("resolved_run_fingerprint")
+            cur_key = model_spec.model_key if model_spec else None
+            for rec in existing_outputs:
+                prior_fp = rec.get("resolved_run_fingerprint")
+                if cur_fp is not None and prior_fp not in (None, cur_fp):
+                    raise ReplayError(
+                        f"resume mismatch: stored resolved_run_fingerprint "
+                        f"{prior_fp!r} != current {cur_fp!r}; refusing to "
+                        f"append to a run with different provenance")
+                prior_key = rec.get("model_key")
+                if cur_key is not None and prior_key not in (None, cur_key):
+                    raise ReplayError(
+                        f"resume mismatch: stored model_key {prior_key!r} != "
+                        f"current {cur_key!r}")
+                pair = (rec["family_id"], rec["variant"])
+                if pair in done:
+                    raise ReplayError(
+                        f"resume: duplicate stored record for "
+                        f"{pair[0]}:{pair[1]}")
+                done.add(pair)
+            log.info("Resume %s: %d (family, variant) pairs already done",
+                     run_id, len(done))
+    elif run_dir.exists() and not overwrite:
+        # Evidence-protection guard: refuse to overwrite existing evidence
+        # unless the caller explicitly opts in.
         evidence_files = [REPLAY_OUTPUTS_FILE, REPLAY_FAILURES_FILE,
                          REPLAY_REPORT_FILE]
         existing = [f for f in evidence_files
@@ -300,11 +454,18 @@ def run_replay_stage(
                 f"to avoid overwriting retained evidence")
     run_dir.mkdir(parents=True, exist_ok=True)
 
-    outputs: list[dict] = []
+    outputs: list[dict] = list(existing_outputs)
     failures: list[dict] = []
     for family in families:
+        skip = {variant for (fid, variant) in done
+                if fid == family.family_id}
+        if len(skip) == len(ALL_VARIANT_NAMES):
+            log.info("Replay %s: already complete, skipping",
+                     family.family_id)
+            continue
         family_outputs, family_failures = _replay_family(
-            run_id, family, config, backend)
+            run_id, family, config, backend, model_spec, run_prov,
+            skip_variants=skip)
         outputs.extend(family_outputs)
         failures.extend(family_failures)
         log.info("Replay %s: %d outputs, %d failures",
@@ -406,6 +567,17 @@ def run_replay_stage(
             "by_variant": truncation_by_variant,
         },
     }
+    if model_spec is not None:
+        # Iteration 11 report dimension. The legacy single-model report
+        # above is emitted unchanged when model_spec is None.
+        report["iteration"] = "11"
+        report["model_key"] = model_spec.model_key
+        report["adapter"] = model_spec.adapter
+        report["model_spec"] = model_spec.to_dict()
+        report["provenance"].update(run_prov)
+        report["resume"] = {
+            "enabled": bool(resume), "n_pairs_resumed": len(done),
+        }
     with (run_dir / REPLAY_REPORT_FILE).open(
             "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
