@@ -58,16 +58,46 @@ PARITY_NOTES = [
     "of `dtype`; `torch_dtype` is retained deliberately so the load path "
     "matches the frozen HFLocalBackend that produced the 9B reference "
     "panel.",
-    "Qwen3.5 reports 'fast path is not available' (flash-linear-attention "
-    "/ causal-conv1d absent) and falls back to the torch implementation. "
-    "The same environment produced the frozen 9B panel, so the fallback "
-    "is common to every arm rather than a per-model difference.",
     "torch.use_deterministic_algorithms(True) is NOT enabled: the frozen "
     "Iteration 10 configuration never enabled it, and enabling it could "
     "perturb parity with the 9B reference. Repeat-stability is therefore "
     "established EMPIRICALLY per model (greedy decoding, batch size 1, "
     "fixed seed) and reported separately from the global flag.",
 ]
+
+FAMILY_PARITY_NOTES = {
+    "qwen35": [
+        "Qwen3.5 reports 'fast path is not available' (flash-linear-"
+        "attention / causal-conv1d absent) and falls back to the torch "
+        "implementation. The same environment produced the frozen 9B "
+        "panel, so the fallback is common to every Qwen arm rather than a "
+        "per-checkpoint difference.",
+    ],
+    "ministral3": [
+        "The checkpoint ships both HF shards and a Mistral-native "
+        "consolidated.safetensors duplicate; only the sharded HF weights "
+        "referenced by model.safetensors.index.json were downloaded, so "
+        "there is no ambiguity about which file was loaded.",
+        "The vendor default system prompt (SYSTEM_PROMPT.txt) is "
+        "deliberately suppressed: the frozen CCMS system prompt is always "
+        "messages[0], and every generation records "
+        "vendor_default_system_prompt_injected plus the frozen prompt's "
+        "verbatim presence so the suppression is verified, not assumed.",
+        "transformers 5.14.1 warns that this tokenizer may need "
+        "`fix_mistral_regex=True` or tokenization will be incorrect. That "
+        "was tested rather than assumed: for the pinned revision the "
+        "rendered prompt tokenizes to IDENTICAL ids with the flag unset, "
+        "True and False (the pre-tokenizer is never replaced), so the "
+        "warning is cosmetic here and the flag is left unset. The observed "
+        "`tokenizer.fix_mistral_regex` value is recorded per generation.",
+    ],
+    "phi4_multimodal": [],
+    "gemma3": [],
+}
+
+
+def parity_notes(adapter_name: str) -> list[str]:
+    return PARITY_NOTES + FAMILY_PARITY_NOTES.get(adapter_name, [])
 
 
 def _smoke_generation(adapter, family, config, variant, repeats):
@@ -88,6 +118,7 @@ def _smoke_generation(adapter, family, config, variant, repeats):
             "serialized_prompt_hash": result["serialized_prompt_hash"],
             "semantic_prompt_hash": result["semantic_prompt_hash"],
             "ordered_image_hashes": result["ordered_image_hashes"],
+            "adapter_diagnostics": result.get("adapter_diagnostics"),
         })
     responses = {a["response_sha256"] for a in attempts}
     return {
@@ -129,6 +160,22 @@ def _check_smoke(smoke, size_meta) -> list[str]:
                 f"greedy decoding is not deterministic for "
                 f"{entry['variant']}: {entry['n_distinct_responses']} "
                 f"distinct responses over {entry['repeats']} repeats")
+    # Prompt integrity: the frozen CCMS system prompt must be the ONLY
+    # instruction reaching the model. A vendor default (e.g. Ministral-3's
+    # Le Chat prompt) leaking in would mean this family was evaluated
+    # under different instructions than the Qwen arm.
+    for entry in smoke:
+        for attempt in entry["attempts"]:
+            diag = attempt.get("adapter_diagnostics") or {}
+            if diag.get("vendor_default_system_prompt_injected"):
+                problems.append(
+                    f"{entry['variant']}: a vendor default system prompt was "
+                    f"injected into the rendered prompt (markers "
+                    f"{diag.get('vendor_default_markers_found')})")
+            if diag.get("frozen_system_prompt_present_verbatim") is False:
+                problems.append(
+                    f"{entry['variant']}: the frozen CCMS system prompt is "
+                    f"NOT present verbatim in the rendered prompt")
     if size_meta.get("unclassified_parameters"):
         problems.append(
             f"{size_meta['unclassified_parameters']} checkpoint parameters "
@@ -158,12 +205,26 @@ def main() -> int:
     parser.add_argument("--n-families", type=int, default=1,
                         help="Smoke families (technical check only)")
     parser.add_argument("--out", default=None)
+    parser.add_argument("--lock", default=None,
+                        help="resolved_models.lock.yaml path (default: "
+                             "outputs/iteration_11/preflight/"
+                             "resolved_models.lock.yaml)")
+    parser.add_argument("--update-lock", action="store_true", default=False,
+                        help="Record the resolved immutable revision (and a "
+                             "hashed pip-freeze dependency lock) so "
+                             "confirmatory runs can pin it")
+    parser.add_argument("--force-lock", action="store_true", default=False,
+                        help="Allow deliberately re-pinning a model_key that "
+                             "is already locked to a different revision")
     args = parser.parse_args()
 
-    spec = resolve_model(args.model_key, confirmatory=False)
+    spec = resolve_model(args.model_key, confirmatory=False,
+                         lock_path=args.lock)
     if spec.quantization != "none":
         print(f"FAIL {spec.model_key}: quantization {spec.quantization!r}")
         return 2
+    out = Path(args.out) if args.out else \
+        PREFLIGHT_ROOT / spec.model_key / "preflight.json"
     config = ReplayConfig(
         model_name=spec.model_id,
         model_revision=spec.revision,
@@ -198,7 +259,8 @@ def main() -> int:
         "gpu_smoke": None,
         "runtime_metadata": None,
         "determinism": None,
-        "parity_notes": PARITY_NOTES,
+        "parity_notes": parity_notes(spec.adapter),
+        "lock": None,
         "resolved_revision": None,
         "processor_revision": None,
         "size_metadata": None,
@@ -258,12 +320,49 @@ def main() -> int:
                 f"revision mismatch: requested {spec.revision} but loaded "
                 f"{report['resolved_revision']}")
 
-    report["status"] = "PASS" if not report["problems"] else "FAIL"
     report["timestamp"] = datetime.datetime.now(
         datetime.timezone.utc).isoformat(timespec="seconds")
 
-    out = Path(args.out) if args.out else \
-        PREFLIGHT_ROOT / spec.model_key / "preflight.json"
+    if args.update_lock:
+        from causal_mllm.replay.registry import (
+            dependency_lock_snapshot, update_lock)
+        if not is_immutable_revision(report["resolved_revision"]):
+            report["problems"].append(
+                "--update-lock needs a GPU smoke that resolved an immutable "
+                "revision; re-run with --gpu-smoke")
+        elif report["problems"]:
+            report["problems"].append(
+                "--update-lock refused: this preflight reported problems, so "
+                "the revision is not eligible to be locked")
+        else:
+            dependency = dependency_lock_snapshot()
+            size = report["size_metadata"] or {}
+            measured = {
+                key: size.get(key) for key in (
+                    "checkpoint_parameter_count", "language_parameters",
+                    "vision_parameters", "auxiliary_parameters",
+                    "unclassified_parameters", "revision_used",
+                    "stored_dtype_histogram", "n_shards", "n_tensors")
+            } if size else None
+            lock_path = update_lock(
+                spec.model_key,
+                revision=report["resolved_revision"],
+                processor_revision=report["processor_revision"],
+                evidence=str(out),
+                resolved_at=report["timestamp"],
+                measured_size=measured,
+                dependency_lock=dependency,
+                allow_change=args.force_lock,
+                lock_path=args.lock)
+            report["lock"] = {
+                "path": str(lock_path),
+                "revision": report["resolved_revision"],
+                "processor_revision": report["processor_revision"],
+                "dependency_lock": dependency,
+                "forced": bool(args.force_lock),
+            }
+
+    report["status"] = "PASS" if not report["problems"] else "FAIL"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n",
                    encoding="utf-8")
@@ -295,6 +394,11 @@ def main() -> int:
               f"(torch_flag={det['torch_deterministic_algorithms_enabled']}, "
               f"greedy={det['greedy_decoding']}, seed={det['requested_seed']}, "
               f"repeats={det['repeats_per_variant']})")
+    if report["lock"]:
+        dep = report["lock"]["dependency_lock"]
+        print(f"lock: {report['lock']['path']}")
+        print(f"  pip_freeze_sha256={dep['pip_freeze_sha256'][:16]} "
+              f"({dep['n_packages']} packages, python {dep['python_version']})")
     for problem in report["problems"]:
         print(f"PROBLEM: {problem}")
     print(f"wrote {out}")

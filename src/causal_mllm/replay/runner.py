@@ -45,6 +45,7 @@ from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.replay.backend import HFLocalBackend, ReplayBackend
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.errors import ReplayError, ReplayMediaError, classify_error
+from causal_mllm.replay.registry import dependency_lock_sha256
 from causal_mllm.seeds import get_git_commit, is_git_dirty, sha256_text
 from causal_mllm.validation.relations import _file_sha256
 
@@ -132,6 +133,7 @@ def iteration11_run_fingerprint(
     input_dir: Path,
     model_spec: "ResolvedModel | None" = None,
     hardware: dict | None = None,
+    lock_path: str | Path | None = None,
 ) -> str:
     """Iteration 11 resolved-run fingerprint.
 
@@ -164,6 +166,9 @@ def iteration11_run_fingerprint(
         "cuda_version": backend.cuda_version(),
         "code_commit": get_git_commit(),
         "hardware": fingerprint_hardware(hardware),
+        # The frozen protocol requires the pip-freeze dependency lock hash
+        # to be bound into every resolved run fingerprint.
+        "dependency_lock_sha256": dependency_lock_sha256(lock_path),
     }
     if model_spec is not None:
         payload["model_key"] = model_spec.model_key
@@ -289,6 +294,7 @@ def _base_record(run_id: str, family: CausalFamily, variant: str,
             "runtime_versions": rp.get("runtime_versions"),
             "hardware": rp.get("hardware"),
             "truncated": None,
+            "adapter_diagnostics": None,
         })
     return record
 
@@ -345,6 +351,8 @@ def _replay_family(run_id: str, family: CausalFamily, config: ReplayConfig,
                 "serialized_prompt_hash")
             record["ordered_image_hashes"] = result.get("ordered_image_hashes")
             record["effective_decoding"] = result.get("effective_decoding")
+            record["adapter_diagnostics"] = result.get(
+                "adapter_diagnostics")
             record["truncated"] = result.get("finish_reason") == "length"
         outputs.append(record)
     return outputs, failures

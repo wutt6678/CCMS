@@ -1,0 +1,63 @@
+# Iteration 11 preflight output (NOT a frozen artifact).
+# Immutable revisions resolved for confirmatory runs, plus the
+# hashed dependency lock bound into every resolved_run_fingerprint.
+dependency_lock:
+  executable: /scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python
+  n_packages: 102
+  pip_freeze_sha256: a5cdb2750d468bbbbf938554f346b74aef10b9024cb462af92224ab373bcafc3
+  pyproject_sha256: d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458
+  python_version: 3.10.20
+models:
+  ministral3_3b:
+    evidence: /scratch/wutiantong/CCMS/outputs/iteration_11/preflight/ministral3_3b/preflight.json
+    measured_size:
+      auxiliary_parameters: 0
+      checkpoint_parameter_count: 3849090048
+      language_parameters: 3429006336
+      n_shards: 2
+      n_tensors: 458
+      revision_used: b6d637bef2393152b3da2b2fde72eecdee30557e
+      stored_dtype_histogram:
+        BF16: 458
+      unclassified_parameters: 0
+      vision_parameters: 420083712
+    processor_revision: b6d637bef2393152b3da2b2fde72eecdee30557e
+    resolved_at: '2026-09-04T04:27:50+00:00'
+    resolved_by: scripts/iter11_model_preflight.py
+    revision: b6d637bef2393152b3da2b2fde72eecdee30557e
+  qwen35_2b:
+    evidence: /scratch/wutiantong/CCMS/outputs/iteration_11/preflight/qwen35_2b/preflight.json
+    measured_size:
+      auxiliary_parameters: 60828160
+      checkpoint_parameter_count: 2274069824
+      language_parameters: 1881825088
+      n_shards: 1
+      n_tensors: 632
+      revision_used: 15852e8c16360a2fea060d615a32b45270f8a8fc
+      stored_dtype_histogram:
+        BF16: 596
+        F32: 36
+      unclassified_parameters: 0
+      vision_parameters: 331416576
+    processor_revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+    resolved_at: '2026-09-04T04:23:43+00:00'
+    resolved_by: scripts/iter11_model_preflight.py
+    revision: 15852e8c16360a2fea060d615a32b45270f8a8fc
+  qwen35_4b:
+    evidence: /scratch/wutiantong/CCMS/outputs/iteration_11/preflight/qwen35_4b/preflight.json
+    measured_size:
+      auxiliary_parameters: 120599552
+      checkpoint_parameter_count: 4659865088
+      language_parameters: 4205751296
+      n_shards: 2
+      n_tensors: 738
+      revision_used: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+      stored_dtype_histogram:
+        BF16: 690
+        F32: 48
+      unclassified_parameters: 0
+      vision_parameters: 333514240
+    processor_revision: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a
+    resolved_at: '2026-09-04T04:25:20+00:00'
+    resolved_by: scripts/iter11_model_preflight.py
+    revision: 851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a

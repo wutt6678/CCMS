@@ -532,9 +532,60 @@ deliberately left disabled for parity with the frozen 9B reference — the
 preflight reports the flag and the empirical repeat-stability separately
 rather than conflating them.
 
-Iterations 11.3–11.8 (Ministral-3 and Phi-4 adapters, 12-family
-eligibility preflight, full 2,400-output generation, frozen judging, and
-cross-model analysis) remain roadmap-only.
+**11.3 (Ministral-3-3B) is complete.** `ministralai/Ministral-3-3B-Instruct-2512-BF16`
+passes the same GPU technical preflight on `cuda:3`, resolved to revision
+`b6d637bef2393152b3da2b2fde72eecdee30557e` with 3,849,090,048 measured
+parameters (language 3,429,006,336 / vision 420,083,712, all BF16, 0
+unclassified). It is `model_type: mistral3` / `Mistral3ForConditionalGeneration`,
+natively supported by transformers 5.14.1, so **no remote code is executed**
+(`trust_remote_code: false` as frozen). Three genuine family differences are
+handled in `Ministral3Adapter` rather than in the shared pipeline:
+
+- **No thinking switch.** The official template does not accept
+  `enable_thinking`, so `chat_template_kwargs()` is empty and the adapter
+  records `thinking_switch_available: false`.
+- **Image-token accounting.** `PixtralProcessor` exposes no
+  `image_token_id` and `config.image_token_id` is `null` — the placeholder
+  id lives at `config.image_token_index` (`[IMG]` = 10). The generic path
+  would have silently reported **0 image tokens** for every vision variant,
+  so the adapter resolves the id explicitly (config → processor →
+  tokenizer) and also records `[IMG_BREAK]`/`[IMG_END]` counts (121 / 10 / 1
+  on the smoke family).
+- **A vendor default system prompt.** The template injects a 2,406-char
+  Mistral/Le Chat default when `messages[0]['role'] != 'system'`. The
+  frozen CCMS prompt is always `messages[0]`, which suppresses it — but
+  this is **verified per generation, not assumed**: every record carries
+  `vendor_default_system_prompt_injected`, the markers found, the frozen
+  prompt's verbatim presence, and the suppressed vendor prompt's SHA-256
+  (`331b2496…`). A leak would mean Ministral was evaluated under different
+  instructions than the Qwen arm, invalidating the cross-family comparison,
+  so the preflight fails closed on it.
+
+transformers also warns that this tokenizer needs `fix_mistral_regex=True`
+or "tokenization will be incorrect". That was tested rather than assumed:
+for the pinned revision the rendered prompt tokenizes to **identical ids**
+with the flag unset, `True` and `False` (the pre-tokenizer is never
+replaced, because the checkpoint's recorded `transformers_version`
+`5.0.0.dev0` is a prerelease that sorts before `5.0.0`), so the warning is
+cosmetic here, the flag is left unset, and the observed value is recorded.
+Only the HF shards were downloaded — the repo's redundant 7.7 GB
+`consolidated.safetensors` duplicate was skipped, and snapshot resolution
+falls back to the cached snapshot while still failing loudly if any
+index-referenced shard is missing.
+
+This iteration also introduced `outputs/iteration_11/preflight/resolved_models.lock.yaml`
+(a preflight output, **not** a frozen artifact): it pins the immutable
+revision resolved for each target, records the measured checkpoint size,
+and carries a hashed `pip freeze` dependency lock which
+`iteration11_run_fingerprint` now binds, as the frozen protocol requires.
+`update_lock` refuses to lock a floating revision and refuses to move an
+already-pinned revision without an explicit `--force-lock`, preserving the
+superseded value; with the lock present, all three targets now resolve in
+confirmatory mode.
+
+Iterations 11.4–11.8 (the Phi-4-multimodal adapter, 12-family eligibility
+preflight, full 2,400-output generation, frozen judging, and cross-model
+analysis) remain roadmap-only.
 
 ## Schema Reports
 

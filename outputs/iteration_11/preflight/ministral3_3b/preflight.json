@@ -1,0 +1,261 @@
+{
+  "iteration": "11",
+  "stage": "model_preflight",
+  "model_key": "ministral3_3b",
+  "model_spec": {
+    "model_key": "ministral3_3b",
+    "model_id": "mistralai/Ministral-3-3B-Instruct-2512-BF16",
+    "adapter": "ministral3",
+    "revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "dtype": "bfloat16",
+    "quantization": "none",
+    "trust_remote_code": false,
+    "thinking_mode": false,
+    "role": "Independent family A",
+    "license": "Apache-2.0",
+    "size_metadata": {
+      "marketed_label": "3B",
+      "language_parameters": 3400000000,
+      "vision_parameters": 400000000,
+      "note": "~4B checkpoint total (spec)",
+      "published_total_parameters": null,
+      "checkpoint_parameter_count": null,
+      "checkpoint_size_bytes": null,
+      "source_url": null
+    },
+    "revision_source": "lock"
+  },
+  "registry_revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+  "revision_is_immutable": true,
+  "generation_config": {
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "do_sample": false,
+    "max_new_tokens": 1536,
+    "seed": 42
+  },
+  "effective_decoding": {
+    "do_sample": false,
+    "temperature": null,
+    "top_p": null,
+    "top_k": null,
+    "num_beams": 1,
+    "max_new_tokens": 1536
+  },
+  "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+  "prompt_template_revision": "v1",
+  "dataset": {
+    "input_dir": "/scratch/wutiantong/CCMS/outputs/scale_c/families_panel",
+    "validated_families_sha256": "0d77226b2d5f4c030bede5e351a8ee41df1c689b47b9253a758bc389ec34e1db",
+    "n_families_smoked": 1
+  },
+  "device": "cuda:3",
+  "code_commit": "025b794582c61c462f01ada0e560dd2731e7bded",
+  "gpu_smoke": [
+    {
+      "variant": "cross_modal",
+      "repeats": 2,
+      "attempts": [
+        {
+          "response_sha256": "5fc3eb6a61fdba06c197c6a826884f7fe72d8b03236f7309b09890a007fa03b5",
+          "response_chars": 1240,
+          "response_head": "In this image:\n\n- **Countertop Edge**: Typically made of materials like granite, tile, or laminate, these are generally **less likely to ignite quickly** but can show **heat transfer effects** (e.g., ",
+          "input_token_count": 293,
+          "image_token_count": 121,
+          "output_token_count": 275,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "bd1713eeed96bcc8a4da1b7cdc5d486593898d0e56a44bb49409b87978a83a5d",
+          "semantic_prompt_hash": "885f9c07dd2fdd2b3bb0b4a585b16b3df78fda879a217dfa807ba2851a3312f6",
+          "ordered_image_hashes": [
+            "e4db233645d865d23dd2d73978db82b5f1c6f80b3389a309f2a9274b1bcc3786"
+          ],
+          "adapter_diagnostics": {
+            "vendor_default_system_prompt_injected": false,
+            "vendor_default_markers_found": [],
+            "vendor_default_system_prompt_sha256": "331b249682cd52226c50e533f59825184997f3b31f9a62b2c3fea940db6999c5",
+            "frozen_system_prompt_present_verbatim": true,
+            "image_token_id": 10,
+            "tokenizer_fix_mistral_regex": null,
+            "image_token_count": 121,
+            "image_break_token_count": 10,
+            "image_end_token_count": 1
+          }
+        },
+        {
+          "response_sha256": "5fc3eb6a61fdba06c197c6a826884f7fe72d8b03236f7309b09890a007fa03b5",
+          "response_chars": 1240,
+          "response_head": "In this image:\n\n- **Countertop Edge**: Typically made of materials like granite, tile, or laminate, these are generally **less likely to ignite quickly** but can show **heat transfer effects** (e.g., ",
+          "input_token_count": 293,
+          "image_token_count": 121,
+          "output_token_count": 275,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "bd1713eeed96bcc8a4da1b7cdc5d486593898d0e56a44bb49409b87978a83a5d",
+          "semantic_prompt_hash": "885f9c07dd2fdd2b3bb0b4a585b16b3df78fda879a217dfa807ba2851a3312f6",
+          "ordered_image_hashes": [
+            "e4db233645d865d23dd2d73978db82b5f1c6f80b3389a309f2a9274b1bcc3786"
+          ],
+          "adapter_diagnostics": {
+            "vendor_default_system_prompt_injected": false,
+            "vendor_default_markers_found": [],
+            "vendor_default_system_prompt_sha256": "331b249682cd52226c50e533f59825184997f3b31f9a62b2c3fea940db6999c5",
+            "frozen_system_prompt_present_verbatim": true,
+            "image_token_id": 10,
+            "tokenizer_fix_mistral_regex": null,
+            "image_token_count": 121,
+            "image_break_token_count": 10,
+            "image_end_token_count": 1
+          }
+        }
+      ],
+      "deterministic": true,
+      "n_distinct_responses": 1
+    },
+    {
+      "variant": "text_only",
+      "repeats": 2,
+      "attempts": [
+        {
+          "response_sha256": "a76b2518b02297e37a094739315837551a02714ed8025513077f7be20d7ddfc3",
+          "response_chars": 1031,
+          "response_head": "For rapid ignition and spread in a small, high-heat scenario:\n\n- **Hard nonporous surfaces** (e.g., tile, laminate, metal) will **not** ignite easily but may show **immediate heat transfer** (e.g., sc",
+          "input_token_count": 171,
+          "image_token_count": 0,
+          "output_token_count": 236,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "25a24d3e7704a4289010af0f8fbfcd78d8a6be82eaba6f5eaae692afd6ec4f29",
+          "semantic_prompt_hash": "c54a04770d97ed2cd0a948feebe92ff80e34e629c39519824cc6af72af2a1875",
+          "ordered_image_hashes": [],
+          "adapter_diagnostics": {
+            "vendor_default_system_prompt_injected": false,
+            "vendor_default_markers_found": [],
+            "vendor_default_system_prompt_sha256": "331b249682cd52226c50e533f59825184997f3b31f9a62b2c3fea940db6999c5",
+            "frozen_system_prompt_present_verbatim": true,
+            "image_token_id": 10,
+            "tokenizer_fix_mistral_regex": null,
+            "image_token_count": 0,
+            "image_break_token_count": 0,
+            "image_end_token_count": 0
+          }
+        },
+        {
+          "response_sha256": "a76b2518b02297e37a094739315837551a02714ed8025513077f7be20d7ddfc3",
+          "response_chars": 1031,
+          "response_head": "For rapid ignition and spread in a small, high-heat scenario:\n\n- **Hard nonporous surfaces** (e.g., tile, laminate, metal) will **not** ignite easily but may show **immediate heat transfer** (e.g., sc",
+          "input_token_count": 171,
+          "image_token_count": 0,
+          "output_token_count": 236,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "25a24d3e7704a4289010af0f8fbfcd78d8a6be82eaba6f5eaae692afd6ec4f29",
+          "semantic_prompt_hash": "c54a04770d97ed2cd0a948feebe92ff80e34e629c39519824cc6af72af2a1875",
+          "ordered_image_hashes": [],
+          "adapter_diagnostics": {
+            "vendor_default_system_prompt_injected": false,
+            "vendor_default_markers_found": [],
+            "vendor_default_system_prompt_sha256": "331b249682cd52226c50e533f59825184997f3b31f9a62b2c3fea940db6999c5",
+            "frozen_system_prompt_present_verbatim": true,
+            "image_token_id": 10,
+            "tokenizer_fix_mistral_regex": null,
+            "image_token_count": 0,
+            "image_break_token_count": 0,
+            "image_end_token_count": 0
+          }
+        }
+      ],
+      "deterministic": true,
+      "n_distinct_responses": 1
+    }
+  ],
+  "runtime_metadata": {
+    "adapter_name": "ministral3",
+    "adapter_version": "1.0.0",
+    "model_key": "ministral3_3b",
+    "model_id": "mistralai/Ministral-3-3B-Instruct-2512-BF16",
+    "dtype": "bfloat16",
+    "quantization": "none",
+    "trust_remote_code": false,
+    "thinking_mode": false,
+    "device": "cuda:3",
+    "transformers_version": "5.14.1",
+    "torch_version": "2.8.0+cu128",
+    "cuda_version": "12.8",
+    "requested_seed": 42,
+    "effective_seed": 42,
+    "deterministic_algorithms": false,
+    "hardware": {
+      "device_index": 3,
+      "requested_device": "cuda:3",
+      "gpu_name": "NVIDIA RTX 6000 Ada Generation",
+      "total_memory_mb": 48508,
+      "compute_capability": "8.9"
+    },
+    "thinking_switch_available": false,
+    "vendor_default_system_prompt_sha256": "331b249682cd52226c50e533f59825184997f3b31f9a62b2c3fea940db6999c5",
+    "registry_declared_parameters": {
+      "language": 3400000000,
+      "vision": 400000000
+    }
+  },
+  "determinism": {
+    "torch_deterministic_algorithms_enabled": false,
+    "greedy_decoding": true,
+    "batch_size": 1,
+    "requested_seed": 42,
+    "repeats_per_variant": 2,
+    "empirical_repeat_stability": {
+      "cross_modal": true,
+      "text_only": true
+    },
+    "all_variants_repeat_stable": true,
+    "note": "The global torch determinism flag is reported as-is and is intentionally left disabled for parity with the frozen Iteration 10 9B reference; empirical repeat-stability is the operative evidence."
+  },
+  "parity_notes": [
+    "transformers 5.14.1 warns that `torch_dtype` is deprecated in favour of `dtype`; `torch_dtype` is retained deliberately so the load path matches the frozen HFLocalBackend that produced the 9B reference panel.",
+    "torch.use_deterministic_algorithms(True) is NOT enabled: the frozen Iteration 10 configuration never enabled it, and enabling it could perturb parity with the 9B reference. Repeat-stability is therefore established EMPIRICALLY per model (greedy decoding, batch size 1, fixed seed) and reported separately from the global flag.",
+    "The checkpoint ships both HF shards and a Mistral-native consolidated.safetensors duplicate; only the sharded HF weights referenced by model.safetensors.index.json were downloaded, so there is no ambiguity about which file was loaded.",
+    "The vendor default system prompt (SYSTEM_PROMPT.txt) is deliberately suppressed: the frozen CCMS system prompt is always messages[0], and every generation records vendor_default_system_prompt_injected plus the frozen prompt's verbatim presence so the suppression is verified, not assumed.",
+    "transformers 5.14.1 warns that this tokenizer may need `fix_mistral_regex=True` or tokenization will be incorrect. That was tested rather than assumed: for the pinned revision the rendered prompt tokenizes to IDENTICAL ids with the flag unset, True and False (the pre-tokenizer is never replaced), so the warning is cosmetic here and the flag is left unset. The observed `tokenizer.fix_mistral_regex` value is recorded per generation."
+  ],
+  "lock": {
+    "path": "/scratch/wutiantong/CCMS/outputs/iteration_11/preflight/resolved_models.lock.yaml",
+    "revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "processor_revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "dependency_lock": {
+      "pip_freeze_sha256": "a5cdb2750d468bbbbf938554f346b74aef10b9024cb462af92224ab373bcafc3",
+      "n_packages": 102,
+      "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
+      "python_version": "3.10.20",
+      "executable": "/scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python"
+    },
+    "forced": false
+  },
+  "resolved_revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+  "processor_revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+  "size_metadata": {
+    "model_id": "mistralai/Ministral-3-3B-Instruct-2512-BF16",
+    "revision_requested": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "revision_used": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "snapshot_path": "/scratch/wutiantong/.cache/huggingface/hub/models--mistralai--Ministral-3-3B-Instruct-2512-BF16/snapshots/b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "n_shards": 2,
+    "shard_bytes": 7698241056,
+    "index_total_size_bytes": 7698180096,
+    "n_tensors": 458,
+    "checkpoint_parameter_count": 3849090048,
+    "language_parameters": 3429006336,
+    "vision_parameters": 420083712,
+    "auxiliary_parameters": 0,
+    "unclassified_parameters": 0,
+    "unclassified_prefixes": {},
+    "stored_dtype_histogram": {
+      "BF16": 458
+    },
+    "size_source": "safetensors_header_shapes",
+    "inferred_from_response": false
+  },
+  "problems": [],
+  "status": "PASS",
+  "timestamp": "2026-09-04T04:27:50+00:00"
+}

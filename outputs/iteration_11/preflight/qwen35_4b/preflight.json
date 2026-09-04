@@ -50,7 +50,7 @@
     "n_families_smoked": 1
   },
   "device": "cuda:3",
-  "code_commit": "5fae8fc787b027b442b3059d4bc9632c58f2a470",
+  "code_commit": "025b794582c61c462f01ada0e560dd2731e7bded",
   "gpu_smoke": [
     {
       "variant": "cross_modal",
@@ -69,7 +69,8 @@
           "semantic_prompt_hash": "885f9c07dd2fdd2b3bb0b4a585b16b3df78fda879a217dfa807ba2851a3312f6",
           "ordered_image_hashes": [
             "e4db233645d865d23dd2d73978db82b5f1c6f80b3389a309f2a9274b1bcc3786"
-          ]
+          ],
+          "adapter_diagnostics": {}
         },
         {
           "response_sha256": "1cd885c0873a0b6ff406ecb15972f63e4a2b916ff92b6a7d689d8e400f70dc52",
@@ -84,7 +85,8 @@
           "semantic_prompt_hash": "885f9c07dd2fdd2b3bb0b4a585b16b3df78fda879a217dfa807ba2851a3312f6",
           "ordered_image_hashes": [
             "e4db233645d865d23dd2d73978db82b5f1c6f80b3389a309f2a9274b1bcc3786"
-          ]
+          ],
+          "adapter_diagnostics": {}
         }
       ],
       "deterministic": true,
@@ -105,7 +107,8 @@
           "hit_max_new_tokens": false,
           "serialized_prompt_hash": "794c44937ebd73ec72d6afdbfd219d00c5433ebe13077589545b9b3a214af90e",
           "semantic_prompt_hash": "c54a04770d97ed2cd0a948feebe92ff80e34e629c39519824cc6af72af2a1875",
-          "ordered_image_hashes": []
+          "ordered_image_hashes": [],
+          "adapter_diagnostics": {}
         },
         {
           "response_sha256": "2decaafe3f1398351a2eb08b623609a0562ae54c45363980ff53dfd7e26a4cb0",
@@ -118,7 +121,8 @@
           "hit_max_new_tokens": false,
           "serialized_prompt_hash": "794c44937ebd73ec72d6afdbfd219d00c5433ebe13077589545b9b3a214af90e",
           "semantic_prompt_hash": "c54a04770d97ed2cd0a948feebe92ff80e34e629c39519824cc6af72af2a1875",
-          "ordered_image_hashes": []
+          "ordered_image_hashes": [],
+          "adapter_diagnostics": {}
         }
       ],
       "deterministic": true,
@@ -149,7 +153,7 @@
       "compute_capability": "8.9"
     },
     "enable_thinking": false,
-    "declared_parameters": null
+    "registry_declared_parameters": null
   },
   "determinism": {
     "torch_deterministic_algorithms_enabled": false,
@@ -166,14 +170,28 @@
   },
   "parity_notes": [
     "transformers 5.14.1 warns that `torch_dtype` is deprecated in favour of `dtype`; `torch_dtype` is retained deliberately so the load path matches the frozen HFLocalBackend that produced the 9B reference panel.",
-    "Qwen3.5 reports 'fast path is not available' (flash-linear-attention / causal-conv1d absent) and falls back to the torch implementation. The same environment produced the frozen 9B panel, so the fallback is common to every arm rather than a per-model difference.",
-    "torch.use_deterministic_algorithms(True) is NOT enabled: the frozen Iteration 10 configuration never enabled it, and enabling it could perturb parity with the 9B reference. Repeat-stability is therefore established EMPIRICALLY per model (greedy decoding, batch size 1, fixed seed) and reported separately from the global flag."
+    "torch.use_deterministic_algorithms(True) is NOT enabled: the frozen Iteration 10 configuration never enabled it, and enabling it could perturb parity with the 9B reference. Repeat-stability is therefore established EMPIRICALLY per model (greedy decoding, batch size 1, fixed seed) and reported separately from the global flag.",
+    "Qwen3.5 reports 'fast path is not available' (flash-linear-attention / causal-conv1d absent) and falls back to the torch implementation. The same environment produced the frozen 9B panel, so the fallback is common to every Qwen arm rather than a per-checkpoint difference."
   ],
+  "lock": {
+    "path": "/scratch/wutiantong/CCMS/outputs/iteration_11/preflight/resolved_models.lock.yaml",
+    "revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+    "processor_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+    "dependency_lock": {
+      "pip_freeze_sha256": "a5cdb2750d468bbbbf938554f346b74aef10b9024cb462af92224ab373bcafc3",
+      "n_packages": 102,
+      "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
+      "python_version": "3.10.20",
+      "executable": "/scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python"
+    },
+    "forced": false
+  },
   "resolved_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
   "processor_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
   "size_metadata": {
     "model_id": "Qwen/Qwen3.5-4B",
     "revision_requested": null,
+    "revision_used": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
     "snapshot_path": "/scratch/wutiantong/.cache/huggingface/hub/models--Qwen--Qwen3.5-4B/snapshots/851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
     "n_shards": 2,
     "shard_bytes": 9319828096,
@@ -194,5 +212,5 @@
   },
   "problems": [],
   "status": "PASS",
-  "timestamp": "2026-09-04T03:59:41+00:00"
+  "timestamp": "2026-09-04T04:25:20+00:00"
 }

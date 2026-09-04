@@ -40,6 +40,7 @@ from causal_mllm.replay import (
 )
 from causal_mllm.replay.adapters.base import (
     ordered_image_hashes, semantic_prompt_hash)
+from causal_mllm.replay.registry import DEFAULT_LOCK
 from causal_mllm.seeds import sha256_text
 from tests.unit.test_grounding import CLEAN_Q, _built_family
 
@@ -241,19 +242,43 @@ class TestRegistry:
         assert is_immutable_revision(spec.revision)
         assert spec.revision_source == "registry"
 
-    def test_new_targets_are_unpinned_until_preflight(self):
+    def test_new_targets_are_unpinned_in_the_frozen_registry(self):
+        # The FROZEN registry itself still carries null revisions for the
+        # new targets; the immutable values resolved at preflight live in
+        # the lock file, which resolve_model() merges in.
+        raw = yaml.safe_load(
+            (PROTOCOL_DIR / "model_registry.yaml").read_text(
+                encoding="utf-8"))["models"]
         for key in NEW_TARGET_KEYS:
-            assert resolve_model(key).revision is None, key
+            assert raw[key]["revision"] is None, key
+        assert raw["qwen35_9b"]["revision"] == FROZEN_9B_REVISION
 
     def test_only_phi4_needs_remote_code(self):
         for key in TARGET_KEYS:
             expected = key == "phi4_mm"
             assert resolve_model(key).trust_remote_code is expected, key
 
-    def test_confirmatory_rejects_unpinned_new_target(self):
+    def test_confirmatory_rejects_a_target_with_no_locked_revision(
+            self, tmp_path):
+        # Isolated from the committed preflight lock: with an empty lock
+        # every new target is still unpinned and must be rejected.
+        empty = tmp_path / "empty-lock.yaml"
+        empty.write_text("models: {}\n", encoding="utf-8")
         for key in NEW_TARGET_KEYS:
             with pytest.raises(ReplayError, match="immutable 40-hex"):
-                resolve_model(key, confirmatory=True)
+                resolve_model(key, confirmatory=True, lock_path=empty)
+
+    def test_committed_preflight_lock_enables_confirmatory_resolution(self):
+        if not DEFAULT_LOCK.exists():
+            pytest.skip("no preflight lock committed yet")
+        locked = yaml.safe_load(
+            DEFAULT_LOCK.read_text(encoding="utf-8")).get("models", {})
+        assert locked, "lock file has no models"
+        for key in locked:
+            spec = resolve_model(key, confirmatory=True)
+            assert is_immutable_revision(spec.revision), key
+            assert spec.revision_source == "lock", key
+            assert spec.revision == locked[key]["revision"], key
 
     def test_confirmatory_accepts_pinned_9b(self):
         assert resolve_model("qwen35_9b",
@@ -353,7 +378,11 @@ class TestAdapterContract:
             "revision": FROZEN_9B_REVISION}
 
     def test_unpinned_spec_passes_no_revision(self):
-        adapter = build_adapter(_spec("qwen35_2b"), ReplayConfig())
+        # Hand-built rather than resolved, so the assertion stays valid
+        # once preflight locks the real targets.
+        spec = ResolvedModel(model_key="unpinned", model_id="org/x",
+                             adapter="qwen35", revision=None)
+        adapter = build_adapter(spec, ReplayConfig())
         assert adapter._pretrained_kwargs() == {}
 
     def test_trust_remote_code_forwarded(self):

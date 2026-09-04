@@ -179,6 +179,15 @@ class HFAdapterBase(TargetModelAdapter):
     def extra_runtime_metadata(self) -> dict:
         return {}
 
+    def adapter_diagnostics(self, text: str, inputs) -> dict:
+        """Family-specific serialization checks recorded per generation.
+
+        Used to prove that a family's chat template did not silently
+        alter the frozen prompt (e.g. injecting a vendor default system
+        prompt). Empty for families with nothing extra to attest.
+        """
+        return {}
+
     # --- loading -------------------------------------------------------
     def _pretrained_kwargs(self) -> dict:
         """Pin the recorded revision into the actual load."""
@@ -383,6 +392,7 @@ class HFAdapterBase(TargetModelAdapter):
             "serialized_prompt_hash": sha256_text(text),
             "ordered_image_hashes": ordered_image_hashes(chat_messages),
             "effective_decoding": self.effective_decoding(),
+            "adapter_diagnostics": self.adapter_diagnostics(text, inputs),
         }
 
     # --- metadata ------------------------------------------------------

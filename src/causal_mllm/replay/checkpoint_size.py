@@ -13,6 +13,7 @@ weights: it is safe to run before deciding whether a model is eligible.
 from __future__ import annotations
 
 import json
+import os
 import struct
 from collections import Counter
 from pathlib import Path
@@ -62,6 +63,32 @@ def _safetensors_header(path: Path) -> dict:
             from exc
 
 
+def _hub_cache_dir() -> Path:
+    cache_root = os.environ.get("HF_HOME")
+    return Path(cache_root) / "hub" if cache_root else \
+        Path.home() / ".cache" / "huggingface" / "hub"
+
+
+def _cached_snapshots(model_id: str) -> list[Path]:
+    """Snapshot directories already present for a repo (newest name last)."""
+    if "/" not in model_id:
+        return []
+    snapshots = _hub_cache_dir() / (
+        "models--" + model_id.replace("/", "--")) / "snapshots"
+    if not snapshots.exists():
+        return []
+    return sorted((path for path in snapshots.iterdir() if path.is_dir()),
+                  key=lambda p: p.name)
+
+
+def _revision_from_snapshot(snapshot: Path) -> str | None:
+    """The revision a hub snapshot directory name denotes, if any."""
+    name = snapshot.name
+    if len(name) == 40 and all(c in "0123456789abcdef" for c in name.lower()):
+        return name
+    return None
+
+
 def resolve_snapshot_dir(model_id: str, revision: str | None = None,
                          local_files_only: bool = True) -> Path:
     """Local snapshot directory for a hub checkpoint (no download)."""
@@ -73,12 +100,39 @@ def resolve_snapshot_dir(model_id: str, revision: str | None = None,
     try:
         path = snapshot_download(
             model_id, revision=revision, local_files_only=local_files_only)
+        return Path(path)
     except Exception as exc:
+        cached = _cached_snapshots(model_id)
+        if revision is not None:
+            match = [path for path in cached if path.name == revision]
+            if len(match) == 1:
+                # The hub's completeness check demands EVERY repo file,
+                # including ones this project deliberately does not fetch
+                # (Ministral-3 ships a redundant 7.7GB
+                # consolidated.safetensors alongside the HF shards). The
+                # guarantee that actually matters here is that every shard
+                # referenced by model.safetensors.index.json is present,
+                # which _shard_files() enforces loudly.
+                return match[0]
+            raise ReplayError(
+                f"{model_id}: checkpoint not available locally "
+                f"(revision={revision!r}); download it during preflight "
+                f"before recording declared size metadata: {exc}") from exc
+        # An unpinned lookup needs refs/main, which is absent when the
+        # repo was fetched by explicit SHA. Fall back to the cached
+        # snapshot only when it is UNAMBIGUOUS - guessing between two
+        # revisions would silently misreport the declared size.
+        if len(cached) == 1:
+            return cached[0]
+        if len(cached) > 1:
+            raise ReplayError(
+                f"{model_id}: {len(cached)} cached snapshots "
+                f"({[p.name for p in cached]}) and no pinned revision - "
+                f"lock the revision before measuring declared size") from exc
         raise ReplayError(
             f"{model_id}: checkpoint not available locally "
             f"(revision={revision!r}); download it during preflight "
             f"before recording declared size metadata: {exc}") from exc
-    return Path(path)
 
 
 def _shard_files(snapshot: Path) -> list[Path]:
@@ -141,6 +195,7 @@ def checkpoint_size_metadata(model_id: str, revision: str | None = None,
     return {
         "model_id": model_id,
         "revision_requested": revision,
+        "revision_used": _revision_from_snapshot(snapshot),
         "snapshot_path": str(snapshot),
         "n_shards": len(shards),
         "shard_bytes": sum(shard.stat().st_size for shard in shards),

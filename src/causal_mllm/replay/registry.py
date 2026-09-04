@@ -16,6 +16,9 @@ This module never loads models; it only resolves declarative specs.
 
 from __future__ import annotations
 
+import hashlib
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,12 +26,13 @@ import yaml
 
 from causal_mllm.replay.errors import ReplayError
 
-DEFAULT_REGISTRY = (
-    Path(__file__).resolve().parents[3]
-    / "outputs" / "iteration_11" / "protocol" / "model_registry.yaml")
-DEFAULT_LOCK = (
-    Path(__file__).resolve().parents[3]
-    / "outputs" / "iteration_11" / "protocol" / "resolved_models.lock.yaml")
+REPO_ROOT = Path(__file__).resolve().parents[3]
+DEFAULT_REGISTRY = REPO_ROOT / "outputs" / "iteration_11" / "protocol" \
+    / "model_registry.yaml"
+# The lock is a PREFLIGHT OUTPUT, not a frozen artifact, so it lives with
+# the other preflight evidence rather than in the immutable protocol dir.
+DEFAULT_LOCK = REPO_ROOT / "outputs" / "iteration_11" / "preflight" \
+    / "resolved_models.lock.yaml"
 
 IMMUTABLE_REV_HEXLEN = 40
 _FLOATING = {"", "main", "master", "head", "latest", "none"}
@@ -178,3 +182,115 @@ def resolve_all(*, confirmatory: bool = False,
                            lock_path=lock_path)
         for key in reg["models"]
     }
+
+
+# ---------------------------------------------------------------------
+# Lock file: preflight output binding resolved revisions + dependencies
+# ---------------------------------------------------------------------
+def _file_sha256(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(path.read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def dependency_lock_snapshot() -> dict:
+    """Hashed snapshot of the reference environment.
+
+    The frozen protocol requires a complete pip-freeze lock hash to be
+    captured at preflight and bound into each resolved run fingerprint.
+    """
+    completed = subprocess.run(
+        [sys.executable, "-m", "pip", "freeze"],
+        capture_output=True, text=True, check=False)
+    lines = sorted(line.strip() for line in completed.stdout.splitlines()
+                   if line.strip() and not line.startswith("#"))
+    freeze_text = "\n".join(lines)
+    pyproject = REPO_ROOT / "pyproject.toml"
+    return {
+        "pip_freeze_sha256": hashlib.sha256(
+            freeze_text.encode("utf-8")).hexdigest(),
+        "n_packages": len(lines),
+        "pyproject_sha256": _file_sha256(pyproject),
+        "python_version": sys.version.split()[0],
+        "executable": sys.executable,
+    }
+
+
+def dependency_lock_sha256(lock_path: str | Path | None = None) -> str | None:
+    """Hash of the recorded dependency lock (None if not yet captured)."""
+    path = Path(lock_path) if lock_path else DEFAULT_LOCK
+    if not path.exists():
+        return None
+    try:
+        lock = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except yaml.YAMLError:
+        return None
+    dependency = lock.get("dependency_lock")
+    if not isinstance(dependency, dict):
+        return None
+    blob = yaml.safe_dump(dependency, sort_keys=True)
+    return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def update_lock(model_key: str, *, revision: str,
+                processor_revision: str | None = None,
+                evidence: str | None = None,
+                resolved_at: str | None = None,
+                measured_size: dict | None = None,
+                dependency_lock: dict | None = None,
+                allow_change: bool = False,
+                lock_path: str | Path | None = None) -> Path:
+    """Record a resolved immutable revision for one model_key.
+
+    Fail-closed: once a revision is locked, re-locking to a DIFFERENT
+    revision raises unless ``allow_change`` is explicit, so an upstream
+    commit can never silently move a confirmatory target.
+    """
+    if not is_immutable_revision(revision):
+        raise ReplayError(
+            f"{model_key}: refusing to lock non-immutable revision "
+            f"{revision!r}")
+    path = Path(lock_path) if lock_path else DEFAULT_LOCK
+    lock: dict = {}
+    if path.exists():
+        loaded = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        if not isinstance(loaded, dict):
+            raise ReplayError(f"{path}: malformed lock file")
+        lock = loaded
+    models = lock.setdefault("models", {})
+    entry = models.get(model_key)
+    if not isinstance(entry, dict):
+        entry = {}
+    prior = entry.get("revision")
+    if prior and prior != revision and not allow_change:
+        raise ReplayError(
+            f"{model_key}: revision already locked to {prior!r}; refusing "
+            f"to move it to {revision!r} implicitly. Pass allow_change "
+            f"(--force-lock) to re-pin deliberately.")
+    if prior and prior != revision:
+        history = entry.setdefault("superseded_revisions", [])
+        history.append(prior)
+    entry["revision"] = revision
+    entry["processor_revision"] = processor_revision or revision
+    if evidence:
+        entry["evidence"] = evidence
+    if resolved_at:
+        entry["resolved_at"] = resolved_at
+    if measured_size:
+        # Measured from the checkpoint headers; supersedes the registry's
+        # declared approximations for analysis.
+        entry["measured_size"] = measured_size
+    entry.setdefault("resolved_by", "scripts/iter11_model_preflight.py")
+    models[model_key] = entry
+    if dependency_lock:
+        lock["dependency_lock"] = dependency_lock
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        "# Iteration 11 preflight output (NOT a frozen artifact).\n"
+        "# Immutable revisions resolved for confirmatory runs, plus the\n"
+        "# hashed dependency lock bound into every resolved_run_fingerprint.\n"
+        + yaml.safe_dump(lock, sort_keys=True),
+        encoding="utf-8")
+    return path
+

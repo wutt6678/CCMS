@@ -30,6 +30,8 @@ class Qwen35Adapter(HFAdapterBase):
     def extra_runtime_metadata(self) -> dict:
         return {
             "enable_thinking": bool(self.model_spec.thinking_mode),
-            "declared_parameters": self.model_spec.size_metadata.get(
+            # The registry carries declared approximations only; the
+            # MEASURED counts are in the preflight report's size_metadata.
+            "registry_declared_parameters": self.model_spec.size_metadata.get(
                 "language_parameters"),
         }

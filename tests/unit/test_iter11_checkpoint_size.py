@@ -274,8 +274,14 @@ class TestMeasuredQwenPreflightEvidence:
         key, report = preflight
         assert is_immutable_revision(report["resolved_revision"])
         assert report["resolved_revision"] == PINNED_SIZES[key]["revision"]
-        assert report["revision_is_immutable"] is False, \
-            "the registry revision is still null before the 11.5 lock"
+        # revision_is_immutable describes the registry/lock value at
+        # RESOLVE time: null on a first preflight, pinned once the lock
+        # exists. Either way it must be consistent, and a pinned request
+        # must be what actually loaded.
+        assert report["revision_is_immutable"] == (
+            report["registry_revision"] is not None)
+        if report["registry_revision"] is not None:
+            assert report["registry_revision"] == report["resolved_revision"]
 
     def test_declared_sizes_match_the_measurement(self, preflight):
         key, report = preflight
