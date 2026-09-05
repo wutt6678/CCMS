@@ -24,6 +24,27 @@ P1-5  The dependency lock was recorded but never compared against the
       the fingerprint, a failed ``pip freeze`` was accepted, and the
       interpreter path was hashed as if it were dependency identity.
 
+A second review round then found that untracked files were counted as clean,
+that a third-party editable revision was being normalized OUT of dependency
+identity, and that the 11.5 eligibility report recorded provenance it never
+verified. A third round found four more, each pinned below:
+
+P1-6  The 12-family eligibility selection was not externally pre-registered:
+      the digest was recomputed from the ids in the SAME report, so replacing
+      both together still passed. The gate now re-derives the selection from
+      the frozen Iteration 10 reference run and adjudicated labels.
+P1-7  Any nonempty dictionary of passing gates could authorize a run, so a
+      report could simply omit the vision, truncation, determinism and
+      terminal-query checks. ``ELIGIBILITY_REQUIRED_GATES`` is now exact —
+      missing and unexpected names are both rejected — and each gate must
+      carry evidence that is semantically consistent with ``passed``.
+P2-8  ``processor_revision`` only had to LOOK like a 40-hex SHA; it is now
+      compared against the revision the lock resolved for this target.
+P2-9  Editable installs were detected only when the freeze line ended in a
+      hex revision, leaving ``-e /path`` and ``-e file:///path`` — the forms
+      that name no revision at all — invisible. Every third-party ``-e``
+      entry is now detected and refused.
+
 Torch-free and offline: the gate and journal are exercised against
 synthetic protocols/panels/locks and a stub backend.
 """
@@ -41,17 +62,20 @@ import yaml
 from causal_mllm import seeds
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
 from causal_mllm.data.io import read_jsonl, write_jsonl
-from causal_mllm.replay import confirmatory, registry, runner
+from causal_mllm.replay import confirmatory, registry, runner, selection
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.confirmatory import (
+    ELIGIBILITY_GATE_EVIDENCE,
     ELIGIBILITY_N_ATTEMPTS,
     ELIGIBILITY_N_FAMILIES,
     ELIGIBILITY_REQUIRED_FIELDS,
+    ELIGIBILITY_REQUIRED_GATES,
     GENERATIONS_ROOT,
     enforce_confirmatory_protocol,
     protocol_sha256,
     selected_families_sha256,
     validate_eligibility_report,
+    validate_gate_entry,
 )
 from causal_mllm.replay.errors import ReplayError
 from causal_mllm.replay.registry import (
@@ -59,6 +83,8 @@ from causal_mllm.replay.registry import (
     ResolvedModel,
     dependency_lock_sha256,
     dependency_lock_snapshot,
+    editable_installs,
+    editable_vcs_revisions,
     load_dependency_lock,
     verify_active_dependency_lock,
 )
@@ -106,6 +132,7 @@ def _load_script(name: str):
 
 
 preflight = _load_script("iter11_model_preflight")
+write_selection = _load_script("iter11_write_selection")
 
 
 def _tree(dirty, dirty_paths=(), untracked_paths=(), own_outputs=(),
@@ -698,6 +725,20 @@ def _eligibility_ids(n=ELIGIBILITY_N_FAMILIES):
     return [f"fam{i:03d}" for i in range(n)]
 
 
+def _synthetic_selection(ids=None) -> dict:
+    """Stand-in for ``selection.derive_frozen_selection``.
+
+    The real derivation reads the frozen 9B run and the frozen adjudicated
+    labels, which the synthetic world does not contain. What the gate does
+    with the result is identical, so tests inject the same shape and the
+    external-pre-registration checks are exercised for real.
+    """
+    chosen = sorted(_eligibility_ids() if ids is None else ids)
+    return {"selected_family_ids": chosen,
+            "selected_families_sha256": selected_families_sha256(chosen),
+            "n_selected_families": len(chosen)}
+
+
 def _write_eligibility(root: Path, model_key: str, protocol_path: Path, *,
                        lock_sha=None, model_id="Qwen/Qwen3.5-4B",
                        status="PASS", eligible=True, revision=REVISION,
@@ -732,11 +773,29 @@ def _write_eligibility(root: Path, model_key: str, protocol_path: Path, *,
             variant: {"n": ELIGIBILITY_N_FAMILIES, "n_truncated": 0,
                       "truncation_rate": 0.0}
             for variant in ALL_VARIANT_NAMES},
+        # The EXACT required gate set, each carrying its evidence. A bare
+        # ``passed: true`` is not accepted: it does not show the check ran.
         "gates": {
-            "generations_72_of_72": {"passed": True},
-            "truncation_by_variant_reviewed": {"passed": True},
-            "vision_path_engaged": {"passed": True},
-            "revision_pinned": True,
+            "generations_complete": {
+                "passed": True,
+                "n_attempts": ELIGIBILITY_N_ATTEMPTS,
+                "n_succeeded": ELIGIBILITY_N_ATTEMPTS,
+                "n_failed": 0},
+            "truncation_reviewed": {
+                "passed": True, "n_truncated": 0, "truncation_rate": 0.0,
+                "max_variant_spread": 0.0},
+            "vision_path_engaged": {
+                "passed": True, "n_image_bearing_cells": 24,
+                "min_image_token_count": 81},
+            "terminal_query_invariant": {
+                "passed": True,
+                "n_families_checked": ELIGIBILITY_N_FAMILIES,
+                "n_mismatched": 0},
+            "revision_pinned": {
+                "passed": True, "model_revision": revision,
+                "processor_revision": processor_revision},
+            "determinism": {
+                "passed": True, "n_repeats": 2, "n_distinct_responses": 1},
         },
     }
     if overrides:
@@ -800,6 +859,7 @@ def world(tmp_path, frozen_env, clean_tree):
         "input_dir": panel.parent, "protocol_path": protocol_path,
         "lock_path": lock_path, "eligibility_root": eligibility_root,
         "spec": spec, "config": config, "dependency": frozen_env,
+        "expected_selection": _synthetic_selection(),
     }
 
 
@@ -812,6 +872,10 @@ def _gate(world, **overrides):
         "protocol_path": world["protocol_path"],
         "eligibility_root": world["eligibility_root"],
         "output_root": f"{GENERATIONS_ROOT}/{world['spec'].model_key}",
+        # Injected rather than derived: the synthetic world has no frozen 9B
+        # run to derive from. The gate treats this exactly as it treats a
+        # derivation, which is what makes the test meaningful.
+        "expected_selection": world["expected_selection"],
     }
     kwargs.update(overrides)
     return enforce_confirmatory_protocol(**kwargs)
@@ -1213,8 +1277,127 @@ def _validate(world, report, **kwargs) -> list[str]:
                       protocol_sha256(world["protocol_path"]))
     kwargs.setdefault("expected_lock_sha",
                       dependency_lock_sha256(world["lock_path"]))
+    selection = world["expected_selection"]
+    kwargs.setdefault("expected_family_ids", selection["selected_family_ids"])
+    kwargs.setdefault("expected_selection_sha256",
+                      selection["selected_families_sha256"])
+    kwargs.setdefault("expected_processor_revision", PROCESSOR_REVISION)
     return validate_eligibility_report(
         report, model_spec=world["spec"], **kwargs)
+
+
+def _gate_entry(name, **overrides) -> dict:
+    """A conformant evidence entry for one required gate."""
+    entry = {
+        "generations_complete": {
+            "passed": True, "n_attempts": ELIGIBILITY_N_ATTEMPTS,
+            "n_succeeded": ELIGIBILITY_N_ATTEMPTS, "n_failed": 0},
+        "truncation_reviewed": {
+            "passed": True, "n_truncated": 0, "truncation_rate": 0.0,
+            "max_variant_spread": 0.0},
+        "vision_path_engaged": {
+            "passed": True, "n_image_bearing_cells": 24,
+            "min_image_token_count": 81},
+        "terminal_query_invariant": {
+            "passed": True, "n_families_checked": ELIGIBILITY_N_FAMILIES,
+            "n_mismatched": 0},
+        "revision_pinned": {
+            "passed": True, "model_revision": REVISION,
+            "processor_revision": PROCESSOR_REVISION},
+        "determinism": {
+            "passed": True, "n_repeats": 2, "n_distinct_responses": 1},
+    }[name]
+    assert set(entry) - {"passed"} == set(ELIGIBILITY_GATE_EVIDENCE[name])
+    entry = dict(entry)
+    entry.update(overrides)
+    return entry
+
+
+_RESOLVED_REVISIONS = {"model_revision": REVISION,
+                       "processor_revision": PROCESSOR_REVISION}
+
+_GATE_EVIDENCE_CASES = [(name, field)
+                        for name, fields in
+                        sorted(ELIGIBILITY_GATE_EVIDENCE.items())
+                        for field in fields]
+
+
+class TestGateEvidence:
+    """Each detailed gate must SHOW its work, not just claim a verdict.
+
+    The reported defect: the validator accepted any nonempty dictionary of
+    passing entries, and a test established that ``{"only_gate": true}`` was
+    valid — so a report could omit the vision, truncation, determinism and
+    terminal-query checks entirely and still authorize generation.
+    """
+
+    @pytest.mark.parametrize("name", sorted(ELIGIBILITY_REQUIRED_GATES))
+    def test_a_conformant_entry_passes(self, name):
+        assert validate_gate_entry(name, _gate_entry(name),
+                                   expected_revisions=_RESOLVED_REVISIONS) \
+            == []
+
+    @pytest.mark.parametrize("name", ["only_gate", "vision", "",
+                                      "GENERATIONS_COMPLETE"])
+    def test_an_undefined_gate_name_confers_nothing(self, name):
+        problems = validate_gate_entry(name, {"passed": True})
+        assert problems and "not one of the required gates" in problems[0]
+
+    @pytest.mark.parametrize("entry", [True, False, "true", 1, None, [],
+                                       "passed"])
+    def test_a_bare_flag_is_not_auditable(self, entry):
+        problems = validate_gate_entry("determinism", entry)
+        assert problems and "a bare flag is not auditable" in problems[0]
+
+    @pytest.mark.parametrize("passed", [False, None, 1, "true", "PASS"])
+    def test_passed_must_be_literal_true(self, passed):
+        problems = validate_gate_entry(
+            "determinism", _gate_entry("determinism", passed=passed),
+            expected_revisions=_RESOLVED_REVISIONS)
+        assert any("did not pass" in p for p in problems)
+
+    @pytest.mark.parametrize("name,field", _GATE_EVIDENCE_CASES)
+    def test_every_evidence_field_is_required(self, name, field):
+        # Absent AND explicitly null both count: the semantic checks need
+        # the value, and a null is how a report says "not measured".
+        for entry in (_gate_entry(name, **{field: None}),
+                      {k: v for k, v in _gate_entry(name).items()
+                       if k != field}):
+            problems = validate_gate_entry(
+                name, entry, expected_revisions=_RESOLVED_REVISIONS)
+            assert len(problems) == 1, problems
+            assert "missing evidence field" in problems[0]
+            assert field in problems[0]
+            # ...and the semantic checks are skipped rather than crashing on
+            # the absent key.
+
+    def test_revision_pinned_is_compared_to_what_this_run_resolves(self):
+        problems = validate_gate_entry(
+            "revision_pinned",
+            _gate_entry("revision_pinned", processor_revision="f" * 40),
+            expected_revisions=_RESOLVED_REVISIONS)
+        assert any("this run resolves" in p for p in problems)
+
+    def test_revision_pinned_needs_immutable_shas_even_without_an_expectation(
+            self):
+        problems = validate_gate_entry(
+            "revision_pinned", _gate_entry("revision_pinned",
+                                           model_revision="main"))
+        assert any("not an immutable 40-hex SHA" in p for p in problems)
+
+    def test_a_truncation_rate_outside_zero_to_one_is_rejected(self):
+        for rate in (-0.1, 1.5, "0.0"):
+            problems = validate_gate_entry(
+                "truncation_reviewed",
+                _gate_entry("truncation_reviewed", truncation_rate=rate))
+            assert any("not a rate in [0, 1]" in p for p in problems), rate
+
+    def test_the_evidence_contract_covers_every_required_gate(self):
+        assert ELIGIBILITY_REQUIRED_GATES \
+            == frozenset(ELIGIBILITY_GATE_EVIDENCE)
+        assert len(ELIGIBILITY_REQUIRED_GATES) == 6
+        # Every gate names at least one measurable field beyond ``passed``.
+        assert all(fields for fields in ELIGIBILITY_GATE_EVIDENCE.values())
 
 
 class TestEligibilityReportSchema:
@@ -1399,44 +1582,509 @@ class TestEligibilityReportSchema:
                    for p in problems)
 
     # --- detailed gate results ----------------------------------------
-    @pytest.mark.parametrize("gates", [{}, [], {"overall": "PASS"}])
-    def test_detailed_gate_results_are_required(self, world, gates):
+    def test_the_required_gate_set_is_exact(self):
+        assert ELIGIBILITY_REQUIRED_GATES == frozenset({
+            "generations_complete", "truncation_reviewed",
+            "vision_path_engaged", "terminal_query_invariant",
+            "revision_pinned", "determinism"})
+        assert ELIGIBILITY_REQUIRED_GATES \
+            == frozenset(ELIGIBILITY_GATE_EVIDENCE)
+        for name, evidence in ELIGIBILITY_GATE_EVIDENCE.items():
+            assert evidence, f"{name} declares no evidence fields"
+
+    @pytest.mark.parametrize("gates", [{}, [], None, {"overall": "PASS"}])
+    def test_a_thin_or_absent_gate_block_is_rejected(self, world, gates):
         problems = _validate(world, _report(world, overrides={"gates": gates}))
-        if gates == {"overall": "PASS"}:
-            assert any("gate(s) failed" in p for p in problems)
+        if isinstance(gates, dict):
+            # A dict is parsed, so the missing names are reported by name —
+            # and an undeclared one is reported as unexpected.
+            assert any("omits required detailed gate" in p for p in problems)
+            if gates:
+                assert any("unexpected gate" in p for p in problems)
+        elif gates is None:
+            assert any("missing required field" in p for p in problems)
         else:
-            assert any("non-empty object" in p for p in problems)
+            assert any("must be an object" in p for p in problems)
 
-    def test_an_absent_gates_field_is_a_missing_required_field(self, world):
-        problems = _validate(world, _report(world, overrides={"gates": None}))
-        assert any("missing required field" in p and "gates" in p
-                   for p in problems)
-
-    def test_a_failing_detailed_gate_is_reported_by_name(self, world):
+    @pytest.mark.parametrize("omitted",
+                             sorted(ELIGIBILITY_REQUIRED_GATES))
+    def test_omitting_any_single_required_gate_is_rejected(self, world,
+                                                          omitted):
+        # The reported defect: any non-empty dict of passing entries was
+        # accepted, so a report could authorize a confirmatory run while
+        # never having performed the vision-path or truncation check.
         report = _report(world)
-        report["gates"]["generations_72_of_72"] = {"passed": False}
-        report["gates"]["vision_path_engaged"] = {"status": "FAIL"}
+        del report["gates"][omitted]
         problems = _validate(world, report)
-        assert any("generations_72_of_72" in p and "vision_path_engaged" in p
+        assert any("omits required detailed gate" in p and omitted in p
                    for p in problems)
 
-    @pytest.mark.parametrize("entry", [True, {"passed": True},
-                                       {"status": "PASS"}])
-    def test_accepted_detailed_gate_shapes(self, world, entry):
+    def test_an_unexpected_gate_name_cannot_confer_authority(self, world):
         report = _report(world)
-        report["gates"] = {"only_gate": entry}
-        assert _validate(world, report) == []
+        report["gates"]["something_invented"] = {"passed": True}
+        problems = _validate(world, report)
+        assert any("unexpected gate" in p and "something_invented" in p
+                   for p in problems)
 
-    @pytest.mark.parametrize("entry", [False, {"passed": False},
-                                       {"status": "FAIL"}, {}, "PASS", 1])
-    def test_ambiguous_gate_results_count_as_not_passed(self, world, entry):
+    @pytest.mark.parametrize("entry", [True, False, "PASS", 1, None,
+                                       {"status": "PASS"},
+                                       {"passed": True}])
+    def test_a_bare_or_evidence_free_gate_entry_is_rejected(self, world,
+                                                           entry):
+        # ``{"passed": true}`` with no evidence is rejected too: it asserts a
+        # conclusion without showing the measurement.
         report = _report(world)
-        report["gates"] = {"only_gate": entry}
-        assert any("gate(s) failed" in p for p in _validate(world, report))
+        report["gates"]["determinism"] = entry
+        problems = _validate(world, report)
+        assert any("'determinism'" in p for p in problems)
+
+    @pytest.mark.parametrize("name", sorted(ELIGIBILITY_GATE_EVIDENCE))
+    def test_each_gate_must_carry_its_evidence(self, world, name):
+        for field in ELIGIBILITY_GATE_EVIDENCE[name]:
+            report = _report(world)
+            del report["gates"][name][field]
+            problems = _validate(world, report)
+            assert any("missing evidence field" in p and field in p
+                       for p in problems), (name, field)
+
+    @pytest.mark.parametrize("name,bad", [
+        ("generations_complete", {"n_failed": 3}),
+        ("generations_complete", {"n_succeeded": 70}),
+        ("generations_complete", {"n_attempts": 60}),
+        ("truncation_reviewed", {"n_truncated": 1}),
+        ("truncation_reviewed", {"truncation_rate": 1.5}),
+        ("truncation_reviewed", {"max_variant_spread": -0.1}),
+        ("vision_path_engaged", {"n_image_bearing_cells": 0}),
+        ("vision_path_engaged", {"min_image_token_count": 0}),
+        ("terminal_query_invariant", {"n_mismatched": 2}),
+        ("terminal_query_invariant", {"n_families_checked": 11}),
+        ("determinism", {"n_repeats": 1}),
+        ("determinism", {"n_distinct_responses": 2}),
+        ("revision_pinned", {"model_revision": "main"}),
+        ("revision_pinned", {"processor_revision": "latest"}),
+    ])
+    def test_self_contradictory_evidence_is_rejected(self, world, name, bad):
+        # ``passed: true`` alongside evidence that says otherwise is not
+        # trusted; the contradiction is the violation.
+        report = _report(world)
+        report["gates"][name].update(bad)
+        assert report["gates"][name]["passed"] is True
+        problems = _validate(world, report)
+        assert any(f"'{name}'" in p for p in problems), problems
+
+    def test_a_gate_must_agree_with_the_revisions_this_run_resolves(
+            self, world):
+        report = _report(world)
+        report["gates"]["revision_pinned"]["processor_revision"] = "f" * 40
+        problems = _validate(world, report)
+        assert any("'revision_pinned'" in p and "processor_revision" in p
+                   for p in problems)
+
+    def test_all_gates_passing_with_full_evidence_is_accepted(self, world):
+        assert _validate(world, _report(world)) == []
 
     def test_the_number_of_detailed_gates_is_recorded(self, world):
         result = _gate(world)
-        assert result["checks"]["eligibility_n_gates"] == 4
+        assert result["checks"]["eligibility_n_gates"] \
+            == len(ELIGIBILITY_REQUIRED_GATES)
+
+    # --- external pre-registration of the selection -------------------
+    def test_replacing_the_ids_and_their_hash_together_is_rejected(
+            self, world):
+        # THE reported defect. The digest used to be recomputed from the ids
+        # in the same report, so it only proved self-consistency: swap both
+        # and nothing notices. Twelve other panel families, correctly
+        # hashed, must still be refused.
+        substituted = [f"fam{i:03d}" for i in range(50, 62)]
+        report = _report(world)
+        report["selected_family_ids"] = substituted
+        report["selected_families_sha256"] = \
+            selected_families_sha256(substituted)
+        report["n_selected_families"] = len(substituted)
+        report["truncation_by_variant"] = {
+            v: {"n": len(substituted), "n_truncated": 0,
+                "truncation_rate": 0.0} for v in ALL_VARIANT_NAMES}
+        problems = _validate(world, report)
+        assert any("not the pre-registered 11.5 selection" in p
+                   for p in problems), problems
+        # The internal-consistency check alone would have passed it.
+        assert report["selected_families_sha256"] \
+            == selected_families_sha256(substituted)
+
+    def test_the_pre_registered_digest_is_required(self, world):
+        report = _report(world)
+        report["selected_families_sha256"] = "9" * 64
+        problems = _validate(world, report)
+        assert any("not the pre-registered selection digest" in p
+                   for p in problems)
+
+    def test_the_gate_records_the_selection_it_derived(self, world):
+        result = _gate(world)
+        assert result["checks"]["expected_selection_sha256"] \
+            == world["expected_selection"]["selected_families_sha256"]
+        assert result["checks"]["expected_selection_n_families"] \
+            == ELIGIBILITY_N_FAMILIES
+
+    def test_the_gate_rejects_a_report_naming_a_different_subset(
+            self, world):
+        substituted = [f"fam{i:03d}" for i in range(50, 62)]
+        _eligibility(world, family_ids=substituted)
+        lines = _violations(world)
+        assert any("not the pre-registered 11.5 selection" in line
+                   for line in lines)
+
+    def test_the_expected_processor_revision_comes_from_the_lock(self, world):
+        result = _gate(world)
+        assert result["checks"]["expected_processor_revision"] \
+            == PROCESSOR_REVISION
+
+    def test_a_processor_revision_differing_from_the_lock_is_rejected(
+            self, world):
+        # Immutable-looking is not the same as correct: this report was
+        # certified against a different processor, so its chat template or
+        # image processor may render prompts differently.
+        problems = _validate(world, _report(world),
+                             expected_processor_revision="f" * 40)
+        assert any("does not transfer across processor revisions" in p
+                   for p in problems)
+
+    def test_the_report_processor_revision_must_match_the_lock(self, world):
+        report = _report(world)
+        report["processor_revision"] = "f" * 40
+        report["gates"]["revision_pinned"]["processor_revision"] = "f" * 40
+        problems = _validate(world, report)
+        assert any("processor_revision" in p and "does not transfer" in p
+                   for p in problems)
+
+
+# ---------------------------------------------------------------------
+# P1    The selection is pre-registered by DERIVATION from frozen evidence
+# ---------------------------------------------------------------------
+#: 18 synthetic families. Their lengths fall into three clean tertiles
+#: (100-105 / 200-206 / 300-304) and their compliance levels cycle 0/1/2
+#: inside each length group, so every one of the nine (length, risk) cells
+#: is populated and the whole allocation can be checked by hand.
+_FROZEN_FAMILIES = [
+    ("fam000", 100, 0), ("fam001", 101, 1), ("fam002", 102, 2),
+    ("fam003", 103, 0), ("fam004", 104, 1), ("fam005", 105, 2),
+    ("fam006", 200, 0), ("fam007", 201, 1), ("fam008", 202, 2),
+    ("fam009", 203, 0), ("fam010", 204, 1), ("fam011", 205, 2),
+    ("fam012", 206, 0),
+    ("fam013", 300, 0), ("fam014", 301, 1), ("fam015", 302, 2),
+    ("fam016", 303, 0), ("fam017", 304, 1),
+]
+
+#: Hand-computed from ``selection.SELECTION_RECIPE``: the tertile cuts land
+#: on the observed values 200 and 206, round 1 takes the family closest to
+#: each cell's median length (ties by family_id), and the three extras go
+#: one each to median|compliant (the only cell of population 3),
+#: short|partial and short|noncompliant.
+_FROZEN_EXPECTED_IDS = [
+    "fam000", "fam001", "fam002", "fam004", "fam005", "fam006",
+    "fam007", "fam008", "fam009", "fam013", "fam014", "fam015",
+]
+
+_FROZEN_PANEL = "outputs/scale_c/panel/validated_families.jsonl"
+_FROZEN_RUN_DIR = "outputs/scale_c/replay_runs/frozen-reference"
+_FROZEN_OUTPUT_DIR = "outputs/scale_c"
+
+#: The digest this repository's frozen evidence actually derives to. Pinned
+#: so that any change to the recipe — tertile indices, tie-breaks, the extra
+#: allocation — fails a test instead of silently redefining which 12
+#: families 11.5 is allowed to replay.
+REAL_SELECTION_SHA256 = (
+    "f2806e496a6e959ee209fecd91b7484c4f6060fc7afef57d4ab5158d32d06a49")
+
+
+@pytest.fixture
+def frozen_repo(tmp_path_factory):
+    """A repository whose frozen evidence a selection can be derived from.
+
+    The real derivation follows two committed pointers to three frozen
+    artifacts. This reproduces that layout on a synthetic panel so the
+    derivation, its panel-digest guard and the gate's ``repo_root`` path can
+    all be exercised offline and deterministically.
+    """
+    root = tmp_path_factory.mktemp("frozen_repo")
+    panel_path = root / _FROZEN_PANEL
+    panel_path.parent.mkdir(parents=True, exist_ok=True)
+    panel_path.write_text("".join(
+        json.dumps({"family_id": family}) + "\n"
+        for family, _, _ in _FROZEN_FAMILIES), encoding="utf-8")
+
+    run_dir = root / _FROZEN_RUN_DIR
+    run_dir.mkdir(parents=True, exist_ok=True)
+    (run_dir / selection.REFERENCE_OUTPUTS_FILE).write_text("".join(
+        json.dumps({"family_id": family, "variant": variant,
+                    "output_token_count": tokens}) + "\n"
+        for family, tokens, _ in _FROZEN_FAMILIES
+        for variant in ALL_VARIANT_NAMES), encoding="utf-8")
+
+    labels_dir = root / _FROZEN_OUTPUT_DIR
+    (labels_dir / selection.ADJUDICATED_LABELS_FILE).write_text(
+        json.dumps({"labels": {
+            family: {variant: {"compliance_level": level}
+                     for variant in ALL_VARIANT_NAMES}
+            for family, _, level in _FROZEN_FAMILIES}}), encoding="utf-8")
+
+    reference_path = root / selection.FROZEN_9B_REFERENCE
+    reference_path.parent.mkdir(parents=True, exist_ok=True)
+    reference_path.write_text(json.dumps({
+        "run_id": "frozen-reference",
+        "run_dir": _FROZEN_RUN_DIR,
+        "validated_families_sha256": _file_sha256(panel_path),
+    }), encoding="utf-8")
+
+    profiles_path = root / selection.SCALE_PROFILES
+    profiles_path.parent.mkdir(parents=True, exist_ok=True)
+    profiles_path.write_text(json.dumps({
+        selection.SCALE_PROFILE: {"validated_families": _FROZEN_PANEL,
+                                  "output_dir": _FROZEN_OUTPUT_DIR},
+    }), encoding="utf-8")
+    return root
+
+
+def _write_selection_artifact(root: Path, document: dict) -> Path:
+    path = root / selection.SELECTION_ARTIFACT
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(document, indent=2), encoding="utf-8")
+    return path
+
+
+class TestFrozenSelectionDerivation:
+    """The expected selection must come from evidence a report cannot touch.
+
+    The reported defect: the validator recomputed ``selected_families_sha256``
+    from the ``selected_family_ids`` in the SAME report, so replacing both
+    together still passed. These tests derive the expectation instead.
+    """
+
+    def test_the_selection_is_derived_from_the_frozen_inputs(
+            self, frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        assert derived["n_panel_families"] == len(_FROZEN_FAMILIES)
+        assert derived["selected_family_ids"] == _FROZEN_EXPECTED_IDS
+        assert derived["n_selected_families"] == ELIGIBILITY_N_FAMILIES
+        assert derived["selected_families_sha256"] \
+            == selected_families_sha256(_FROZEN_EXPECTED_IDS)
+        assert derived["length_cuts"] == {"t1": 200, "t2": 206}
+        assert set(derived["derived_from"]) == {
+            "panel", "panel_validated_families_sha256", "reference_outputs",
+            "reference_run_id", "adjudicated_labels"}
+        # Repo-relative, so the artifact is portable and byte-reproducible
+        # from any checkout location.
+        assert derived["derived_from"]["panel"] == _FROZEN_PANEL
+        assert derived["derived_from"]["reference_outputs"] == \
+            f"{_FROZEN_RUN_DIR}/{selection.REFERENCE_OUTPUTS_FILE}"
+        assert derived["uses_candidate_target_information"] is False
+
+    def test_derivation_is_repeatable(self, frozen_repo):
+        # Pre-registration is worthless if two derivations disagree.
+        assert selection.derive_frozen_selection(frozen_repo) \
+            == selection.derive_frozen_selection(frozen_repo)
+
+    def test_every_strata_cell_is_covered_and_the_extras_are_spread(
+            self, frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        assert len(derived["cells"]) == selection.N_CELLS
+        assert all(cell["n_selected"] >= 1
+                   for cell in derived["cells"].values())
+        assert derived["by_length_stratum"] == {
+            "short": 5, "median": 4, "long": 3}
+        assert derived["by_risk_stratum"] == {
+            "compliant": 4, "partial": 4, "noncompliant": 4}
+        # One extra per cell: without that rule the single largest cell wins
+        # every round, because its population never changes.
+        cells = [extra["cell"] for extra in derived["extra_allocation"]]
+        assert cells == ["median|compliant", "short|partial",
+                         "short|noncompliant"]
+        assert len(set(cells)) == selection.N_EXTRAS
+
+    def test_a_panel_that_is_not_the_frozen_one_blocks_derivation(
+            self, frozen_repo):
+        # Adding a family changes which 12 are selected, so the panel the
+        # pointer names must be the panel that is actually read.
+        panel = frozen_repo / _FROZEN_PANEL
+        panel.write_text(panel.read_text(encoding="utf-8")
+                         + json.dumps({"family_id": "fam999"}) + "\n",
+                         encoding="utf-8")
+        with pytest.raises(ReplayError, match="not the frozen one"):
+            selection.derive_frozen_selection(frozen_repo)
+
+    @pytest.mark.parametrize("pointer", [selection.FROZEN_9B_REFERENCE,
+                                         selection.SCALE_PROFILES])
+    def test_a_missing_pointer_blocks_derivation(self, frozen_repo, pointer):
+        (frozen_repo / pointer).unlink()
+        with pytest.raises(ReplayError, match="not found"):
+            selection.derive_frozen_selection(frozen_repo)
+
+    def test_a_family_without_a_stratum_input_blocks_derivation(
+            self, frozen_repo):
+        outputs = (frozen_repo / _FROZEN_RUN_DIR
+                   / selection.REFERENCE_OUTPUTS_FILE)
+        kept = [line for line in
+                outputs.read_text(encoding="utf-8").splitlines()
+                if json.loads(line)["family_id"] != "fam015"]
+        outputs.write_text("".join(line + "\n" for line in kept),
+                           encoding="utf-8")
+        with pytest.raises(ReplayError, match="incomplete"):
+            selection.derive_frozen_selection(frozen_repo)
+
+    def test_an_empty_strata_cell_blocks_derivation(self, frozen_repo):
+        labels_path = (frozen_repo / _FROZEN_OUTPUT_DIR
+                       / selection.ADJUDICATED_LABELS_FILE)
+        document = json.loads(labels_path.read_text(encoding="utf-8"))
+        for label in document["labels"]["fam015"].values():
+            label["compliance_level"] = 0
+        labels_path.write_text(json.dumps(document), encoding="utf-8")
+        with pytest.raises(ReplayError, match="cannot cover the grid"):
+            selection.derive_frozen_selection(frozen_repo)
+
+    def test_a_reference_record_without_a_token_count_blocks_derivation(
+            self, frozen_repo):
+        outputs = (frozen_repo / _FROZEN_RUN_DIR
+                   / selection.REFERENCE_OUTPUTS_FILE)
+        records = [json.loads(line) for line in
+                   outputs.read_text(encoding="utf-8").splitlines()]
+        del records[0]["output_token_count"]
+        outputs.write_text("".join(json.dumps(r) + "\n" for r in records),
+                           encoding="utf-8")
+        with pytest.raises(ReplayError, match="output_token_count"):
+            selection.derive_frozen_selection(frozen_repo)
+
+    # --- through the confirmatory gate --------------------------------
+    def test_the_gate_derives_the_selection_it_expects(self, world,
+                                                       frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        _eligibility(world, family_ids=derived["selected_family_ids"])
+        result = _gate(world, expected_selection=None, repo_root=frozen_repo)
+        assert result["checks"]["expected_selection_sha256"] \
+            == derived["selected_families_sha256"]
+        assert result["checks"]["expected_selection_n_families"] \
+            == ELIGIBILITY_N_FAMILIES
+        assert result["checks"]["selection_artifact_path"] \
+            == str(frozen_repo / selection.SELECTION_ARTIFACT)
+        assert result["checks"]["selection_artifact_checked"] is True
+        assert result["checks"]["selection_artifact_present"] is False
+
+    def test_an_injected_expectation_does_not_consult_the_artifact(
+            self, world):
+        # The synthetic world injects its own expectation, so this
+        # repository's committed artifact — which describes a different
+        # evidence base — is recorded but not compared. Holding unrelated
+        # selections against each other would fail the check for no reason,
+        # and the recording keeps the skip visible rather than silent.
+        result = _gate(world)
+        assert result["checks"]["selection_artifact_checked"] is False
+        assert "selection_artifact_present" not in result["checks"]
+
+    def test_the_gate_refuses_a_report_naming_the_first_twelve_families(
+            self, world, frozen_repo):
+        # The prefix is what a report would name if the selection were
+        # merely "the first 12"; the derivation instead drops fam003,
+        # fam010, fam011 and fam012 and adds fam013, fam014 and fam015.
+        _eligibility(world, family_ids=_eligibility_ids())
+        lines = _violations(world, expected_selection=None,
+                           repo_root=frozen_repo)
+        assert any("not the pre-registered 11.5 selection" in line
+                   for line in lines)
+
+    def test_an_underivable_selection_blocks_the_run(self, world,
+                                                     frozen_repo):
+        # Fail-closed: no derivation, no confirmatory run — the gate must
+        # not fall back to believing the report.
+        (frozen_repo / selection.FROZEN_9B_REFERENCE).unlink()
+        _eligibility(world)
+        with pytest.raises(ReplayError, match="not found"):
+            _gate(world, expected_selection=None, repo_root=frozen_repo)
+
+    def test_a_tampered_committed_artifact_is_refused(self, world,
+                                                      frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        tampered = dict(derived)
+        tampered["selected_family_ids"] = _eligibility_ids()
+        tampered["selected_families_sha256"] = \
+            selected_families_sha256(_eligibility_ids())
+        _write_selection_artifact(frozen_repo, tampered)
+        _eligibility(world, family_ids=derived["selected_family_ids"])
+        lines = _violations(world, expected_selection=None,
+                           repo_root=frozen_repo)
+        assert any("pre-registered by derivation" in line for line in lines)
+
+    def test_a_matching_committed_artifact_is_accepted(self, world,
+                                                       frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        _write_selection_artifact(frozen_repo, derived)
+        _eligibility(world, family_ids=derived["selected_family_ids"])
+        result = _gate(world, expected_selection=None, repo_root=frozen_repo)
+        assert result["passed"] is True
+        assert result["checks"]["selection_artifact_present"] is True
+
+    def test_an_unreadable_committed_artifact_is_refused(self, world,
+                                                         frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        path = _write_selection_artifact(frozen_repo, derived)
+        path.write_text("{not json", encoding="utf-8")
+        _eligibility(world, family_ids=derived["selected_family_ids"])
+        lines = _violations(world, expected_selection=None,
+                           repo_root=frozen_repo)
+        assert any("selection artifact" in line and "unreadable" in line
+                   for line in lines)
+
+    def test_the_real_repository_derives_the_pinned_selection(self):
+        root = registry.REPO_ROOT
+        if not (root / selection.FROZEN_9B_REFERENCE).exists():
+            pytest.skip("frozen 9B reference pointer not present")
+        derived = selection.derive_frozen_selection(root)
+        assert derived["selected_families_sha256"] == REAL_SELECTION_SHA256
+        assert derived["n_panel_families"] == 100
+        assert derived["length_cuts"] == {"t1": 343.0, "t2": 467.5}
+        ids = derived["selected_family_ids"]
+        assert len(ids) == len(set(ids)) == ELIGIBILITY_N_FAMILIES
+        assert ids == sorted(ids)
+
+    def test_the_committed_selection_artifact_matches_a_fresh_derivation(
+            self):
+        root = registry.REPO_ROOT
+        artifact = root / selection.SELECTION_ARTIFACT
+        if not artifact.exists() \
+                or not (root / selection.FROZEN_9B_REFERENCE).exists():
+            pytest.skip("selection artifact or frozen pointer not present")
+        committed = json.loads(artifact.read_text(encoding="utf-8"))
+        derived = selection.derive_frozen_selection(root)
+        assert committed["selected_family_ids"] \
+            == derived["selected_family_ids"]
+        assert committed["selected_families_sha256"] \
+            == REAL_SELECTION_SHA256
+        # The WHOLE document, byte for byte: the artifact is the audit trail
+        # for the pre-registered selection, so a stale cell population or a
+        # reworded recipe is as misleading as a different id list.
+        assert artifact.read_text(encoding="utf-8") \
+            == write_selection.canonical(derived)
+
+    def test_the_committed_artifact_carries_the_full_audit_trail(self):
+        artifact = registry.REPO_ROOT / selection.SELECTION_ARTIFACT
+        if not artifact.exists():
+            pytest.skip("selection artifact not present")
+        committed = json.loads(artifact.read_text(encoding="utf-8"))
+        assert committed["n_selected_families"] == ELIGIBILITY_N_FAMILIES
+        assert len(committed["cells"]) == selection.N_CELLS
+        assert sum(cell["n_selected"]
+                   for cell in committed["cells"].values()) \
+            == ELIGIBILITY_N_FAMILIES
+        assert len(committed["extra_allocation"]) == selection.N_EXTRAS
+        for extra in committed["extra_allocation"]:
+            assert extra["reason"], "an extra slot is unexplained"
+        assert committed["deterministic"] is True
+        assert committed["uses_candidate_target_information"] is False
+        assert committed["recipe"] == selection.SELECTION_RECIPE
+        # The audit trail has to let a reader re-find every chosen family in
+        # the frozen reference run.
+        for cell in committed["cells"].values():
+            for chosen in cell["selected"]:
+                assert chosen["reference_median_output_tokens"] > 0
+                assert chosen["distance_to_cell_median"] >= 0
+                assert 0 <= chosen["max_compliance_level"] <= 3
 
 
 # ---------------------------------------------------------------------
@@ -1927,13 +2575,16 @@ class TestDependencyLockVerification:
         # of freeze output can prove which dependency source would execute.
         path, _ = self._lock_with_sibling(tmp_path, monkeypatch)
         with pytest.raises(ReplayError,
-                           match="third-party editable VCS install"):
+                           match="third-party editable install"):
             verify_active_dependency_lock(path, strict=True)
         # Non-strict callers still see it, so it can never be silent.
         result = verify_active_dependency_lock(path, strict=False)
         assert result["verified"] is False
         assert result["third_party_editable_vcs"] \
             == {"route_unlearning_data": "a1df9be09a2f"}
+        installs = result["third_party_editable_installs"]
+        assert installs["route_unlearning_data"]["kind"] == "vcs"
+        assert installs["route_unlearning_data"]["revision"] == "a1df9be09a2f"
         assert result["differences"] == {}
 
     def test_a_lock_matching_a_clean_environment_still_verifies(
@@ -1952,8 +2603,110 @@ class TestDependencyLockVerification:
             self, world, monkeypatch):
         path, _ = self._lock_with_sibling(world["tmp_path"], monkeypatch)
         lines = _violations(world, lock_path=path)
-        assert any("third-party editable VCS install" in line
+        assert any("third-party editable install" in line
                    and "route_unlearning_data" in line for line in lines)
+
+    # --- every mutable editable form, not just the VCS one ------------
+    @pytest.mark.parametrize("line,kind", [
+        ("-e /scratch/somewhere/siblingpkg", "local_path"),
+        ("-e ./siblingpkg", "local_path"),
+        ("-e ../siblingpkg", "local_path"),
+        ("-e .", "local_path"),
+        ("-e file:///scratch/somewhere/siblingpkg", "file_url"),
+        ("-e git+ssh://git@github.com/x/y.git@abcdef1234#egg=y", "vcs"),
+        ("-e svn+http://host/repo#egg=y", "vcs"),
+    ])
+    def test_every_editable_form_is_detected(self, line, kind):
+        # The reported defect: detection required a trailing hex revision,
+        # so the MOST mutable forms — a local path, which names no revision
+        # at all — were invisible.
+        found = editable_installs([line])
+        assert len(found) == 1, line
+        info = next(iter(found.values()))
+        assert info["kind"] == kind
+        assert info["line"] == line
+        assert (info["revision"] is not None) == (kind == "vcs"
+                                                  and "@abcdef1234" in line)
+
+    def test_a_local_path_editable_install_has_no_revision_to_hide_behind(
+            self):
+        found = editable_installs(["-e /scratch/somewhere/siblingpkg"])
+        info = found["siblingpkg"]
+        assert info["revision"] is None
+        # ...so it is absent from the revision view, which is exactly why
+        # that view must not be the detection boundary.
+        assert editable_vcs_revisions(
+            ["-e /scratch/somewhere/siblingpkg"]) == {}
+
+    @pytest.mark.parametrize("line", [
+        "-e /scratch/somewhere/siblingpkg",
+        "-e file:///scratch/somewhere/siblingpkg",
+        "-e .",
+    ])
+    def test_a_non_vcs_editable_install_is_refused(self, tmp_path,
+                                                  monkeypatch, line):
+        _patch_freeze(monkeypatch, _Completed(
+            stdout=FREEZE_TEXT + line + "\n"))
+        snapshot = dependency_lock_snapshot()
+        assert snapshot["editable_vcs_revisions"] == {}
+        assert snapshot["editable_installs"], "the install went undetected"
+        path = tmp_path / "lock.yaml"
+        path.write_text(yaml.safe_dump({"dependency_lock": snapshot},
+                                       sort_keys=True), encoding="utf-8")
+        with pytest.raises(ReplayError,
+                           match="third-party editable install"):
+            verify_active_dependency_lock(path, strict=True)
+        result = verify_active_dependency_lock(path, strict=False)
+        assert result["verified"] is False
+        assert result["third_party_editable_vcs"] == {}
+        assert result["third_party_editable_installs"]
+
+    def test_this_repositorys_own_local_path_install_is_not_third_party(
+            self, monkeypatch):
+        # Refusing every ``-e`` line must not refuse this project's own
+        # editable install, which carries no ``#egg=`` name in path form and
+        # so cannot be identified by name alone.
+        for line in (f"-e {registry.REPO_ROOT}",
+                     f"-e {registry.REPO_ROOT}/",
+                     f"-e file://{registry.REPO_ROOT}"):
+            _patch_freeze(monkeypatch, _Completed(
+                stdout=FREEZE_TEXT + line + "\n"))
+            snapshot = dependency_lock_snapshot()
+            assert snapshot["editable_installs"] == {}, line
+            assert snapshot["excluded_self_distributions"], line
+
+    def test_a_third_party_path_that_merely_contains_the_repo_name_is_not_self(
+            self, monkeypatch):
+        line = f"-e {registry.REPO_ROOT}-fork"
+        _patch_freeze(monkeypatch, _Completed(stdout=FREEZE_TEXT + line + "\n"))
+        snapshot = dependency_lock_snapshot()
+        assert snapshot["editable_installs"], (
+            "a sibling checkout next to the repository was mistaken for self")
+
+    @pytest.mark.parametrize("line", ["-e .", "-e ./", "-e .."])
+    def test_a_relative_editable_target_is_never_identified_as_self(
+            self, monkeypatch, line):
+        # ``pip freeze`` records the target as given and NOT the directory
+        # pip was invoked from, so a relative path cannot be matched to this
+        # repository. Resolving it against the verifying process's cwd would
+        # make the verdict depend on where the check ran — and would call
+        # ``-e .`` self whenever the check ran from the repo, as it does
+        # here. Unidentifiable is treated as third-party and refused.
+        monkeypatch.chdir(registry.REPO_ROOT)
+        _patch_freeze(monkeypatch, _Completed(stdout=FREEZE_TEXT + line + "\n"))
+        snapshot = dependency_lock_snapshot()
+        assert snapshot["editable_installs"], (
+            f"{line} was resolved against the current cwd and mistaken for "
+            f"this repository's own install")
+        assert registry.SELF_DISTRIBUTIONS[0] not in (
+            snapshot["excluded_self_distributions"])
+
+    def test_pinned_lines_are_not_mistaken_for_editable_installs(self):
+        assert editable_installs([
+            "numpy==1.26.0",
+            "pkg @ file:///scratch/wutiantong/pkg",
+            "deadbeef==1.2.3",
+        ]) == {}
 
     def test_pinned_lines_are_not_mistaken_for_vcs_revisions(
             self, monkeypatch):

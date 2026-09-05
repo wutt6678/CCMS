@@ -25,10 +25,9 @@ silent.
 
 from __future__ import annotations
 
-import hashlib
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
 from causal_mllm.replay.config import ReplayConfig
@@ -40,6 +39,14 @@ from causal_mllm.replay.registry import (
     is_immutable_revision,
     load_lock,
     verify_active_dependency_lock,
+)
+from causal_mllm.replay.selection import (
+    N_ELIGIBILITY_ATTEMPTS,
+    N_ELIGIBILITY_FAMILIES,
+    N_ELIGIBILITY_VARIANTS,
+    SELECTION_ARTIFACT,
+    derive_frozen_selection,
+    selected_families_sha256,
 )
 from causal_mllm.seeds import code_tree_status, get_git_commit
 from causal_mllm.validation.relations import _file_sha256
@@ -69,6 +76,13 @@ VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
 #: its own (or a sibling target's) regenerated evidence; every other
 #: tracked modification still fails the gate. Excluded paths are recorded
 #: in the gate evidence rather than silently dropped.
+#:
+#: ``outputs/iteration_11/eligibility/`` is deliberately NOT here, even
+#: though the 11.5 stage writes it: the eligibility report is an INPUT that
+#: authorizes the confirmatory run, not evidence the run produces. Leaving
+#: it unexcluded means that report must be committed before generation
+#: starts, so an uncommitted — and therefore unreproducible — document can
+#: never be what authorized a run.
 OWN_OUTPUT_PREFIXES = ("outputs/iteration_11/generations/",)
 
 #: Sampling values that are INERT under greedy decoding. The frozen
@@ -381,12 +395,15 @@ def _check_dependencies(gate: _Gate, lock_path: str | Path | None) -> None:
     """
     check = verify_active_dependency_lock(lock_path, strict=False)
     gate.record("dependency_lock_check", check)
-    offenders = check.get("third_party_editable_vcs") or {}
+    offenders = check.get("third_party_editable_installs") or {}
     if offenders:
+        detail = "; ".join(
+            f"{name} ({info.get('kind')}: {info.get('target')})"
+            for name, info in sorted(offenders.items()))
         gate.fail(
-            f"the active environment has third-party editable VCS install(s) "
-            f"{sorted(offenders)}; an editable dependency's source can change "
-            f"without its recorded revision moving, so this environment "
+            f"the active environment has third-party editable install(s): "
+            f"{detail}. An editable dependency's source can change without "
+            f"anything in a `pip freeze` hash moving, so this environment "
             f"cannot be certified reproducible. Use a dedicated Iteration 11 "
             f"environment with no third-party editable installs.")
     if check.get("reason"):
@@ -404,12 +421,13 @@ def _check_dependencies(gate: _Gate, lock_path: str | Path | None) -> None:
 
 #: 11.5 selects a FIXED stratified subset: 12 families x 6 variants per
 #: model, giving 72 generations per target and 288 across the four. The
-#: count comes from the approved Iteration 11 plan rather than from the
-#: frozen protocol document, which does not state it, so it is declared here
-#: and cited rather than read from a file that does not contain it.
-ELIGIBILITY_N_FAMILIES = 12
-ELIGIBILITY_N_VARIANTS = len(ALL_VARIANT_NAMES)
-ELIGIBILITY_N_ATTEMPTS = ELIGIBILITY_N_FAMILIES * ELIGIBILITY_N_VARIANTS
+#: counts and the selection recipe live in
+#: :mod:`causal_mllm.replay.selection` so that the gate and the 11.5
+#: producer cannot each define their own; they are re-exported here under the
+#: names this module's contract already uses.
+ELIGIBILITY_N_FAMILIES = N_ELIGIBILITY_FAMILIES
+ELIGIBILITY_N_VARIANTS = N_ELIGIBILITY_VARIANTS
+ELIGIBILITY_N_ATTEMPTS = N_ELIGIBILITY_ATTEMPTS
 
 #: Fields every 11.5 eligibility report must carry. A report missing one is
 #: rejected rather than partially trusted: each field is what lets a later
@@ -438,32 +456,148 @@ ELIGIBILITY_REQUIRED_FIELDS = (
 )
 
 
-def selected_families_sha256(family_ids) -> str:
-    """Canonical digest of a family selection.
+#: The EXACT set of detailed gates an 11.5 report must carry, and the
+#: evidence each must supply. ``passed: true`` on its own is not evidence:
+#: any non-empty dict of passing entries used to be accepted, so a report
+#: could authorize a confirmatory run while omitting the vision-path,
+#: truncation, determinism, terminal-query and revision checks entirely —
+#: and a test asserted that ``{"only_gate": true}`` was valid.
+#:
+#: The set is closed in both directions: a missing gate means the check was
+#: never performed, and an unexpected one means the report is claiming
+#: authority from something this contract does not define.
+ELIGIBILITY_GATE_EVIDENCE = {
+    # All 72 generations completed. Technical eligibility has no meaning if
+    # some cells silently failed.
+    "generations_complete": ("n_attempts", "n_succeeded", "n_failed"),
+    # Truncation reviewed per variant. Non-zero is a protocol-level STOP
+    # rather than a warning: raising the cap would require a uniform
+    # five-model replay including the frozen 9B reference.
+    "truncation_reviewed": ("n_truncated", "truncation_rate",
+                            "max_variant_spread"),
+    # The image path actually engaged. A target that silently degrades to
+    # text-only would still produce fluent, complete responses.
+    "vision_path_engaged": ("n_image_bearing_cells", "min_image_token_count"),
+    # The shared terminal query survived variant construction, which is what
+    # makes the six variants comparable within a family.
+    "terminal_query_invariant": ("n_families_checked", "n_mismatched"),
+    # Weights AND processor pinned to immutable revisions: pinning the
+    # weights while the chat template or image processor floats changes
+    # prompt rendering without moving the model revision.
+    "revision_pinned": ("model_revision", "processor_revision"),
+    # Repeated generation is byte-identical, so a difference between targets
+    # cannot be sampling noise.
+    "determinism": ("n_repeats", "n_distinct_responses"),
+}
 
-    Sorted and newline-joined so the hash depends on the SET selected and
-    not on the order a report happened to list it in. Making the recipe
-    explicit is what lets the gate recompute and verify the recorded value
-    instead of merely checking that one is present.
+ELIGIBILITY_REQUIRED_GATES = frozenset(ELIGIBILITY_GATE_EVIDENCE)
+
+
+def validate_gate_entry(name: str, entry, *,
+                        expected_revisions: dict | None = None) -> list[str]:
+    """Violations for one detailed gate result.
+
+    Requires the evidence fields, then checks that the evidence is
+    internally consistent with the ``passed`` claim — a report asserting
+    ``passed: true`` alongside ``n_failed: 3`` is self-contradictory and is
+    rejected rather than trusted.
     """
-    canonical = "\n".join(sorted(str(f) for f in family_ids))
-    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+    problems: list[str] = []
+    if name not in ELIGIBILITY_GATE_EVIDENCE:
+        # Fail closed rather than KeyError: an undefined gate has no
+        # evidence contract, so nothing about it can be audited.
+        return [f"gate {name!r} is not one of the required gates "
+                f"{sorted(ELIGIBILITY_REQUIRED_GATES)}; it is undefined, so "
+                f"it cannot confer authority"]
+    if not isinstance(entry, dict):
+        return [f"gate {name!r} must be an object carrying its evidence, "
+                f"not {type(entry).__name__}; a bare flag is not auditable"]
+    if entry.get("passed") is not True:
+        problems.append(f"gate {name!r} did not pass "
+                        f"(passed={entry.get('passed')!r})")
+    required = ELIGIBILITY_GATE_EVIDENCE[name]
+    missing = [f for f in required if entry.get(f) is None]
+    if missing:
+        problems.append(f"gate {name!r} is missing evidence field(s) "
+                        f"{missing}")
+        # The semantic checks below need those fields.
+        return problems
 
-
-def _gate_entry_passed(entry) -> bool:
-    """Did one detailed gate result pass?
-
-    Accepts ``True``, ``{"passed": true, ...}`` and ``{"status": "PASS"}``
-    so 11.5 can record either a bare flag or a richer result, while
-    anything ambiguous counts as not passed.
-    """
-    if entry is True:
-        return True
-    if isinstance(entry, dict):
-        if "passed" in entry:
-            return entry["passed"] is True
-        return entry.get("status") == "PASS"
-    return False
+    if name == "generations_complete":
+        if entry["n_attempts"] != ELIGIBILITY_N_ATTEMPTS:
+            problems.append(
+                f"gate 'generations_complete' reports n_attempts="
+                f"{entry['n_attempts']}, expected {ELIGIBILITY_N_ATTEMPTS}")
+        if entry["n_succeeded"] != entry["n_attempts"]:
+            problems.append(
+                f"gate 'generations_complete' reports n_succeeded="
+                f"{entry['n_succeeded']} of n_attempts="
+                f"{entry['n_attempts']}")
+        if entry["n_failed"] != 0:
+            problems.append(
+                f"gate 'generations_complete' reports n_failed="
+                f"{entry['n_failed']} while claiming passed=true")
+    elif name == "truncation_reviewed":
+        if entry["n_truncated"] != 0:
+            problems.append(
+                f"gate 'truncation_reviewed' reports n_truncated="
+                f"{entry['n_truncated']}; any truncation is a protocol-level "
+                f"STOP (raising the cap would require a uniform five-model "
+                f"replay including the frozen 9B reference), not an "
+                f"eligibility warning")
+        rate = entry["truncation_rate"]
+        if not isinstance(rate, (int, float)) or not 0.0 <= rate <= 1.0:
+            problems.append(
+                f"gate 'truncation_reviewed' reports truncation_rate="
+                f"{rate!r}, which is not a rate in [0, 1]")
+        spread = entry["max_variant_spread"]
+        if not isinstance(spread, (int, float)) or spread < 0:
+            problems.append(
+                f"gate 'truncation_reviewed' reports max_variant_spread="
+                f"{spread!r}, which cannot be negative")
+    elif name == "vision_path_engaged":
+        if entry["n_image_bearing_cells"] <= 0:
+            problems.append(
+                "gate 'vision_path_engaged' reports no image-bearing cells, "
+                "so the image path was never exercised")
+        if entry["min_image_token_count"] <= 0:
+            problems.append(
+                f"gate 'vision_path_engaged' reports min_image_token_count="
+                f"{entry['min_image_token_count']}; an image-bearing cell "
+                f"with no image tokens means the image was silently dropped")
+    elif name == "terminal_query_invariant":
+        if entry["n_families_checked"] != ELIGIBILITY_N_FAMILIES:
+            problems.append(
+                f"gate 'terminal_query_invariant' checked "
+                f"n_families_checked={entry['n_families_checked']}, expected "
+                f"{ELIGIBILITY_N_FAMILIES}")
+        if entry["n_mismatched"] != 0:
+            problems.append(
+                f"gate 'terminal_query_invariant' reports n_mismatched="
+                f"{entry['n_mismatched']} while claiming passed=true")
+    elif name == "revision_pinned":
+        for field in ("model_revision", "processor_revision"):
+            if not is_immutable_revision(entry[field]):
+                problems.append(
+                    f"gate 'revision_pinned' reports {field}="
+                    f"{entry[field]!r}, which is not an immutable 40-hex SHA")
+        for field, want in (expected_revisions or {}).items():
+            if want is not None and entry.get(field) != want:
+                problems.append(
+                    f"gate 'revision_pinned' reports {field}="
+                    f"{entry.get(field)!r} but this run resolves {want!r}")
+    elif name == "determinism":
+        if entry["n_repeats"] < 2:
+            problems.append(
+                f"gate 'determinism' used n_repeats={entry['n_repeats']}; "
+                f"at least two repeats are needed to observe a difference")
+        if entry["n_distinct_responses"] != 1:
+            problems.append(
+                f"gate 'determinism' observed n_distinct_responses="
+                f"{entry['n_distinct_responses']} across "
+                f"{entry['n_repeats']} repeats; greedy decoding must be "
+                f"byte-identical")
+    return problems
 
 
 def validate_eligibility_report(
@@ -472,6 +606,9 @@ def validate_eligibility_report(
     model_spec: ResolvedModel,
     expected_protocol_sha: str,
     expected_lock_sha: str | None,
+    expected_processor_revision: str | None = None,
+    expected_family_ids: Sequence[str] | None = None,
+    expected_selection_sha256: str | None = None,
     panel_family_ids: set | None = None,
 ) -> list[str]:
     """Strict schema + content validation of an 11.5 eligibility report.
@@ -480,7 +617,14 @@ def validate_eligibility_report(
     of this gate recorded ``code_commit`` without requiring it, so a report
     with ``code_commit: null`` — or one written about a different
     ``model_key`` entirely — could pass. Every field below is now required
-    AND checked against the run it is being used to authorize.
+    AND checked against something OUTSIDE the report.
+
+    That distinction is the point of the ``expected_*`` arguments. Checking a
+    report's fields only against each other proves self-consistency, not
+    correctness: a selection hash recomputed from the ids in the same report
+    still passes when both are replaced together, and ``passed: true`` still
+    passes when the check was never run. Each expectation below is therefore
+    supplied by the caller from evidence the report does not control.
 
     Args:
         report: The parsed eligibility report.
@@ -488,6 +632,12 @@ def validate_eligibility_report(
         expected_protocol_sha: Digest of the frozen protocol in force.
         expected_lock_sha: Digest of the dependency lock in force; the
             report must have been produced under the same one.
+        expected_processor_revision: The processor revision this run
+            resolves from the lock. The report's own value must equal it,
+            not merely look like a SHA.
+        expected_family_ids: The pre-registered 12-family selection, derived
+            by the caller from frozen Iteration 10 evidence.
+        expected_selection_sha256: Digest of that pre-registered selection.
         panel_family_ids: The frozen panel's family ids, when known, so the
             selected subset can be confirmed to come from that panel.
     """
@@ -528,6 +678,17 @@ def validate_eligibility_report(
             f"eligibility processor_revision "
             f"{report.get('processor_revision')!r} is not an immutable "
             f"40-hex SHA")
+    elif (expected_processor_revision is not None
+          and report.get("processor_revision") != expected_processor_revision):
+        # Looking like a SHA is not the same as being THE right one: a
+        # report certified against a different processor revision would
+        # authorize a run whose chat template or image processor differs,
+        # which changes prompt rendering without moving the model revision.
+        problems.append(
+            f"eligibility was certified for processor_revision "
+            f"{report.get('processor_revision')!r} but this run resolves "
+            f"{expected_processor_revision!r} from the lock — eligibility "
+            f"does not transfer across processor revisions")
 
     # --- code provenance of the eligibility run itself ------------------
     if not is_immutable_revision(report.get("code_commit")):
@@ -570,12 +731,37 @@ def validate_eligibility_report(
         problems.append(
             f"n_selected_families={report.get('n_selected_families')} "
             f"disagrees with the {len(ids)} ids listed")
-    expected_hash = selected_families_sha256(ids) if ids else None
-    if ids and report.get("selected_families_sha256") != expected_hash:
+    # Internal consistency: the recorded digest must be the digest of the
+    # recorded ids. On its own this proves nothing about WHICH families were
+    # chosen — replacing both together used to pass — so it is only the
+    # first of two checks.
+    recomputed = selected_families_sha256(ids) if ids else None
+    if ids and report.get("selected_families_sha256") != recomputed:
         problems.append(
             f"selected_families_sha256 "
             f"{report.get('selected_families_sha256')!r} does not match the "
-            f"listed family ids (recomputed {expected_hash!r})")
+            f"listed family ids (recomputed {recomputed!r})")
+    # External pre-registration: the ids themselves must be the selection
+    # derived from frozen, committed Iteration 10 evidence — which the
+    # report does not control and cannot rewrite.
+    if expected_family_ids is not None:
+        want = sorted(expected_family_ids)
+        got = sorted(ids)
+        if got != want:
+            extra = sorted(set(got) - set(want))
+            absent = sorted(set(want) - set(got))
+            problems.append(
+                f"selected_family_ids are not the pre-registered 11.5 "
+                f"selection: not in the selection {extra}, missing from the "
+                f"report {absent}")
+    if expected_selection_sha256 is not None and \
+            report.get("selected_families_sha256") \
+            != expected_selection_sha256:
+        problems.append(
+            f"selected_families_sha256 "
+            f"{report.get('selected_families_sha256')!r} is not the "
+            f"pre-registered selection digest "
+            f"{expected_selection_sha256!r}")
     if panel_family_ids is not None and ids:
         outside = sorted(set(ids) - set(panel_family_ids))
         if outside:
@@ -623,23 +809,83 @@ def validate_eligibility_report(
 
     # --- detailed gate results -----------------------------------------
     gates = report.get("gates")
-    if not isinstance(gates, dict) or not gates:
+    if not isinstance(gates, dict):
         problems.append(
-            "gates must be a non-empty object of detailed per-gate results; "
-            "a bare overall status is not auditable")
-    else:
-        failed = sorted(name for name, entry in gates.items()
-                        if not _gate_entry_passed(entry))
-        if failed:
-            problems.append(f"eligibility gate(s) failed: {failed}")
+            "gates must be an object of detailed per-gate results; a bare "
+            "overall status is not auditable")
+        return problems
+    names = set(gates)
+    omitted = sorted(ELIGIBILITY_REQUIRED_GATES - names)
+    unexpected = sorted(names - ELIGIBILITY_REQUIRED_GATES)
+    if omitted:
+        problems.append(
+            f"eligibility report omits required detailed gate(s) {omitted}; "
+            f"an omitted gate means the check was never performed, and the "
+            f"required set is exactly "
+            f"{sorted(ELIGIBILITY_REQUIRED_GATES)}")
+    if unexpected:
+        problems.append(
+            f"eligibility report carries unexpected gate(s) {unexpected}; "
+            f"only {sorted(ELIGIBILITY_REQUIRED_GATES)} are defined, so an "
+            f"extra name cannot confer authority")
+    expected_revisions = {
+        "model_revision": model_spec.revision,
+        "processor_revision": expected_processor_revision,
+    }
+    for name in sorted(names & ELIGIBILITY_REQUIRED_GATES):
+        problems.extend(validate_gate_entry(
+            name, gates[name], expected_revisions=expected_revisions))
     return problems
+
+
+def _check_selection_artifact(gate: _Gate, root: Path, derived: dict) -> None:
+    """The committed selection artifact must agree with a fresh derivation.
+
+    ``outputs/iteration_11/eligibility/selection.json`` is the human-readable
+    audit trail for the pre-registered 12 families. It is NOT what the gate
+    believes: the expectation comes from :func:`derive_frozen_selection`, so
+    editing the artifact changes nothing about which families a run may
+    replay. Comparing the two is what makes a stale or tampered artifact
+    visible instead of silently authoritative.
+
+    Only called when the gate derived the selection from ``root`` itself. An
+    injected expectation describes some other evidence base, so holding this
+    repository's artifact against it would be comparing unrelated things.
+    """
+    artifact_path = root / SELECTION_ARTIFACT
+    if not artifact_path.exists():
+        # Absent is not a violation — the derivation is the registration —
+        # but it is recorded, because the artifact is what a reviewer reads.
+        gate.record("selection_artifact_present", False)
+        return
+    gate.record("selection_artifact_present", True)
+    try:
+        committed = json.loads(artifact_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        gate.fail(f"the committed 11.5 selection artifact at "
+                  f"{artifact_path} is unreadable: {exc}")
+        return
+    committed_ids = sorted(committed.get("selected_family_ids") or [])
+    if committed.get("selected_families_sha256") \
+            != derived["selected_families_sha256"] \
+            or committed_ids != sorted(derived["selected_family_ids"]):
+        gate.fail(
+            f"the committed 11.5 selection artifact at {artifact_path} does "
+            f"not match a fresh derivation from the frozen evidence "
+            f"(artifact sha256 "
+            f"{committed.get('selected_families_sha256')!r} vs derived "
+            f"{derived['selected_families_sha256']!r}); the selection is "
+            f"pre-registered by derivation, not by that file. Regenerate it "
+            f"with scripts/iter11_write_selection.py and review the change.")
 
 
 def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
                        protocol_path: str | Path | None,
                        eligibility_root: str | Path | None,
                        lock_path: str | Path | None,
-                       panel_family_ids: set | None = None) -> None:
+                       panel_family_ids: set | None = None,
+                       expected_selection: dict | None = None,
+                       repo_root: str | Path | None = None) -> None:
     """A PASSING, fully-specified 11.5 eligibility report for this target.
 
     Technical eligibility (the target can represent the same semantic role
@@ -647,13 +893,42 @@ def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
     run; without this check a model could be generated for and analysed
     despite having failed eligibility, which is exactly the selection
     freedom the frozen protocol removes.
+
+    Nothing the report says is trusted on its own terms. The expected
+    processor revision comes from the lock, and the expected family
+    selection is RE-DERIVED here from frozen, committed Iteration 10
+    evidence, so a report cannot authorize a different subset by recording
+    matching ids and digest of its own choosing.
     """
+    root = Path(repo_root) if repo_root is not None else REPO_ROOT
     path = eligibility_report_path(model_spec.model_key, eligibility_root)
     gate.record("eligibility_report_path", str(path))
     expected_protocol_sha = protocol_sha256(protocol_path)
     gate.record("protocol_sha256", expected_protocol_sha)
     expected_lock_sha = dependency_lock_sha256(lock_path)
     gate.record("expected_dependency_lock_sha256", expected_lock_sha)
+
+    lock = load_lock(Path(lock_path) if lock_path else DEFAULT_LOCK)
+    entry = lock.get(model_spec.model_key)
+    expected_processor_revision = (
+        entry.get("processor_revision") if isinstance(entry, dict) else None)
+    gate.record("expected_processor_revision", expected_processor_revision)
+
+    derived_here = expected_selection is None
+    if derived_here:
+        # Fail-closed: an underivable selection blocks the run rather than
+        # falling back to whatever the report claims.
+        expected_selection = derive_frozen_selection(root)
+    expected_ids = list(expected_selection["selected_family_ids"])
+    expected_selection_sha = expected_selection["selected_families_sha256"]
+    gate.record("expected_selection_sha256", expected_selection_sha)
+    gate.record("expected_selection_n_families",
+                expected_selection.get("n_selected_families"))
+    gate.record("selection_artifact_path", str(root / SELECTION_ARTIFACT))
+    gate.record("selection_artifact_checked", derived_here)
+    if derived_here:
+        _check_selection_artifact(gate, root, expected_selection)
+
     report = load_eligibility_report(model_spec.model_key, eligibility_root)
     if report is None:
         gate.fail(
@@ -665,6 +940,9 @@ def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
         report, model_spec=model_spec,
         expected_protocol_sha=expected_protocol_sha,
         expected_lock_sha=expected_lock_sha,
+        expected_processor_revision=expected_processor_revision,
+        expected_family_ids=expected_ids,
+        expected_selection_sha256=expected_selection_sha,
         panel_family_ids=panel_family_ids)
     gate.record("eligibility_report_violations", problems)
     gate.record("eligibility_code_commit", report.get("code_commit"))
@@ -725,6 +1003,8 @@ def enforce_confirmatory_protocol(
     lock_path: str | Path | None = None,
     protocol_path: str | Path | None = None,
     eligibility_root: str | Path | None = None,
+    expected_selection: dict | None = None,
+    repo_root: str | Path | None = None,
 ) -> dict:
     """Enforce the frozen protocol on a confirmatory Iteration 11 run.
 
@@ -739,6 +1019,15 @@ def enforce_confirmatory_protocol(
         lock_path: Lock file supplying revisions and the dependency lock.
         protocol_path: Frozen protocol (override for tests).
         eligibility_root: 11.5 report root (override for tests).
+        expected_selection: The pre-registered 11.5 family selection. By
+            default it is RE-DERIVED from the frozen evidence under
+            ``repo_root``; supplying it is for tests and for callers that
+            have already derived it. It is never taken from the report.
+            The committed selection artifact is cross-checked against the
+            derivation ONLY when the gate derived it here, since an injected
+            expectation may describe a different evidence base.
+        repo_root: Repository root used to locate the frozen evidence and
+            the committed selection artifact.
 
     Returns:
         The gate evidence: every value checked. Callers should persist it
@@ -781,7 +1070,8 @@ def enforce_confirmatory_protocol(
         panel_family_ids = {r.get("family_id") for r in records}
 
     _check_eligibility(gate, model_spec, protocol_path, eligibility_root,
-                       lock_path, panel_family_ids)
+                       lock_path, panel_family_ids, expected_selection,
+                       repo_root)
 
     result = {
         "gate": "iteration11_confirmatory",

@@ -199,16 +199,23 @@ def check_environment(protocol: dict) -> tuple[dict, list[str]]:
     """
     from causal_mllm.replay.registry import dependency_lock_snapshot
     snapshot = dependency_lock_snapshot()
-    offenders = dict(snapshot.get("editable_vcs_revisions") or {})
+    # EVERY editable form counts, not just the ones naming a revision: a
+    # local-path or file:// editable install records no revision at all and
+    # is therefore the most mutable case, yet it used to be invisible here.
+    offenders = dict(snapshot.get("editable_installs") or {})
     problems: list[str] = []
     if offenders:
+        detail = "; ".join(
+            f"{name} ({info.get('kind')}: {info.get('target')})"
+            for name, info in sorted(offenders.items()))
         problems.append(
-            f"environment holds third-party editable VCS install(s) "
-            f"{sorted(offenders)} at revisions {offenders}; an editable "
-            f"dependency's source can change without its recorded revision "
-            f"moving, so this environment cannot be certified reproducible. "
-            f"Use a dedicated Iteration 11 environment with no third-party "
-            f"editable installs.")
+            f"environment holds third-party editable install(s): {detail}. An "
+            f"editable dependency's source can change without anything in a "
+            f"`pip freeze` hash moving — a VCS install hides uncommitted "
+            f"sibling changes behind its committed HEAD, and a local-path "
+            f"install names no revision at all — so this environment cannot "
+            f"be certified reproducible. Use a dedicated Iteration 11 "
+            f"environment with no third-party editable installs.")
 
     frozen_lock = protocol.get("dependency_lock") or {}
     frozen_versions = dict(frozen_lock.get("reference_versions") or {})
@@ -245,7 +252,10 @@ def check_environment(protocol: dict) -> tuple[dict, list[str]]:
         "pyproject_sha256": snapshot.get("pyproject_sha256"),
         "excluded_self_distributions":
             snapshot.get("excluded_self_distributions"),
-        "third_party_editable_vcs": offenders,
+        "third_party_editable_installs": offenders,
+        "third_party_editable_vcs": {
+            name: info.get("revision")
+            for name, info in offenders.items() if info.get("revision")},
         "observed_versions": observed,
         "frozen_reference_versions": frozen_versions,
         "frozen_reference_env": frozen_env,

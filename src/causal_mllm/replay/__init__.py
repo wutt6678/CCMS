@@ -8,6 +8,12 @@ Iteration 11 adds a model registry (``resolve_model``) and thin
 model-family adapters (``build_adapter``) that plug into the SAME
 ``run_replay_stage`` pipeline.  The legacy single-model path
 (``model_spec=None``) is unchanged.
+
+``confirmatory`` holds the gate that enforces the frozen Iteration 11
+protocol on a run, and ``selection`` holds the pre-registered 11.5
+eligibility selection the gate re-derives.  They are separate modules so
+that neither the gate nor the 11.5 producer can define the selection in
+terms of the other.
 """
 
 from causal_mllm.replay.adapters import (
@@ -27,12 +33,13 @@ from causal_mllm.replay.config import (
     ReplayConfig,
 )
 from causal_mllm.replay.confirmatory import (
+    ELIGIBILITY_REQUIRED_GATES,
     eligibility_report_path,
     enforce_confirmatory_protocol,
     load_eligibility_report,
     protocol_sha256,
-    selected_families_sha256,
     validate_eligibility_report,
+    validate_gate_entry,
 )
 from causal_mllm.replay.errors import (
     ReplayError,
@@ -45,6 +52,7 @@ from causal_mllm.replay.registry import (
     assert_confirmatory_revision,
     dependency_lock_sha256,
     dependency_lock_snapshot,
+    editable_installs,
     editable_vcs_revisions,
     is_immutable_revision,
     load_dependency_lock,
@@ -65,10 +73,17 @@ from causal_mllm.replay.runner import (
     validate_journal,
     verify_family_media,
 )
+from causal_mllm.replay.selection import (
+    SELECTION_ARTIFACT,
+    derive_frozen_selection,
+    select_eligibility_families,
+    selected_families_sha256,
+)
 
 __all__ = [
     "CallableBackend",
     "DEFAULT_SYSTEM_PROMPT",
+    "ELIGIBILITY_REQUIRED_GATES",
     "HFAdapterBase",
     "HFLocalBackend",
     "PROMPT_TEMPLATE_REVISION",
@@ -79,6 +94,7 @@ __all__ = [
     "ReplayGenerationError",
     "ReplayMediaError",
     "ResolvedModel",
+    "SELECTION_ARTIFACT",
     "TargetModelAdapter",
     "append_journal",
     "assert_confirmatory_revision",
@@ -87,6 +103,8 @@ __all__ = [
     "classify_error",
     "dependency_lock_sha256",
     "dependency_lock_snapshot",
+    "derive_frozen_selection",
+    "editable_installs",
     "editable_vcs_revisions",
     "eligibility_report_path",
     "enforce_confirmatory_protocol",
@@ -102,9 +120,11 @@ __all__ = [
     "resolve_model",
     "resolved_fingerprint",
     "run_replay_stage",
+    "select_eligibility_families",
     "selected_families_sha256",
     "update_lock",
     "validate_eligibility_report",
+    "validate_gate_entry",
     "validate_journal",
     "verify_active_dependency_lock",
     "verify_family_media",

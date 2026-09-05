@@ -817,9 +817,26 @@ sibling repository's *committed* HEAD and is blind to that repository's
 uncommitted working-tree changes — so no hash of freeze output can ever prove
 which dependency source would execute. The revisions are therefore back inside
 the hashed text, and the sound answer is to refuse the situation entirely:
-**a third-party editable VCS install is now fatal** for `verify_active_dependency_lock(strict=True)`,
-for the confirmatory gate, and for the technical preflight, which aborts
-before loading any checkpoint.
+**a third-party editable install is now fatal** for
+`verify_active_dependency_lock(strict=True)`, for the confirmatory gate, and
+for the technical preflight, which aborts before loading any checkpoint.
+
+Refusing "editable VCS installs" was still too narrow, and the boundary has
+moved to the whole `-e` form. Detection originally required the freeze line to
+end in a hexadecimal revision, so `-e /path/to/package`, `-e file:///path` and
+`-e .` — the forms that name **no** revision at all, and are therefore the
+*most* mutable — passed unnoticed. `editable_installs` now classifies every
+`-e` line as `vcs`, `local_path`, `file_url` or `other` and records the
+target verbatim; `editable_vcs_revisions` remains only as a convenience view
+over the entries that happen to name a revision, and is explicitly not the
+detection boundary. Only this project's own install is excluded, identified
+positively — by `#egg=` distribution name, or by an **absolute** path that
+resolves to the repository root. A relative target is never treated as self:
+`pip freeze` records it as given and not the directory pip was invoked from,
+so resolving it against the *verifying* process's cwd would make the verdict
+depend on where the check happened to run, and would classify `-e .` as self
+whenever the check ran from the repository. An unidentifiable editable install
+is refused like any other third-party one.
 
 Iteration 11 evidence is consequently generated in a **dedicated environment**,
 `ccms-iter11`: a `conda create --clone` of the frozen reference environment
@@ -874,17 +891,95 @@ exactly 12 unique family ids drawn from the frozen 100-family panel whose
 `selected_families_sha256` matches them under a published, order-independent
 recipe; the frozen six variants in declared order; `n_expected_attempts` =
 `n_attempts` = `n_succeeded` = 72; `truncation_by_variant` covering all six
-with per-variant counts of 12; and a non-empty `gates` object of detailed
-per-gate results, each of which must pass and any failure of which is reported
-by name. A bare overall status is not accepted — it is not auditable.
+with per-variant counts of 12; and the **exact** set of detailed gates in
+`ELIGIBILITY_REQUIRED_GATES`. A bare overall status is not accepted — it is
+not auditable.
+
+**Any non-empty dictionary of passing gates used to be enough.** Because the
+validator only asked that `gates` be a non-empty object whose entries passed,
+a report could simply omit `vision_path_engaged`, `truncation_reviewed`,
+`determinism` and `terminal_query_invariant` and still authorize generation —
+a test even established that `{"only_gate": true}` was valid. The gate set is
+now closed in both directions: a missing required name is a violation (an
+omitted gate means the check was never performed) and an unexpected name is
+also a violation (only the six defined gates exist, so an extra name cannot
+confer authority). Each gate must additionally carry the evidence fields
+named in `ELIGIBILITY_GATE_EVIDENCE`, and that evidence must be *semantically
+consistent* with `passed: true` rather than merely present — `n_attempts` must
+be 72 with `n_failed` 0; `n_truncated` must be 0, because any truncation is a
+protocol-level STOP (raising the cap would require a uniform five-model replay
+including the frozen 9B reference) and not an eligibility warning; the vision
+gate must show image-bearing cells with a non-zero minimum image-token count,
+since an image-bearing cell with zero image tokens means the image was
+silently dropped; all 12 families must have been checked for the terminal-query
+invariant with 0 mismatches; `revision_pinned` must name immutable SHAs equal
+to what this run resolves; and `determinism` must have used at least two
+repeats and observed exactly one distinct response. A bare flag, an evidence
+field set to `null`, or a self-contradiction such as `passed: true` alongside
+`n_failed: 3` is rejected by name.
+
+**The selection is pre-registered by derivation, not by the report.** The
+validator used to recompute `selected_families_sha256` from the
+`selected_family_ids` in the *same document*, which proves self-consistency
+and nothing else: replacing both together still passed, so any 12 families
+could be presented as "the" pre-registered subset. A new module
+`causal_mllm/replay/selection.py` now holds the recipe as a neutral contract
+that both the gate and the 11.5 producer import, so neither defines the
+selection in terms of the other, and `_check_eligibility` **re-derives** the
+expected 12 from
+frozen, committed Iteration 10 evidence the report cannot influence — the
+frozen Qwen3.5-9B reference run and the frozen adjudicated labels, located by
+following the pointers in `frozen_9b_reference.json` and `scale_profiles.json`
+rather than by hardcoded paths, with the panel's raw digest checked against
+the frozen value first. An underivable selection blocks the run rather than
+falling back to believing the report.
+
+Eligibility is **technical**, never performance-based: the question is whether
+a target can represent the same semantic role and image structure and produce
+complete, non-truncated responses for all six variants. Stratifying on the
+*reference* model's properties is what keeps the subset independent of how any
+candidate performs. The recipe is a 3×3 grid — length tertiles of each
+family's median 9B output-token count across its six variants, against the
+family's maximum adjudicated `compliance_level` collapsed to compliant (0) /
+partial (1) / noncompliant (2–3) — with one family from each of the nine cells
+ranked by closeness to that cell's median length (ties by `family_id`), and
+the three remaining slots given one each to the largest cells not yet granted
+an extra. Against the real frozen panel this selects 12 of 100 families, cut
+points `t1=343.0` / `t2=467.5`, balanced 4/4/4 by length and 3/5/4 by risk,
+digest `f2806e496a6e959ee209fecd91b7484c4f6060fc7afef57d4ab5158d32d06a49` —
+72 generations per target, 288 across the four.
+
+`outputs/iteration_11/eligibility/selection.json` records that selection with
+its full audit trail (cut points, every cell's population and median, which
+family was chosen in each and at what rank, where each extra slot went and
+why). It is written and re-checked by `scripts/iter11_write_selection.py`,
+whose `--verify` compares the committed bytes against a fresh derivation and
+refuses to rewrite a differing artifact without `--force`. That file is **not**
+what the gate believes: the gate derives the expectation itself and then
+cross-checks the artifact, so editing the committed copy changes nothing about
+which families a run may replay — it only makes the discrepancy loud. The
+digest is also pinned in the unit tests, so a change to the recipe fails a
+test instead of silently redefining the subset.
+
+The report's `processor_revision` is likewise no longer accepted for merely
+*looking* like a 40-character SHA. It is compared against the revision the
+lock resolved for this target, because a report certified against a different
+processor would authorize a run whose chat template or image processor renders
+prompts differently without moving the model revision at all — eligibility
+does not transfer across processor revisions.
 
 Until 11.5 produces such a report at
 `outputs/iteration_11/eligibility/<model_key>/preflight_report.json`, every
 confirmatory `--model-key` run fails closed at the gate — which is the intent:
 technical eligibility must be signed off before the full 2,400-output run.
 
-Iterations 11.5–11.8 (12-family eligibility preflight, full 2,400-output
-generation, frozen judging, and cross-model analysis) remain roadmap-only.
+Of 11.5–11.8, the **pre-registered selection is done and committed**: the
+recipe, its audit-trail artifact and the gate that re-derives it are all in
+place and verified against the real frozen panel. The 11.5 *producer* — the
+run that replays those 12 families against each of the four targets and signs
+the report — has not run yet, so no target is currently eligible and every
+confirmatory run still fails closed. 11.6 (full 2,400-output generation),
+11.7 (frozen judging) and 11.8 (cross-model analysis) remain roadmap-only.
 
 ## Schema Reports
 

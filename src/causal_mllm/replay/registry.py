@@ -228,9 +228,16 @@ def _self_distribution_name(line: str) -> str | None:
     return None
 
 
-def _is_self_distribution_line(line: str) -> bool:
-    return _self_distribution_name(line) is not None
+#: Any ``pip freeze`` line describing an editable install. pip renders the
+#: target as a VCS URL carrying a revision, an absolute or relative local
+#: path, a ``file://`` URL, or a bare ``.`` — and ALL of those are mutable.
+#: Only the VCS form names a revision at all: a local-path editable install
+#: captures nothing whatsoever about the source that would execute, so
+#: detecting only ``@<hex>`` lines left the MOST mutable form invisible.
+_EDITABLE_LINE = re.compile(r"^-e\s+(?P<target>\S.*?)\s*$")
 
+#: VCS schemes pip freeze emits for an editable install.
+_VCS_SCHEME = re.compile(r"^(git|hg|svn|bzr)\+")
 
 #: The revision of an editable VCS install, matched as the LAST ``@``-
 #: separated hex segment before any ``#egg=``/``#subdirectory=`` fragment.
@@ -239,41 +246,128 @@ def _is_self_distribution_line(line: str) -> bool:
 _EDITABLE_VCS_REVISION = re.compile(
     r"^(?P<head>.*@)(?P<rev>[0-9a-fA-F]{7,40})(?P<tail>(#.*)?)$")
 
-#: ``#egg=<name>`` of an editable VCS line, used to key the recorded
-#: revisions by something readable.
+#: ``#egg=<name>`` of an editable line, used to key the recorded installs by
+#: something readable.
 _EGG_NAME = re.compile(r"#egg=([^&\s]+)")
 
 
-def _editable_vcs_name(line: str) -> str:
-    """A readable key for an editable VCS freeze line."""
-    match = _EGG_NAME.search(line)
+def _editable_target_is_self(target: str) -> bool:
+    """True when an editable target IS this repository, POSITIVELY.
+
+    A local-path editable install (``-e /path/to/CCMS``) carries no
+    ``#egg=`` name, so name matching cannot identify it as self — and
+    refusing every third-party editable install would then refuse this
+    project's own. Comparing an absolute path against :data:`REPO_ROOT` can.
+
+    Only an absolute path counts. A relative target (``-e .``,
+    ``-e ../sibling``) is resolved by pip against whatever directory pip was
+    invoked from, and ``pip freeze`` does not record that directory — so the
+    text alone cannot say which tree it pointed at. Resolving it against the
+    CURRENT cwd would make the answer depend on where the verification
+    happens to run, and would classify ``-e .`` as self merely because the
+    check ran from the repository. An unidentifiable target is therefore
+    treated as third-party and refused.
+    """
+    bare = target.split("#", 1)[0]
+    if bare.startswith("file://"):
+        bare = bare[len("file://"):]
+    if "://" in bare:
+        # A VCS URL: identity comes from the ``#egg=`` name, not the path.
+        return False
+    candidate = Path(bare).expanduser()
+    if not candidate.is_absolute():
+        return False
+    try:
+        return candidate.resolve() == REPO_ROOT.resolve()
+    except OSError:  # pragma: no cover - unreadable path
+        return False
+
+
+def _is_self_distribution_line(line: str) -> bool:
+    if _self_distribution_name(line) is not None:
+        return True
+    match = _EDITABLE_LINE.match(line)
+    return bool(match) and _editable_target_is_self(match.group("target"))
+
+
+def _self_distribution_label(line: str) -> str | None:
+    """A readable label for a self-distribution line, in either form.
+
+    A path-form editable self install (``-e /path/to/repo``) names no
+    distribution, but the exclusion still has to be REPORTED — recording the
+    raw line would put this repository's identity back inside the hashed
+    block, so the canonical name is used instead.
+    """
+    name = _self_distribution_name(line)
+    if name is not None:
+        return name
+    return SELF_DISTRIBUTIONS[0] if _is_self_distribution_line(line) else None
+
+
+def _editable_name(target: str) -> str:
+    """A readable key for an editable freeze target."""
+    match = _EGG_NAME.search(target)
     if match:
         return match.group(1)
-    return line.split()[0] if line.split() else line
+    stripped = target.split("#", 1)[0].rstrip("/")
+    return stripped.rsplit("/", 1)[-1] or target
+
+
+def _editable_kind(target: str) -> str:
+    """Which mutable form an editable target takes."""
+    bare = target.split("#", 1)[0]
+    if bare.startswith("file://"):
+        return "file_url"
+    if _VCS_SCHEME.match(bare) or "://" in bare:
+        return "vcs"
+    if bare in (".", "..") or bare.startswith(("/", "./", "../", "~")):
+        return "local_path"
+    return "other"
+
+
+def editable_installs(lines: list[str]) -> dict:
+    """EVERY editable install in ``lines``, whatever form it takes.
+
+    Returns ``{name: {"kind", "target", "revision", "line"}}``. No kind is
+    certifiable:
+
+    * ``vcs`` — ``pip freeze`` reports the sibling repository's COMMITTED
+      HEAD and is blind to its uncommitted working-tree changes, so no hash
+      of freeze output can prove which dependency source would execute;
+    * ``local_path`` / ``file_url`` / ``other`` — no revision is recorded at
+      all, so the source can change freely without moving any hash.
+
+    Detection only: the raw lines stay inside the hashed freeze text, since
+    an editable dependency's identity IS dependency identity and normalizing
+    it away would let the dependency change while the certified lock hash
+    stood still.
+    """
+    found: dict = {}
+    for line in lines:
+        match = _EDITABLE_LINE.match(line)
+        if not match:
+            continue
+        target = match.group("target")
+        revision = _EDITABLE_VCS_REVISION.match(target)
+        found[_editable_name(target)] = {
+            "kind": _editable_kind(target),
+            "target": target,
+            "revision": revision.group("rev") if revision else None,
+            "line": line,
+        }
+    return found
 
 
 def editable_vcs_revisions(lines: list[str]) -> dict:
-    """``{distribution: revision}`` for editable VCS installs in ``lines``.
+    """``{name: revision}`` for the editable installs that name one.
 
-    DETECTION only — the revision stays in the hashed freeze text. An
-    editable install's revision is part of dependency identity: normalizing
-    it away would let the source of a dependency change while the certified
-    lock hash stood still, which is the opposite of what a reproducible
-    lock is for.
-
-    The real protection is that a third-party editable install is not
-    certifiable AT ALL (see :func:`verify_active_dependency_lock`), because
-    ``pip freeze`` reports such an install by the sibling repository's
-    committed HEAD and is blind to its uncommitted working-tree changes. No
-    hash of freeze output can capture those, so the only sound answer is to
-    refuse to run confirmatory work in an environment that has one.
+    A convenience view over :func:`editable_installs`, and deliberately NOT
+    the detection boundary: an editable install with no revision is the more
+    mutable case, not a safe one.
     """
-    revisions: dict = {}
-    for line in lines:
-        match = _EDITABLE_VCS_REVISION.match(line)
-        if match:
-            revisions[_editable_vcs_name(line)] = match.group("rev")
-    return revisions
+    return {name: info["revision"]
+            for name, info in editable_installs(lines).items()
+            if info.get("revision")}
 
 
 def dependency_lock_snapshot() -> dict:
@@ -305,7 +399,7 @@ def dependency_lock_snapshot() -> dict:
     all_lines = sorted(line.strip() for line in completed.stdout.splitlines()
                        if line.strip() and not line.startswith("#"))
     excluded = sorted({name for name in
-                       (_self_distribution_name(line) for line in all_lines)
+                       (_self_distribution_label(line) for line in all_lines)
                        if name})
     lines = [line for line in all_lines
              if not _is_self_distribution_line(line)]
@@ -320,6 +414,10 @@ def dependency_lock_snapshot() -> dict:
         "python_version": sys.version.split()[0],
         "executable": sys.executable,
         "editable_vcs_revisions": editable_vcs_revisions(lines),
+        # Every editable form, not just the ones naming a revision: a
+        # local-path editable install is the most mutable case of all and
+        # used to be invisible to detection.
+        "editable_installs": editable_installs(lines),
     }
 
 
@@ -425,12 +523,14 @@ def verify_active_dependency_lock(
             "differences": {},
         }
     active = dependency_lock_snapshot()
-    # A third-party editable install is not certifiable at all, whatever
-    # the lock says: pip freeze identifies it by the sibling repository's
-    # COMMITTED HEAD and is blind to that repository's uncommitted
-    # working-tree changes, so no hash of freeze output can prove which
-    # dependency source would execute. Refusing is the only sound answer.
-    offenders = dict(active.get("editable_vcs_revisions") or {})
+    # A third-party editable install is not certifiable at all, whatever the
+    # lock says, and in ANY form: a VCS editable install is reported by the
+    # sibling repository's committed HEAD and is blind to that repository's
+    # uncommitted changes, while a local-path or file:// editable install
+    # records no revision at all. Either way no hash of freeze output can
+    # prove which dependency source would execute, so refusing is the only
+    # sound answer.
+    offenders = dict(active.get("editable_installs") or {})
     differences = {
         f: {"locked": locked.get(f), "active": active.get(f)}
         for f in LOCK_IDENTITY_FIELDS
@@ -449,7 +549,10 @@ def verify_active_dependency_lock(
         "checked_fields": list(LOCK_IDENTITY_FIELDS),
         "differences": differences,
         "informational_differences": informational,
-        "third_party_editable_vcs": offenders,
+        "third_party_editable_installs": offenders,
+        "third_party_editable_vcs": {
+            name: info.get("revision")
+            for name, info in offenders.items() if info.get("revision")},
         "locked_identity": {f: locked.get(f) for f in LOCK_IDENTITY_FIELDS},
         "active_identity": {f: active.get(f) for f in LOCK_IDENTITY_FIELDS},
         # Operational only: differing interpreters with identical identity
@@ -461,14 +564,18 @@ def verify_active_dependency_lock(
         "dependency_lock_sha256": dependency_lock_sha256(resolved_path),
     }
     if offenders and strict:
+        detail = "; ".join(
+            f"{name} ({info.get('kind')}: {info.get('target')})"
+            for name, info in sorted(offenders.items()))
         raise ReplayError(
-            f"the active environment contains third-party editable VCS "
-            f"install(s) {sorted(offenders)} at revisions "
-            f"{offenders}. An editable dependency's source can change "
-            f"without its recorded revision moving, so the environment "
-            f"cannot be certified reproducible. Run confirmatory and "
-            f"eligibility work in a dedicated Iteration 11 environment with "
-            f"no third-party editable installs.")
+            f"the active environment contains third-party editable "
+            f"install(s): {detail}. An editable dependency's source can "
+            f"change without anything in a `pip freeze` hash moving — a VCS "
+            f"install hides uncommitted sibling changes behind its committed "
+            f"HEAD, and a local-path install names no revision at all — so "
+            f"the environment cannot be certified reproducible. Run "
+            f"confirmatory and eligibility work in a dedicated Iteration 11 "
+            f"environment with no third-party editable installs.")
     if differences and strict:
         detail = "; ".join(
             f"{f}: locked={v['locked']!r} active={v['active']!r}"
