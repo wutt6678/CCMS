@@ -76,7 +76,7 @@ ELIGIBILITY_REPORT_FILE = "preflight_report.json"
 
 VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
 
-#: Repo-root-relative prefixes a replay run writes its PRODUCTS into.
+#: Repo-root-relative prefixes whose contents are a replay run's PRODUCTS.
 #: Excluded from the clean-tree determination because a run must not be
 #: blocked by its own (or a sibling target's) regenerated evidence — and
 #: because a resumed run would otherwise see its own prior outputs as
@@ -85,18 +85,23 @@ VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
 #: tracked modification still fails the gate, and excluded paths are
 #: recorded in the gate evidence rather than silently dropped.
 #:
-#: The two exclusions are exactly the run-output trees. The rest of
-#: ``outputs/iteration_11/eligibility/`` is deliberately NOT excluded, even
-#: though the 11.5 stage writes it: ``selection.json`` is the
-#: pre-registration record and ``<model_key>/preflight_report.json`` is an
-#: INPUT that authorizes the confirmatory run, not a product of it. Leaving
-#: those unexcluded means both must be committed before generation starts,
-#: so an uncommitted — and therefore unreproducible — document can never be
-#: what authorized a run.
-OWN_OUTPUT_PREFIXES = (
-    f"{GENERATIONS_ROOT}/",
-    f"{ELIGIBILITY_GENERATIONS_ROOT}/",
-)
+#: The exclusions are STAGE-SCOPED, because "this stage's own output" is not
+#: the same set for both stages:
+#:
+#: * a CONFIRMATORY run writes only under ``generations/``. The whole of
+#:   ``eligibility/`` stays unexcluded, so ``selection.json`` and the 11.5
+#:   ``preflight_report.json`` must be committed before 11.6 starts. Both
+#:   are INPUTS that authorize the run, and an uncommitted — therefore
+#:   unreproducible — document must never be what authorized generation.
+#: * an 11.5 ELIGIBILITY run writes its generations *and* its report under
+#:   ``eligibility/``, so that whole tree is its own output (see
+#:   :data:`ELIGIBILITY_OWN_OUTPUT_PREFIXES`). Without it, the first
+#:   target's report would make the tree dirty and block every subsequent
+#:   target even though nothing about the code changed.
+OWN_OUTPUT_PREFIXES = (f"{GENERATIONS_ROOT}/",)
+
+#: The 11.5 stage's own output tree: its generations and its report.
+ELIGIBILITY_OWN_OUTPUT_PREFIXES = ("outputs/iteration_11/eligibility/",)
 
 #: Sampling values that are INERT under greedy decoding. The frozen
 #: protocol records Iteration 10's temperature=0.0/top_p=1.0 and
@@ -306,7 +311,9 @@ def _check_decoding(gate: _Gate, config: ReplayConfig, protocol: dict) -> None:
             f"{protocol['frozen_inputs']['prompt_template_revision']!r}")
 
 
-def _check_clean_tree(gate: _Gate) -> None:
+def _check_clean_tree(gate: _Gate,
+                      own_output_prefixes: Sequence[str] = OWN_OUTPUT_PREFIXES,
+                      ) -> None:
     """The tree must be clean enough for ``code_commit`` to reconstruct it.
 
     Untracked files count. Ignoring them was a hole: an untracked
@@ -315,9 +322,11 @@ def _check_clean_tree(gate: _Gate) -> None:
     what executes while ``code_commit`` still points at a tree that cannot
     reproduce it — and the run would have recorded ``git_dirty: false``.
 
-    Only :data:`OWN_OUTPUT_PREFIXES` and cache/transient paths are excluded,
-    and both exclusions are recorded in the gate evidence rather than
-    applied silently.
+    Only ``own_output_prefixes`` and cache/transient paths are excluded, and
+    both exclusions are recorded in the gate evidence rather than applied
+    silently. The prefix list is stage-scoped: each stage excludes what IT
+    writes, so an 11.5 run excludes its own report while a confirmatory run
+    does not (that report is an input which authorizes it).
 
     ``code_tree_status`` reports ``dirty=None`` outside a git repository,
     which is treated as a violation: unknown provenance cannot be
@@ -325,10 +334,11 @@ def _check_clean_tree(gate: _Gate) -> None:
     indistinguishable from a committed tree.
     """
     commit = get_git_commit()
-    tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
+    tree = code_tree_status(exclude_prefixes=own_output_prefixes)
     dirty = tree["dirty"]
     gate.record("code_commit", commit)
     gate.record("git_dirty", dirty)
+    gate.record("git_own_output_prefixes", list(own_output_prefixes))
     gate.record("git_dirty_paths", tree["dirty_paths"])
     gate.record("git_untracked_paths", tree["untracked_paths"])
     gate.record("git_dirty_excluded_own_outputs",
@@ -1239,7 +1249,7 @@ def enforce_eligibility_protocol(
             f"this model_key, kept separate from confirmatory evidence so "
             f"a 12-family run can never be read as a 100-family one.")
 
-    _check_clean_tree(gate)
+    _check_clean_tree(gate, ELIGIBILITY_OWN_OUTPUT_PREFIXES)
     _check_decoding(gate, config, protocol)
     _check_revisions(gate, model_spec, lock_path)
     _check_dependencies(gate, lock_path)

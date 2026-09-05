@@ -60,7 +60,7 @@ from causal_mllm.replay.confirmatory import (  # noqa: E402
     ELIGIBILITY_GENERATIONS_ROOT,
     ELIGIBILITY_N_ATTEMPTS,
     ELIGIBILITY_N_FAMILIES,
-    OWN_OUTPUT_PREFIXES,
+    ELIGIBILITY_OWN_OUTPUT_PREFIXES,
     eligibility_report_path,
     enforce_eligibility_protocol,
     protocol_sha256,
@@ -318,7 +318,7 @@ def build_report(*, spec, config, run_report, run_dir, gate, environment,
     # Computed BEFORE the report is written: writing it is what makes the
     # tree dirty under this stage's own output prefix, and the value has to
     # describe the tree the run executed in.
-    tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
+    tree = code_tree_status(exclude_prefixes=ELIGIBILITY_OWN_OUTPUT_PREFIXES)
     problems = [f"gate {name!r} did not pass"
                 for name, entry in sorted(gates.items())
                 if entry.get("passed") is not True]
@@ -489,7 +489,12 @@ def main() -> int:
         FROZEN_PANEL_DIR, output_root, config=config, backend=adapter,
         family_ids=family_ids, run_id=run_id, overwrite=False,
         model_spec=spec, resume=args.resume, lock_path=lock_path,
-        gate_evidence=gate)
+        gate_evidence=gate,
+        # This stage's own tree, which includes the report it is about to
+        # write and the generations of any sibling target already run. The
+        # confirmatory stage uses a narrower list, because there this
+        # stage's report is an INPUT rather than a product.
+        own_output_prefixes=ELIGIBILITY_OWN_OUTPUT_PREFIXES)
     run_dir = Path(output_root) / run_report["run_id"]
     records = read_jsonl(run_dir / REPLAY_OUTPUTS_FILE)
     print(f"run {run_report['run_id']}: {run_report['n_succeeded']}/"

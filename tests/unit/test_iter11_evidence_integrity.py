@@ -2255,6 +2255,40 @@ class TestFamilySubsetRuns:
                  else "confirmatory_gate")
         assert other not in report
 
+    def test_the_stage_output_prefixes_reach_the_fingerprint(self, tmp_path,
+                                                             monkeypatch):
+        # An 11.5 run's own report and generations live under eligibility/.
+        # Excluding them is what keeps a resumed run's fingerprint equal to
+        # its first attempt's; without it the resume would see its own prior
+        # outputs as untracked files and refuse itself.
+        def fake(exclude_prefixes=()):
+            dirty = "outputs/iteration_11/eligibility/" not in tuple(
+                exclude_prefixes)
+            return _tree(dirty,
+                         dirty_paths=["outputs/iteration_11/eligibility/x"]
+                         if dirty else [])
+
+        monkeypatch.setattr(runner, "code_tree_status", fake)
+        _families(tmp_path, 1)
+        spec = _spec()
+        stub = _StubAdapter(spec)
+        config = ReplayConfig(max_new_tokens=1536)
+        hw = stub.runtime_metadata()["hardware"]
+        narrow = iteration11_run_fingerprint(stub, config, tmp_path, spec, hw)
+        wide = iteration11_run_fingerprint(
+            stub, config, tmp_path, spec, hw,
+            own_output_prefixes=confirmatory.ELIGIBILITY_OWN_OUTPUT_PREFIXES)
+        assert narrow != wide
+
+    def test_the_report_records_the_exclusions_it_relied_on(self, tmp_path):
+        # The clean-tree answer a run recorded is only interpretable
+        # together with the exclusions it was computed under.
+        report, _, _ = _subset_run(
+            tmp_path, ["fam000"],
+            own_output_prefixes=confirmatory.ELIGIBILITY_OWN_OUTPUT_PREFIXES)
+        assert report["provenance"]["code_own_output_prefixes"] == list(
+            confirmatory.ELIGIBILITY_OWN_OUTPUT_PREFIXES)
+
 
 # ---------------------------------------------------------------------
 # 11.5  The eligibility protocol gate
@@ -2437,6 +2471,41 @@ class TestEligibilityProtocolGate:
     def test_the_confirmatory_gate_records_that_no_subset_was_requested(
             self, world):
         assert _gate(world)["checks"]["family_ids"] is None
+
+    def test_the_eligibility_gate_excludes_its_own_report_tree(
+            self, world, frozen_repo, monkeypatch):
+        # The 11.5 stage writes its report under eligibility/, so that tree
+        # is its own output. Without the exclusion the first target's report
+        # would make the tree dirty and block every later target even though
+        # nothing about the code changed.
+        seen = {}
+
+        def fake(exclude_prefixes=()):
+            seen["prefixes"] = tuple(exclude_prefixes)
+            return _tree(False, own_outputs=[
+                "outputs/iteration_11/eligibility/qwen35_2b/"
+                "preflight_report.json"])
+
+        monkeypatch.setattr(confirmatory, "code_tree_status", fake)
+        result = _eligibility_gate(world, frozen_repo)
+        assert result["passed"] is True
+        assert seen["prefixes"] \
+            == confirmatory.ELIGIBILITY_OWN_OUTPUT_PREFIXES
+        assert result["checks"]["git_own_output_prefixes"] == list(
+            confirmatory.ELIGIBILITY_OWN_OUTPUT_PREFIXES)
+        assert result["checks"]["git_dirty_excluded_own_outputs"]
+
+    def test_the_two_stages_do_not_share_an_exclusion(self):
+        # The eligibility report is THIS stage's product and the
+        # confirmatory stage's INPUT, so the narrower confirmatory list must
+        # not cover it: an uncommitted report has to block 11.6 rather than
+        # pass unnoticed as "a stage's own output".
+        assert not any("eligibility" in prefix
+                       for prefix in confirmatory.OWN_OUTPUT_PREFIXES)
+        assert confirmatory.ELIGIBILITY_OWN_OUTPUT_PREFIXES == (
+            "outputs/iteration_11/eligibility/",)
+        assert confirmatory.ELIGIBILITY_GENERATIONS_ROOT.startswith(
+            confirmatory.ELIGIBILITY_OWN_OUTPUT_PREFIXES[0])
 
 
 # ---------------------------------------------------------------------
@@ -3370,7 +3439,17 @@ class TestCommittedPreflightArtifacts:
             pytest.skip(f"{model_key} is not a PASS artifact")
         environment = artifact["environment"]
         # No third-party editable install: its source can change without
-        # its recorded revision moving.
+        # its recorded revision moving. EVERY form counts, not just the ones
+        # naming a revision — a local-path editable install names none at
+        # all and is the most mutable case.
+        if "third_party_editable_installs" not in environment:
+            pytest.skip(
+                f"{model_key}'s artifact predates the editable-install "
+                f"detection field (code_commit "
+                f"{artifact.get('code_commit', '?')[:12]}); regenerate it "
+                f"with scripts/iter11_model_preflight.py so the recorded "
+                f"evidence and the certifying code agree")
+        assert environment["third_party_editable_installs"] == {}
         assert environment["third_party_editable_vcs"] == {}
         assert environment["excluded_self_distributions"]
         # Every frozen reference_version still holds in the dedicated env.

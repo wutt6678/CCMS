@@ -157,6 +157,7 @@ def iteration11_run_fingerprint(
     hardware: dict | None = None,
     lock_path: str | Path | None = None,
     family_ids: Sequence[str] | None = None,
+    own_output_prefixes: Sequence[str] | None = None,
 ) -> str:
     """Iteration 11 resolved-run fingerprint.
 
@@ -217,7 +218,9 @@ def iteration11_run_fingerprint(
         # paths and this stage's own output tree, because a run's own
         # outputs are its product rather than its code.
         "code_tree_dirty": code_tree_status(
-            exclude_prefixes=OWN_OUTPUT_PREFIXES)["dirty"],
+            exclude_prefixes=(own_output_prefixes
+                              if own_output_prefixes is not None
+                              else OWN_OUTPUT_PREFIXES))["dirty"],
         "hardware": fingerprint_hardware(hardware),
         # The frozen protocol requires the pip-freeze dependency lock hash
         # to be bound into every resolved run fingerprint.
@@ -578,6 +581,7 @@ def run_replay_stage(
     resume: bool = False,
     lock_path: str | Path | None = None,
     gate_evidence: dict | None = None,
+    own_output_prefixes: Sequence[str] | None = None,
 ) -> dict:
     """Replay validated families; persist outputs/failures/report.
 
@@ -622,6 +626,14 @@ def run_replay_stage(
             from the launching terminal's stdout. Stored under
             ``confirmatory_gate`` or ``eligibility_gate`` according to the
             gate that produced it.
+        own_output_prefixes: Repo-root-relative prefixes holding THIS
+            stage's own outputs, excluded from the clean-tree determination
+            that ``code_tree_dirty`` records and the fingerprint binds.
+            Defaults to the confirmatory stage's tree; an 11.5 eligibility
+            run passes its own, which additionally covers the report it
+            writes. Without this a resumed run would see its own prior
+            outputs as untracked files and bind a different fingerprint
+            than its first attempt did, refusing the resume.
 
     Raises:
         ReplayError: On missing validated_families.jsonl, missing
@@ -691,7 +703,10 @@ def run_replay_stage(
         # modifications: a report claiming a clean tree while an untracked
         # module or sitecustomize.py changed what executed is the same
         # defect the confirmatory gate now refuses.
-        code_tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
+        prefixes = (list(own_output_prefixes)
+                    if own_output_prefixes is not None
+                    else list(OWN_OUTPUT_PREFIXES))
+        code_tree = code_tree_status(exclude_prefixes=prefixes)
         run_prov = {
             "model_key": model_spec.model_key,
             "adapter": model_spec.adapter,
@@ -700,6 +715,9 @@ def run_replay_stage(
             "code_tree_dirty": code_tree["dirty"],
             "code_dirty_paths": code_tree["dirty_paths"],
             "code_untracked_paths": code_tree["untracked_paths"],
+            # Recorded so the exclusion this run's clean-tree answer relied
+            # on is auditable rather than implied by which stage launched it.
+            "code_own_output_prefixes": prefixes,
             "dataset_manifest_hash": _file_sha256(source_path),
             # Recorded so the evidence itself says which families this run
             # replayed. ``dataset_manifest_hash`` above is the WHOLE panel,
@@ -713,7 +731,8 @@ def run_replay_stage(
             } if family_ids is not None else None),
             "resolved_run_fingerprint": iteration11_run_fingerprint(
                 backend, config, input_dir, model_spec, hardware,
-                lock_path=lock_path, family_ids=family_ids),
+                lock_path=lock_path, family_ids=family_ids,
+                own_output_prefixes=own_output_prefixes),
             # Recorded, not merely assumed: the lock hash bound above is
             # read from the lock FILE, so on its own it does not prove the
             # environment actually running inference is the one certified

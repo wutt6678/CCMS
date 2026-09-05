@@ -58,17 +58,18 @@ FROZEN_CAP = 1536
 VISION_VARIANT = "cross_modal"
 TEXT_VARIANT = "text_only"
 
-#: Repo-root-relative prefixes THIS stage writes, plus the shared replay
-#: output trees. Regenerating the first target's artifact (and the shared
-#: lock) must not make the tree count as dirty for the second target:
-#: nothing about the code changed, and ``code_commit`` still reconstructs
-#: it. Excluded paths are recorded in the artifact rather than silently
-#: dropped.
+#: Repo-root-relative prefixes holding THIS stage's own artifacts, plus the
+#: shared replay output trees. Regenerating the first target's artifact (and
+#: the shared lock) must not make the tree count as dirty for the second
+#: target: nothing about the code changed, and ``code_commit`` still
+#: reconstructs it. Excluded paths are recorded in the artifact rather than
+#: silently dropped.
 #:
-#: The eligibility REPORT is deliberately not excluded — it authorizes
+#: ``outputs/iteration_11/eligibility/`` is NOT excluded here: the 11.5
+#: report and the committed selection are inputs that authorize
 #: confirmatory generation, so an uncommitted copy must block evidence
-#: minting rather than pass unnoticed. Only the eligibility *generations*
-#: tree is, via the shared constant.
+#: minting rather than pass unnoticed. The 11.5 producer excludes that tree
+#: for itself, because there it is the stage's own product.
 OWN_OUTPUT_PREFIXES = (
     "outputs/iteration_11/preflight/",
 ) + REPLAY_OUTPUT_PREFIXES

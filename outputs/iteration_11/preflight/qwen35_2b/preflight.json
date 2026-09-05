@@ -55,6 +55,7 @@
     "excluded_self_distributions": [
       "causal-mllm"
     ],
+    "third_party_editable_installs": {},
     "third_party_editable_vcs": {},
     "observed_versions": {
       "transformers": "5.14.1",
@@ -70,7 +71,7 @@
     "reference_env_matches_frozen": false,
     "reference_env_deviation": {
       "claim": "the frozen protocol names reference_env='midp-qwen35'",
-      "observation": "this preflight ran in conda env 'ccms-iter11'",
+      "observation": "this process runs in conda env 'ccms-iter11'",
       "rationale": "a dedicated clone of that environment with the third-party editable install removed; every frozen reference_version matches exactly, so only the environment NAME differs. The clone is required because the shared environment carries an editable sibling install whose source can change without its recorded revision moving, which is not certifiable. The frozen protocol file is immutable and was not edited.",
       "frozen_protocol_modified": false
     }
@@ -86,7 +87,7 @@
     "n_families_smoked": 1
   },
   "device": "cuda:3",
-  "code_commit": "afebf85ab785b1e6bbefc5bd1d6a14123be82517",
+  "code_commit": "f5f7db1f0392eb2cfc76fb7d1dc64f2bec293c0c",
   "git_dirty": false,
   "git_dirty_paths": [],
   "git_untracked_paths": [],
@@ -228,7 +229,8 @@
       "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
       "python_version": "3.10.20",
       "executable": "/scratch/wutiantong/miniconda3/envs/ccms-iter11/bin/python",
-      "editable_vcs_revisions": {}
+      "editable_vcs_revisions": {},
+      "editable_installs": {}
     },
     "forced": false
   },
@@ -258,5 +260,5 @@
   },
   "problems": [],
   "status": "PASS",
-  "timestamp": "2026-09-05T10:40:38+00:00"
+  "timestamp": "2026-09-05T13:21:22+00:00"
 }
