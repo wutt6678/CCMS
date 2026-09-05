@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -58,8 +59,12 @@ TEXT_VARIANT = "text_only"
 #: target's artifact (and the shared lock) must not make the tree count as
 #: dirty for the second target: nothing about the code changed, and
 #: ``code_commit`` still reconstructs it. Excluded paths are recorded in the
-#: artifact rather than silently dropped.
-OWN_OUTPUT_PREFIXES = ("outputs/iteration_11/preflight/",)
+#: artifact rather than silently dropped. ``eligibility/`` is included
+#: because the 11.5 eligibility report is this stage family's output too.
+OWN_OUTPUT_PREFIXES = (
+    "outputs/iteration_11/preflight/",
+    "outputs/iteration_11/eligibility/",
+)
 
 
 def load_frozen_protocol() -> dict:
@@ -134,14 +139,19 @@ def git_provenance(code_commit: str | None, tree: dict,
     """
     dirty = tree.get("dirty")
     dirty_paths = list(tree.get("dirty_paths") or [])
-    excluded_paths = list(tree.get("excluded_paths") or [])
+    untracked_paths = list(tree.get("untracked_paths") or [])
+    own_outputs = list(tree.get("excluded_own_outputs") or [])
+    cache_paths = list(tree.get("excluded_cache_paths") or [])
     problems: list[str] = []
     abort = False
     abort_message = None
     if dirty is not False:
-        reason = ("git status unavailable (not a repository?)"
-                  if dirty is None
-                  else f"uncommitted changes to {dirty_paths}")
+        if dirty is None:
+            reason = "git status unavailable (not a repository?)"
+        elif untracked_paths and len(untracked_paths) == len(dirty_paths):
+            reason = f"UNTRACKED files at {untracked_paths}"
+        else:
+            reason = f"uncommitted changes to {dirty_paths}"
         problems.append(
             f"working tree was not clean at code_commit {code_commit} "
             f"({reason}); this artifact cannot certify the code that "
@@ -151,13 +161,111 @@ def git_provenance(code_commit: str | None, tree: dict,
             abort_message = (
                 f"working tree is not clean ({reason}) at code_commit "
                 f"{code_commit}. The code that would execute is not the "
-                f"code that commit contains, so the artifact could not be "
-                f"reconstructed from its own recorded provenance. Commit "
-                f"first; --allow-dirty runs diagnostics but can never "
-                f"produce status PASS.")
+                f"code that commit contains — an untracked module, "
+                f"sitecustomize.py or shadowing top-level file changes "
+                f"execution without being recorded anywhere — so the "
+                f"artifact could not be reconstructed from its own recorded "
+                f"provenance. Commit or remove them first; --allow-dirty "
+                f"runs diagnostics but can never produce status PASS.")
     return {"abort": abort, "abort_message": abort_message,
             "problems": problems, "dirty_paths": dirty_paths,
-            "excluded_paths": excluded_paths}
+            "untracked_paths": untracked_paths,
+            "excluded_own_outputs": own_outputs,
+            "excluded_cache_paths": cache_paths}
+
+
+def check_environment(protocol: dict) -> tuple[dict, list[str]]:
+    """Certify the environment this preflight is about to run in.
+
+    Three separate questions:
+
+    1. Does the environment hold a third-party editable install? Fatal.
+       ``pip freeze`` identifies an editable dependency by the sibling
+       repository's COMMITTED HEAD and is blind to that repository's
+       uncommitted working-tree changes, so no hash of freeze output can
+       prove which dependency source would execute. A technical preflight
+       mints evidence that 11.5/11.6 rely on, so it must refuse here rather
+       than let the problem surface at analysis time.
+    2. Do the runtime versions match the frozen ``reference_versions``?
+       Fatal on mismatch — these are what determine model behaviour.
+    3. Is the conda environment NAME the frozen ``reference_env``? Recorded
+       as an explicit deviation, NOT fatal: the name labels where the frozen
+       versions were observed, and a dedicated clone carrying byte-identical
+       versions preserves every scientific property while removing the
+       editable install that question 1 forbids. The frozen protocol file is
+       never edited to accommodate this.
+
+    Returns the recorded environment identity plus any violations.
+    """
+    from causal_mllm.replay.registry import dependency_lock_snapshot
+    snapshot = dependency_lock_snapshot()
+    offenders = dict(snapshot.get("editable_vcs_revisions") or {})
+    problems: list[str] = []
+    if offenders:
+        problems.append(
+            f"environment holds third-party editable VCS install(s) "
+            f"{sorted(offenders)} at revisions {offenders}; an editable "
+            f"dependency's source can change without its recorded revision "
+            f"moving, so this environment cannot be certified reproducible. "
+            f"Use a dedicated Iteration 11 environment with no third-party "
+            f"editable installs.")
+
+    frozen_lock = protocol.get("dependency_lock") or {}
+    frozen_versions = dict(frozen_lock.get("reference_versions") or {})
+    observed: dict = {}
+    try:
+        import torch
+        import transformers
+        observed = {"transformers": transformers.__version__,
+                    "torch": torch.__version__,
+                    "cuda": torch.version.cuda}
+    except ImportError as exc:  # pragma: no cover - env without inference
+        problems.append(f"cannot read runtime versions: {exc}")
+    mismatched = {
+        key: {"frozen": frozen_versions.get(key), "observed": observed.get(key)}
+        for key in sorted(frozen_versions)
+        if observed.get(key) != frozen_versions.get(key)
+    }
+    if mismatched:
+        detail = "; ".join(
+            f"{k}: frozen={v['frozen']!r} observed={v['observed']!r}"
+            for k, v in mismatched.items())
+        problems.append(
+            f"runtime versions do not match the frozen reference_versions — "
+            f"{detail}")
+
+    conda_env = os.environ.get("CONDA_DEFAULT_ENV")
+    frozen_env = frozen_lock.get("reference_env")
+    values = {
+        "python_version": snapshot.get("python_version"),
+        "executable": snapshot.get("executable"),
+        "conda_env": conda_env,
+        "n_packages": snapshot.get("n_packages"),
+        "pip_freeze_sha256": snapshot.get("pip_freeze_sha256"),
+        "pyproject_sha256": snapshot.get("pyproject_sha256"),
+        "excluded_self_distributions":
+            snapshot.get("excluded_self_distributions"),
+        "third_party_editable_vcs": offenders,
+        "observed_versions": observed,
+        "frozen_reference_versions": frozen_versions,
+        "frozen_reference_env": frozen_env,
+        "reference_env_matches_frozen": conda_env == frozen_env,
+    }
+    if conda_env != frozen_env:
+        values["reference_env_deviation"] = {
+            "claim": f"the frozen protocol names reference_env={frozen_env!r}",
+            "observation": f"this preflight ran in conda env {conda_env!r}",
+            "rationale": (
+                "a dedicated clone of that environment with the third-party "
+                "editable install removed; every frozen reference_version "
+                "matches exactly, so only the environment NAME differs. The "
+                "clone is required because the shared environment carries an "
+                "editable sibling install whose source can change without its "
+                "recorded revision moving, which is not certifiable. The "
+                "frozen protocol file is immutable and was not edited."),
+            "frozen_protocol_modified": False,
+        }
+    return values, problems
 
 
 # Runtime conditions observed in the frozen reference environment. They
@@ -536,6 +644,18 @@ def main() -> int:
                              "reconstructed from its recorded code_commit.")
     args = parser.parse_args()
 
+    protocol = load_frozen_protocol()
+
+    # Environment first: unlike a dirty tree, an environment holding a
+    # third-party editable install cannot produce certifiable evidence at
+    # all, so there is nothing to gain by loading a checkpoint. No escape
+    # hatch — the environment has to be fixed.
+    environment, environment_problems = check_environment(protocol)
+    if environment_problems:
+        for problem in environment_problems:
+            print(f"FAIL {args.model_key}: {problem}")
+        return 2
+
     # Captured BEFORE anything is written, and measured over CODE paths:
     # this stage regenerates its own committed artifacts and the shared
     # lock, so an unscoped "is anything tracked modified?" check would let
@@ -562,7 +682,6 @@ def main() -> int:
         device=args.device,
         enable_thinking=spec.thinking_mode)
 
-    protocol = load_frozen_protocol()
     panel = Path(args.input_dir) / "validated_families.jsonl"
     dataset_values, frozen_problems = check_frozen_inputs(
         panel, protocol, config)
@@ -585,6 +704,10 @@ def main() -> int:
         # version certified the run.
         "protocol_path": str(FROZEN_PROTOCOL),
         "protocol_sha256": _file_sha256(FROZEN_PROTOCOL),
+        # The environment that produced this artifact, certified above:
+        # identity, observed vs frozen runtime versions, and any deviation
+        # from the frozen reference_env recorded rather than absorbed.
+        "environment": environment,
         "dataset": {**dataset_values, "n_families_smoked": args.n_families},
         "device": args.device,
         "code_commit": code_commit,
@@ -592,10 +715,15 @@ def main() -> int:
         # identify the code that ran when the tree is dirty.
         "git_dirty": tree["dirty"],
         "git_dirty_paths": provenance["dirty_paths"],
+        # Untracked files COUNT: an untracked module, sitecustomize.py or a
+        # top-level file shadowing an installed package all change what
+        # executes while leaving code_commit unable to reproduce it.
+        "git_untracked_paths": provenance["untracked_paths"],
         # This stage's own regenerated artifacts and lock: excluded from
         # the determination above, and reported so the exclusion is
         # auditable rather than silent.
-        "git_dirty_excluded_own_outputs": provenance["excluded_paths"],
+        "git_dirty_excluded_own_outputs": provenance["excluded_own_outputs"],
+        "git_dirty_excluded_cache_paths": provenance["excluded_cache_paths"],
         "allow_dirty": bool(args.allow_dirty),
         "gpu_smoke": None,
         "runtime_metadata": None,

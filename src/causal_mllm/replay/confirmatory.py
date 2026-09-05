@@ -25,6 +25,7 @@ silent.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,7 @@ from causal_mllm.replay.errors import ReplayError
 from causal_mllm.replay.registry import (
     DEFAULT_LOCK,
     ResolvedModel,
+    dependency_lock_sha256,
     is_immutable_revision,
     load_lock,
     verify_active_dependency_lock,
@@ -278,12 +280,17 @@ def _check_decoding(gate: _Gate, config: ReplayConfig, protocol: dict) -> None:
 
 
 def _check_clean_tree(gate: _Gate) -> None:
-    """The CODE tree must be clean, so ``code_commit`` identifies what ran.
+    """The tree must be clean enough for ``code_commit`` to reconstruct it.
 
-    Measured over code paths with :data:`OWN_OUTPUT_PREFIXES` excluded: a
-    run must not be blocked by evidence it is itself regenerating, but any
-    other tracked modification fails the gate. Untracked files never count,
-    so a run's own new output directories do not trip it.
+    Untracked files count. Ignoring them was a hole: an untracked
+    ``sitecustomize.py`` or ``conftest.py``, a top-level module shadowing an
+    installed package, or a new module that tracked code imports all change
+    what executes while ``code_commit`` still points at a tree that cannot
+    reproduce it — and the run would have recorded ``git_dirty: false``.
+
+    Only :data:`OWN_OUTPUT_PREFIXES` and cache/transient paths are excluded,
+    and both exclusions are recorded in the gate evidence rather than
+    applied silently.
 
     ``code_tree_status`` reports ``dirty=None`` outside a git repository,
     which is treated as a violation: unknown provenance cannot be
@@ -296,7 +303,11 @@ def _check_clean_tree(gate: _Gate) -> None:
     gate.record("code_commit", commit)
     gate.record("git_dirty", dirty)
     gate.record("git_dirty_paths", tree["dirty_paths"])
-    gate.record("git_dirty_excluded_own_outputs", tree["excluded_paths"])
+    gate.record("git_untracked_paths", tree["untracked_paths"])
+    gate.record("git_dirty_excluded_own_outputs",
+                tree["excluded_own_outputs"])
+    gate.record("git_dirty_excluded_cache_paths",
+                tree["excluded_cache_paths"])
     if commit is None:
         gate.fail("no git commit resolvable — code provenance is unknown, so "
                   "this run cannot be reconstructed from evidence")
@@ -304,11 +315,17 @@ def _check_clean_tree(gate: _Gate) -> None:
         gate.fail("git tree status unknown (not a git repository?) — "
                   "confirmatory runs require a verified clean tree")
     elif dirty is True:
+        untracked = tree["untracked_paths"]
+        kind = ("untracked files" if untracked and
+                len(untracked) == len(tree["dirty_paths"])
+                else "uncommitted changes")
         gate.fail(
-            f"working tree is dirty at commit {commit}: uncommitted changes "
-            f"to {tree['dirty_paths']}. The code that would execute is NOT "
-            f"the code that commit contains, so the recorded code_commit "
-            f"could not reconstruct this run. Commit or stash first.")
+            f"working tree is not clean at commit {commit}: {kind} at "
+            f"{tree['dirty_paths']}. The code that would execute is NOT the "
+            f"code that commit contains — an untracked module, "
+            f"sitecustomize.py or shadowing top-level file changes execution "
+            f"without being recorded anywhere — so the recorded code_commit "
+            f"could not reconstruct this run. Commit or remove them first.")
 
 
 def _check_revisions(gate: _Gate, model_spec: ResolvedModel,
@@ -358,28 +375,272 @@ def _check_dependencies(gate: _Gate, lock_path: str | Path | None) -> None:
     """The environment RUNNING must be the environment that was locked.
 
     The fingerprint binds a hash read from the lock FILE, which on its own
-    proves nothing about the live interpreter. This compares the two.
+    proves nothing about the live interpreter. This compares the two, and
+    separately refuses any third-party editable install, whose source can
+    change without the recorded revision moving.
     """
     check = verify_active_dependency_lock(lock_path, strict=False)
     gate.record("dependency_lock_check", check)
-    if not check.get("verified"):
-        differences = check.get("differences") or {}
-        reason = check.get("reason")
-        if reason:
-            gate.fail(f"dependency environment unverified: {reason}")
-        else:
-            detail = "; ".join(
-                f"{f}: locked={v['locked']!r} active={v['active']!r}"
-                for f, v in sorted(differences.items()))
-            gate.fail(
-                f"active dependency environment differs from the recorded "
-                f"lock — {detail}")
+    offenders = check.get("third_party_editable_vcs") or {}
+    if offenders:
+        gate.fail(
+            f"the active environment has third-party editable VCS install(s) "
+            f"{sorted(offenders)}; an editable dependency's source can change "
+            f"without its recorded revision moving, so this environment "
+            f"cannot be certified reproducible. Use a dedicated Iteration 11 "
+            f"environment with no third-party editable installs.")
+    if check.get("reason"):
+        gate.fail(f"dependency environment unverified: {check['reason']}")
+        return
+    differences = check.get("differences") or {}
+    if differences:
+        detail = "; ".join(
+            f"{f}: locked={v['locked']!r} active={v['active']!r}"
+            for f, v in sorted(differences.items()))
+        gate.fail(
+            f"active dependency environment differs from the recorded "
+            f"lock — {detail}")
+
+
+#: 11.5 selects a FIXED stratified subset: 12 families x 6 variants per
+#: model, giving 72 generations per target and 288 across the four. The
+#: count comes from the approved Iteration 11 plan rather than from the
+#: frozen protocol document, which does not state it, so it is declared here
+#: and cited rather than read from a file that does not contain it.
+ELIGIBILITY_N_FAMILIES = 12
+ELIGIBILITY_N_VARIANTS = len(ALL_VARIANT_NAMES)
+ELIGIBILITY_N_ATTEMPTS = ELIGIBILITY_N_FAMILIES * ELIGIBILITY_N_VARIANTS
+
+#: Fields every 11.5 eligibility report must carry. A report missing one is
+#: rejected rather than partially trusted: each field is what lets a later
+#: reader tie the eligibility decision to a specific model, revision, code
+#: tree, environment and family selection.
+ELIGIBILITY_REQUIRED_FIELDS = (
+    "status",
+    "eligible",
+    "model_key",
+    "model_id",
+    "model_revision",
+    "processor_revision",
+    "code_commit",
+    "git_dirty",
+    "protocol_sha256",
+    "dependency_lock_sha256",
+    "selected_family_ids",
+    "selected_families_sha256",
+    "n_selected_families",
+    "variants",
+    "n_expected_attempts",
+    "n_attempts",
+    "n_succeeded",
+    "truncation_by_variant",
+    "gates",
+)
+
+
+def selected_families_sha256(family_ids) -> str:
+    """Canonical digest of a family selection.
+
+    Sorted and newline-joined so the hash depends on the SET selected and
+    not on the order a report happened to list it in. Making the recipe
+    explicit is what lets the gate recompute and verify the recorded value
+    instead of merely checking that one is present.
+    """
+    canonical = "\n".join(sorted(str(f) for f in family_ids))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _gate_entry_passed(entry) -> bool:
+    """Did one detailed gate result pass?
+
+    Accepts ``True``, ``{"passed": true, ...}`` and ``{"status": "PASS"}``
+    so 11.5 can record either a bare flag or a richer result, while
+    anything ambiguous counts as not passed.
+    """
+    if entry is True:
+        return True
+    if isinstance(entry, dict):
+        if "passed" in entry:
+            return entry["passed"] is True
+        return entry.get("status") == "PASS"
+    return False
+
+
+def validate_eligibility_report(
+    report: dict,
+    *,
+    model_spec: ResolvedModel,
+    expected_protocol_sha: str,
+    expected_lock_sha: str | None,
+    panel_family_ids: set | None = None,
+) -> list[str]:
+    """Strict schema + content validation of an 11.5 eligibility report.
+
+    Returns the list of violations (empty means valid). The earlier version
+    of this gate recorded ``code_commit`` without requiring it, so a report
+    with ``code_commit: null`` — or one written about a different
+    ``model_key`` entirely — could pass. Every field below is now required
+    AND checked against the run it is being used to authorize.
+
+    Args:
+        report: The parsed eligibility report.
+        model_spec: The target this run resolves.
+        expected_protocol_sha: Digest of the frozen protocol in force.
+        expected_lock_sha: Digest of the dependency lock in force; the
+            report must have been produced under the same one.
+        panel_family_ids: The frozen panel's family ids, when known, so the
+            selected subset can be confirmed to come from that panel.
+    """
+    problems: list[str] = []
+    missing = [f for f in ELIGIBILITY_REQUIRED_FIELDS
+               if report.get(f) is None]
+    if missing:
+        problems.append(
+            f"eligibility report is missing required field(s) {missing}")
+        # Field-level checks below cannot run without the fields.
+        return problems
+
+    if report.get("status") != "PASS":
+        problems.append(
+            f"eligibility status is {report.get('status')!r}, not 'PASS'")
+    if report.get("eligible") is not True:
+        problems.append(
+            f"eligibility report does not assert eligible=true "
+            f"(got {report.get('eligible')!r})")
+
+    # --- identity: this report must be about THIS target ----------------
+    if report.get("model_key") != model_spec.model_key:
+        problems.append(
+            f"eligibility report is for model_key "
+            f"{report.get('model_key')!r}, not {model_spec.model_key!r}")
+    if report.get("model_id") != model_spec.model_id:
+        problems.append(
+            f"eligibility report is for model_id {report.get('model_id')!r}, "
+            f"not {model_spec.model_id!r}")
+    if report.get("model_revision") != model_spec.revision:
+        problems.append(
+            f"eligibility was certified for revision "
+            f"{report.get('model_revision')!r} but this run resolves "
+            f"{model_spec.revision!r} — eligibility does not transfer "
+            f"across revisions")
+    if not is_immutable_revision(report.get("processor_revision")):
+        problems.append(
+            f"eligibility processor_revision "
+            f"{report.get('processor_revision')!r} is not an immutable "
+            f"40-hex SHA")
+
+    # --- code provenance of the eligibility run itself ------------------
+    if not is_immutable_revision(report.get("code_commit")):
+        problems.append(
+            f"eligibility code_commit {report.get('code_commit')!r} is not "
+            f"an immutable 40-hex SHA, so the code that certified "
+            f"eligibility cannot be reconstructed")
+    if report.get("git_dirty") is not False:
+        problems.append(
+            f"eligibility report was not produced from a clean tree "
+            f"(git_dirty={report.get('git_dirty')!r})")
+
+    # --- what it was checked against ------------------------------------
+    if report.get("protocol_sha256") != expected_protocol_sha:
+        problems.append(
+            f"eligibility report binds protocol sha256 "
+            f"{report.get('protocol_sha256')!r}, not the current frozen "
+            f"protocol {expected_protocol_sha!r}")
+    if expected_lock_sha is not None and \
+            report.get("dependency_lock_sha256") != expected_lock_sha:
+        problems.append(
+            f"eligibility report binds dependency_lock_sha256 "
+            f"{report.get('dependency_lock_sha256')!r}, not the lock in "
+            f"force {expected_lock_sha!r} — eligibility was certified "
+            f"under a different environment")
+
+    # --- the selected family subset -------------------------------------
+    ids = report.get("selected_family_ids")
+    if not isinstance(ids, list) or not all(isinstance(i, str) for i in ids):
+        problems.append("selected_family_ids must be a list of family ids")
+        ids = []
+    if len(ids) != ELIGIBILITY_N_FAMILIES:
+        problems.append(
+            f"selected {len(ids)} families; 11.5 requires exactly "
+            f"{ELIGIBILITY_N_FAMILIES}")
+    if len(set(ids)) != len(ids):
+        duplicates = sorted({i for i in ids if ids.count(i) > 1})
+        problems.append(f"selected_family_ids contains duplicates {duplicates}")
+    if report.get("n_selected_families") != len(ids):
+        problems.append(
+            f"n_selected_families={report.get('n_selected_families')} "
+            f"disagrees with the {len(ids)} ids listed")
+    expected_hash = selected_families_sha256(ids) if ids else None
+    if ids and report.get("selected_families_sha256") != expected_hash:
+        problems.append(
+            f"selected_families_sha256 "
+            f"{report.get('selected_families_sha256')!r} does not match the "
+            f"listed family ids (recomputed {expected_hash!r})")
+    if panel_family_ids is not None and ids:
+        outside = sorted(set(ids) - set(panel_family_ids))
+        if outside:
+            problems.append(
+                f"selected families {outside} are not in the frozen "
+                f"100-family panel — eligibility must be established on a "
+                f"subset of the panel that will actually be replayed")
+
+    # --- six-variant coverage and the 72/72 requirement -----------------
+    if list(report.get("variants") or []) != list(ALL_VARIANT_NAMES):
+        problems.append(
+            f"eligibility variants {report.get('variants')!r} != the frozen "
+            f"six {list(ALL_VARIANT_NAMES)}")
+    if report.get("n_expected_attempts") != ELIGIBILITY_N_ATTEMPTS:
+        problems.append(
+            f"n_expected_attempts={report.get('n_expected_attempts')} != "
+            f"{ELIGIBILITY_N_ATTEMPTS} "
+            f"({ELIGIBILITY_N_FAMILIES} families x "
+            f"{ELIGIBILITY_N_VARIANTS} variants)")
+    if report.get("n_attempts") != ELIGIBILITY_N_ATTEMPTS:
+        problems.append(
+            f"n_attempts={report.get('n_attempts')} != "
+            f"{ELIGIBILITY_N_ATTEMPTS}")
+    if report.get("n_succeeded") != ELIGIBILITY_N_ATTEMPTS:
+        problems.append(
+            f"n_succeeded={report.get('n_succeeded')} != "
+            f"{ELIGIBILITY_N_ATTEMPTS}; 11.5 requires every one of the "
+            f"{ELIGIBILITY_N_ATTEMPTS} generations to succeed")
+    truncation = report.get("truncation_by_variant")
+    if not isinstance(truncation, dict):
+        problems.append("truncation_by_variant must be an object")
+    else:
+        absent = [v for v in ALL_VARIANT_NAMES if v not in truncation]
+        if absent:
+            problems.append(
+                f"truncation_by_variant is missing variant(s) {absent}")
+        wrong = {v: truncation[v].get("n")
+                 for v in ALL_VARIANT_NAMES
+                 if isinstance(truncation.get(v), dict)
+                 and truncation[v].get("n") != ELIGIBILITY_N_FAMILIES}
+        if wrong:
+            problems.append(
+                f"truncation_by_variant counts per variant must be "
+                f"{ELIGIBILITY_N_FAMILIES}; got {wrong}")
+
+    # --- detailed gate results -----------------------------------------
+    gates = report.get("gates")
+    if not isinstance(gates, dict) or not gates:
+        problems.append(
+            "gates must be a non-empty object of detailed per-gate results; "
+            "a bare overall status is not auditable")
+    else:
+        failed = sorted(name for name, entry in gates.items()
+                        if not _gate_entry_passed(entry))
+        if failed:
+            problems.append(f"eligibility gate(s) failed: {failed}")
+    return problems
 
 
 def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
                        protocol_path: str | Path | None,
-                       eligibility_root: str | Path | None) -> None:
-    """A PASSING 11.5 eligibility report for this revision and protocol.
+                       eligibility_root: str | Path | None,
+                       lock_path: str | Path | None,
+                       panel_family_ids: set | None = None) -> None:
+    """A PASSING, fully-specified 11.5 eligibility report for this target.
 
     Technical eligibility (the target can represent the same semantic role
     and image structure) is established at 11.5 and must precede the full
@@ -391,6 +652,8 @@ def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
     gate.record("eligibility_report_path", str(path))
     expected_protocol_sha = protocol_sha256(protocol_path)
     gate.record("protocol_sha256", expected_protocol_sha)
+    expected_lock_sha = dependency_lock_sha256(lock_path)
+    gate.record("expected_dependency_lock_sha256", expected_lock_sha)
     report = load_eligibility_report(model_spec.model_key, eligibility_root)
     if report is None:
         gate.fail(
@@ -398,37 +661,19 @@ def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
             f"a confirmatory run may only start once technical eligibility "
             f"has been signed off for this target")
         return
-    gate.record("eligibility_status", report.get("status"))
-    gate.record("eligibility_eligible", report.get("eligible"))
-    gate.record("eligibility_model_revision", report.get("model_revision"))
-    gate.record("eligibility_protocol_sha256",
-                report.get("protocol_sha256"))
+    problems = validate_eligibility_report(
+        report, model_spec=model_spec,
+        expected_protocol_sha=expected_protocol_sha,
+        expected_lock_sha=expected_lock_sha,
+        panel_family_ids=panel_family_ids)
+    gate.record("eligibility_report_violations", problems)
     gate.record("eligibility_code_commit", report.get("code_commit"))
     gate.record("eligibility_git_dirty", report.get("git_dirty"))
-    if report.get("status") != "PASS":
-        gate.fail(
-            f"{model_spec.model_key}: eligibility report status is "
-            f"{report.get('status')!r}, not 'PASS'")
-    if report.get("eligible") is not True:
-        gate.fail(
-            f"{model_spec.model_key}: eligibility report does not assert "
-            f"eligible=true (got {report.get('eligible')!r})")
-    if report.get("model_revision") != model_spec.revision:
-        gate.fail(
-            f"{model_spec.model_key}: eligibility was certified for "
-            f"revision {report.get('model_revision')!r} but this run "
-            f"resolves {model_spec.revision!r} — eligibility does not "
-            f"transfer across revisions")
-    if report.get("protocol_sha256") != expected_protocol_sha:
-        gate.fail(
-            f"{model_spec.model_key}: eligibility report binds protocol "
-            f"sha256 {report.get('protocol_sha256')!r}, not the current "
-            f"frozen protocol {expected_protocol_sha!r}")
-    if report.get("git_dirty") is not False:
-        gate.fail(
-            f"{model_spec.model_key}: eligibility report was not produced "
-            f"from a clean tree (git_dirty="
-            f"{report.get('git_dirty')!r})")
+    gate.record("eligibility_n_gates",
+                len(report.get("gates") or {})
+                if isinstance(report.get("gates"), dict) else None)
+    for problem in problems:
+        gate.fail(f"{model_spec.model_key}: {problem}")
 
 
 def _check_no_overwrite(gate: _Gate, overwrite: bool) -> None:
@@ -520,10 +765,12 @@ def enforce_confirmatory_protocol(
     _check_decoding(gate, config, protocol)
     _check_revisions(gate, model_spec, lock_path)
     _check_dependencies(gate, lock_path)
-    _check_eligibility(gate, model_spec, protocol_path, eligibility_root)
 
-    input_path = Path(input_dir)
-    panel = _check_panel_identity(gate, input_path, protocol)
+    # The panel is read BEFORE eligibility so the selected 12-family subset
+    # can be confirmed to come from the panel that will actually be
+    # replayed, rather than from some other selection.
+    panel_family_ids: set | None = None
+    panel = _check_panel_identity(gate, Path(input_dir), protocol)
     if panel is not None:
         records = [
             json.loads(line)
@@ -531,6 +778,10 @@ def enforce_confirmatory_protocol(
             if line.strip()
         ]
         _check_family_coverage(gate, records, protocol)
+        panel_family_ids = {r.get("family_id") for r in records}
+
+    _check_eligibility(gate, model_spec, protocol_path, eligibility_root,
+                       lock_path, panel_family_ids)
 
     result = {
         "gate": "iteration11_confirmatory",

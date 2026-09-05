@@ -239,9 +239,6 @@ def _is_self_distribution_line(line: str) -> bool:
 _EDITABLE_VCS_REVISION = re.compile(
     r"^(?P<head>.*@)(?P<rev>[0-9a-fA-F]{7,40})(?P<tail>(#.*)?)$")
 
-#: Substituted for the revision inside the hashed freeze text.
-VCS_REVISION_PLACEHOLDER = "<vcs-revision>"
-
 #: ``#egg=<name>`` of an editable VCS line, used to key the recorded
 #: revisions by something readable.
 _EGG_NAME = re.compile(r"#egg=([^&\s]+)")
@@ -255,36 +252,28 @@ def _editable_vcs_name(line: str) -> str:
     return line.split()[0] if line.split() else line
 
 
-def normalize_freeze_lines(lines: list[str]) -> tuple[list[str], dict]:
-    """Split editable-VCS revisions out of the hashed package set.
+def editable_vcs_revisions(lines: list[str]) -> dict:
+    """``{distribution: revision}`` for editable VCS installs in ``lines``.
 
-    ``pip freeze`` renders a sibling editable install as
-    ``-e git+<url>@<LIVE HEAD OF THAT REPOSITORY>#egg=<name>``. The
-    revision is therefore a property of another project's working tree,
-    not of this project's dependency set: MIDP moved five commits in forty
-    minutes while nothing about CCMS inference changed, and each move
-    silently changed ``pip_freeze_sha256``. That is the same instability
-    already removed for this project's own editable install, and it has the
-    same consequences — a resume key that invalidates itself mid-run and a
-    confirmatory gate that fails for reasons unrelated to the experiment.
+    DETECTION only — the revision stays in the hashed freeze text. An
+    editable install's revision is part of dependency identity: normalizing
+    it away would let the source of a dependency change while the certified
+    lock hash stood still, which is the opposite of what a reproducible
+    lock is for.
 
-    The revision is replaced by :data:`VCS_REVISION_PLACEHOLDER` in the
-    hashed text and returned separately, so what is INSTALLED (name, URL,
-    subdirectory) stays certified while the sibling's HEAD is recorded as
-    operational metadata rather than as dependency identity.
+    The real protection is that a third-party editable install is not
+    certifiable AT ALL (see :func:`verify_active_dependency_lock`), because
+    ``pip freeze`` reports such an install by the sibling repository's
+    committed HEAD and is blind to its uncommitted working-tree changes. No
+    hash of freeze output can capture those, so the only sound answer is to
+    refuse to run confirmatory work in an environment that has one.
     """
-    normalized: list[str] = []
-    revisions: dict[str, str] = {}
+    revisions: dict = {}
     for line in lines:
         match = _EDITABLE_VCS_REVISION.match(line)
         if match:
             revisions[_editable_vcs_name(line)] = match.group("rev")
-            normalized.append(
-                f"{match.group('head')}{VCS_REVISION_PLACEHOLDER}"
-                f"{match.group('tail')}")
-        else:
-            normalized.append(line)
-    return normalized, revisions
+    return revisions
 
 
 def dependency_lock_snapshot() -> dict:
@@ -292,11 +281,13 @@ def dependency_lock_snapshot() -> dict:
 
     The frozen protocol requires a complete pip-freeze lock hash to be
     captured at preflight and bound into each resolved run fingerprint.
-    The project's own editable install is excluded (see
-    :data:`SELF_DISTRIBUTIONS`) and editable VCS revisions are normalized
-    out (see :func:`normalize_freeze_lines`) so the hash depends only on
-    what is installed and is reproducible across invocations of the same
-    tree at different times.
+    Only this project's own editable install is excluded (see
+    :data:`SELF_DISTRIBUTIONS`), because ``pip freeze`` renders it in one of
+    two forms depending on invocation and one of them embeds THIS
+    repository's live HEAD — which ``code_commit`` already binds more
+    precisely. Third-party editable installs are kept verbatim, revision
+    included, and are additionally reported so their presence can be
+    refused (see :func:`editable_vcs_revisions`).
 
     Fail-closed: a non-zero ``pip freeze`` exit is an error, not an empty
     snapshot. A partial or empty freeze still hashes to a STABLE value, so
@@ -316,8 +307,8 @@ def dependency_lock_snapshot() -> dict:
     excluded = sorted({name for name in
                        (_self_distribution_name(line) for line in all_lines)
                        if name})
-    kept = [line for line in all_lines if not _is_self_distribution_line(line)]
-    lines, editable_revisions = normalize_freeze_lines(kept)
+    lines = [line for line in all_lines
+             if not _is_self_distribution_line(line)]
     freeze_text = "\n".join(lines)
     pyproject = REPO_ROOT / "pyproject.toml"
     return {
@@ -328,7 +319,7 @@ def dependency_lock_snapshot() -> dict:
         "pyproject_sha256": _file_sha256(pyproject),
         "python_version": sys.version.split()[0],
         "executable": sys.executable,
-        "editable_vcs_revisions": editable_revisions,
+        "editable_vcs_revisions": editable_vcs_revisions(lines),
     }
 
 
@@ -434,36 +425,50 @@ def verify_active_dependency_lock(
             "differences": {},
         }
     active = dependency_lock_snapshot()
+    # A third-party editable install is not certifiable at all, whatever
+    # the lock says: pip freeze identifies it by the sibling repository's
+    # COMMITTED HEAD and is blind to that repository's uncommitted
+    # working-tree changes, so no hash of freeze output can prove which
+    # dependency source would execute. Refusing is the only sound answer.
+    offenders = dict(active.get("editable_vcs_revisions") or {})
     differences = {
         f: {"locked": locked.get(f), "active": active.get(f)}
         for f in LOCK_IDENTITY_FIELDS
         if locked.get(f) != active.get(f)
     }
-    # Operational drift is RECORDED but never fatal: a sibling editable
-    # install moving its HEAD, or a different interpreter path, does not
-    # change what this project has installed.
+    # Operational drift is RECORDED but not by itself fatal: a different
+    # interpreter path does not change what this project has installed.
     informational = {
         f: {"locked": locked.get(f), "active": active.get(f)}
         for f in LOCK_OPERATIONAL_FIELDS
         if locked.get(f) != active.get(f)
     }
     result = {
-        "verified": not differences,
+        "verified": not differences and not offenders,
         "lock_path": str(resolved_path),
         "checked_fields": list(LOCK_IDENTITY_FIELDS),
         "differences": differences,
         "informational_differences": informational,
+        "third_party_editable_vcs": offenders,
         "locked_identity": {f: locked.get(f) for f in LOCK_IDENTITY_FIELDS},
         "active_identity": {f: active.get(f) for f in LOCK_IDENTITY_FIELDS},
-        # Operational only: differing interpreters or sibling-repository
-        # HEADs with identical identity fields is expected and is NOT a
-        # failure.
+        # Operational only: differing interpreters with identical identity
+        # fields is expected across hosts and is NOT a failure.
         "locked_executable": locked.get("executable"),
         "active_executable": active.get("executable"),
         "locked_editable_vcs_revisions": locked.get("editable_vcs_revisions"),
         "active_editable_vcs_revisions": active.get("editable_vcs_revisions"),
         "dependency_lock_sha256": dependency_lock_sha256(resolved_path),
     }
+    if offenders and strict:
+        raise ReplayError(
+            f"the active environment contains third-party editable VCS "
+            f"install(s) {sorted(offenders)} at revisions "
+            f"{offenders}. An editable dependency's source can change "
+            f"without its recorded revision moving, so the environment "
+            f"cannot be certified reproducible. Run confirmatory and "
+            f"eligibility work in a dedicated Iteration 11 environment with "
+            f"no third-party editable installs.")
     if differences and strict:
         detail = "; ".join(
             f"{f}: locked={v['locked']!r} active={v['active']!r}"

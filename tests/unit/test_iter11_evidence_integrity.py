@@ -44,9 +44,14 @@ from causal_mllm.data.io import read_jsonl, write_jsonl
 from causal_mllm.replay import confirmatory, registry
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.confirmatory import (
+    ELIGIBILITY_N_ATTEMPTS,
+    ELIGIBILITY_N_FAMILIES,
+    ELIGIBILITY_REQUIRED_FIELDS,
     GENERATIONS_ROOT,
     enforce_confirmatory_protocol,
     protocol_sha256,
+    selected_families_sha256,
+    validate_eligibility_report,
 )
 from causal_mllm.replay.errors import ReplayError
 from causal_mllm.replay.registry import (
@@ -103,10 +108,18 @@ def _load_script(name: str):
 preflight = _load_script("iter11_model_preflight")
 
 
-def _tree(dirty, dirty_paths=(), excluded_paths=()) -> dict:
+def _tree(dirty, dirty_paths=(), untracked_paths=(), own_outputs=(),
+          caches=()) -> dict:
     """A ``causal_mllm.seeds.code_tree_status`` result."""
     return {"dirty": dirty, "dirty_paths": list(dirty_paths),
-            "excluded_paths": list(excluded_paths)}
+            "untracked_paths": list(untracked_paths),
+            "excluded_own_outputs": list(own_outputs),
+            "excluded_cache_paths": list(caches)}
+
+
+def _git_paths(modified=(), untracked=()):
+    """A ``causal_mllm.seeds.git_working_tree_paths`` result."""
+    return {"modified": list(modified), "untracked": list(untracked)}
 
 
 # ---------------------------------------------------------------------
@@ -241,69 +254,186 @@ class TestGitProvenance:
     def test_a_stages_own_outputs_are_excluded_and_reported(self):
         # The defect this prevents: regenerating target 1's artifact made
         # the tree "dirty" and blocked targets 2-4, though no code changed.
-        tree = _tree(False, excluded_paths=[
+        tree = _tree(False, own_outputs=[
             "outputs/iteration_11/preflight/qwen35_2b/preflight.json",
             "outputs/iteration_11/preflight/resolved_models.lock.yaml"])
         result = preflight.git_provenance(COMMIT, tree, False)
         assert result["abort"] is False
         assert result["problems"] == []
         # Excluded paths are surfaced, never silently dropped.
-        assert len(result["excluded_paths"]) == 2
+        assert len(result["excluded_own_outputs"]) == 2
 
     def test_a_dirty_code_path_is_not_excused_by_the_exclusion(self):
         tree = _tree(True, dirty_paths=["src/causal_mllm/replay/runner.py"],
-                     excluded_paths=["outputs/iteration_11/preflight/x.json"])
+                     own_outputs=["outputs/iteration_11/preflight/x.json"])
         result = preflight.git_provenance(COMMIT, tree, False)
         assert result["abort"] is True
         assert result["dirty_paths"] == ["src/causal_mllm/replay/runner.py"]
 
+    @pytest.mark.parametrize("untracked", [
+        "src/causal_mllm/replay/injected.py",
+        "scripts/iter11_model_preflight_v2.py",
+        "sitecustomize.py",
+    ])
+    def test_untracked_source_blocks_the_preflight(self, untracked):
+        # The hole reported: --untracked-files=no made untracked source
+        # invisible, so an artifact could certify a tree its own recorded
+        # code_commit did not contain.
+        tree = _tree(True, dirty_paths=[untracked], untracked_paths=[untracked])
+        result = preflight.git_provenance(COMMIT, tree, False)
+        assert result["abort"] is True
+        assert result["untracked_paths"] == [untracked]
+        assert "UNTRACKED" in result["abort_message"]
+        assert untracked in result["abort_message"]
+
+    def test_untracked_source_is_a_problem_even_under_allow_dirty(self):
+        # --allow-dirty may mint a diagnostic artifact, but it must never be
+        # able to reach status PASS.
+        tree = _tree(True, dirty_paths=["sitecustomize.py"],
+                     untracked_paths=["sitecustomize.py"])
+        result = preflight.git_provenance(COMMIT, tree, True)
+        assert result["abort"] is False
+        assert result["problems"]
+        assert "sitecustomize.py" in result["problems"][0]
+
 
 class TestCodeTreeStatus:
+    """Untracked files must count; only explicit exclusions may not."""
+
     def test_own_output_prefixes_are_excluded_but_reported(self, monkeypatch):
-        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: [
-            "outputs/iteration_11/preflight/qwen35_2b/preflight.json",
-            "outputs/iteration_11/preflight/resolved_models.lock.yaml",
-            "src/causal_mllm/replay/runner.py",
-        ])
+        monkeypatch.setattr(seeds, "git_working_tree_paths", lambda: _git_paths(
+            modified=["outputs/iteration_11/preflight/qwen35_2b/preflight.json",
+                      "outputs/iteration_11/preflight/resolved_models.lock.yaml",
+                      "src/causal_mllm/replay/runner.py"]))
         status = seeds.code_tree_status(
             exclude_prefixes=("outputs/iteration_11/preflight/",))
         assert status["dirty"] is True
         assert status["dirty_paths"] == ["src/causal_mllm/replay/runner.py"]
-        assert len(status["excluded_paths"]) == 2
+        assert len(status["excluded_own_outputs"]) == 2
 
     def test_only_own_outputs_dirty_means_clean(self, monkeypatch):
-        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: [
-            "outputs/iteration_11/preflight/qwen35_2b/preflight.json"])
+        monkeypatch.setattr(seeds, "git_working_tree_paths", lambda: _git_paths(
+            modified=["outputs/iteration_11/preflight/qwen35_2b/preflight.json"
+                      ]))
         status = seeds.code_tree_status(
             exclude_prefixes=("outputs/iteration_11/preflight/",))
         assert status["dirty"] is False
         assert status["dirty_paths"] == []
-        assert status["excluded_paths"] == [
+        assert status["excluded_own_outputs"] == [
             "outputs/iteration_11/preflight/qwen35_2b/preflight.json"]
 
+    @pytest.mark.parametrize("untracked", [
+        "src/causal_mllm/replay/new_module.py",
+        "scripts/iter11_model_preflight_patch.py",
+        "sitecustomize.py",
+        "usercustomize.py",
+        "conftest.py",
+        "yaml.py",
+    ])
+    def test_untracked_source_is_dirty(self, monkeypatch, untracked):
+        # The hole this closes: git status --untracked-files=no reported a
+        # clean tree while an untracked file changed what executed.
+        monkeypatch.setattr(
+            seeds, "git_working_tree_paths",
+            lambda: _git_paths(untracked=[untracked]))
+        status = seeds.code_tree_status(
+            exclude_prefixes=("outputs/iteration_11/generations/",))
+        assert status["dirty"] is True, untracked
+        assert status["untracked_paths"] == [untracked]
+        assert status["dirty_paths"] == [untracked]
+
+    def test_untracked_files_inside_a_directory_are_individually_visible(
+            self, monkeypatch):
+        # --untracked-files=all expands directories, so a new module nested
+        # in an untracked package cannot hide behind a directory entry.
+        monkeypatch.setattr(seeds, "git_working_tree_paths", lambda: _git_paths(
+            untracked=["src/causal_mllm/shadow/__init__.py",
+                       "src/causal_mllm/shadow/hooks.py"]))
+        status = seeds.code_tree_status()
+        assert status["dirty"] is True
+        assert len(status["untracked_paths"]) == 2
+
+    def test_untracked_evidence_under_the_exclusion_is_clean(self,
+                                                             monkeypatch):
+        monkeypatch.setattr(seeds, "git_working_tree_paths", lambda: _git_paths(
+            untracked=["outputs/iteration_11/generations/qwen35_4b/run/"
+                       "replay_outputs.jsonl"]))
+        status = seeds.code_tree_status(
+            exclude_prefixes=("outputs/iteration_11/generations/",))
+        assert status["dirty"] is False
+        assert status["excluded_own_outputs"]
+
+    @pytest.mark.parametrize("cache_path", [
+        "src/causal_mllm/replay/__pycache__/runner.cpython-310.pyc",
+        ".pytest_cache/v/cache/lastfailed",
+        ".ruff_cache/0.2.0/CACHEDIR.TAG",
+        "outputs/iteration_11/generations/run.log",
+    ])
+    def test_cache_paths_are_excluded_and_reported(self, monkeypatch,
+                                                   cache_path):
+        monkeypatch.setattr(
+            seeds, "git_working_tree_paths",
+            lambda: _git_paths(untracked=[cache_path]))
+        status = seeds.code_tree_status()
+        assert status["dirty"] is False
+        assert status["excluded_cache_paths"] == [cache_path]
+
+    def test_a_cache_exclusion_does_not_excuse_source(self, monkeypatch):
+        monkeypatch.setattr(seeds, "git_working_tree_paths", lambda: _git_paths(
+            untracked=["src/causal_mllm/__pycache__/x.pyc",
+                       "src/causal_mllm/replay/injected.py"]))
+        status = seeds.code_tree_status()
+        assert status["dirty"] is True
+        assert status["dirty_paths"] == ["src/causal_mllm/replay/injected.py"]
+        assert status["excluded_cache_paths"] == [
+            "src/causal_mllm/__pycache__/x.pyc"]
+
     def test_an_unavailable_git_status_is_none(self, monkeypatch):
-        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: None)
+        monkeypatch.setattr(seeds, "git_working_tree_paths", lambda: None)
         status = seeds.code_tree_status(exclude_prefixes=("outputs/",))
         assert status["dirty"] is None
         assert status["dirty_paths"] == []
+        assert status["untracked_paths"] == []
 
     def test_no_exclusions_matches_the_unscoped_answer(self, monkeypatch):
         paths = ["README.md", "src/causal_mllm/seeds.py"]
-        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: paths)
+        monkeypatch.setattr(
+            seeds, "git_working_tree_paths", lambda: _git_paths(modified=paths))
         status = seeds.code_tree_status()
         assert status["dirty"] is True
         assert status["dirty_paths"] == paths
-        assert status["excluded_paths"] == []
+        assert status["excluded_own_outputs"] == []
 
-    def test_the_live_repository_reports_its_own_state(self):
-        # Not mocked: proves the porcelain parsing works against real git
-        # output in this repository.
-        files = seeds.dirty_tracked_files()
-        assert files is None or isinstance(files, list)
-        status = seeds.code_tree_status()
-        assert status["dirty"] in (True, False, None)
-        if files is not None:
-            assert status["dirty"] == bool(files)
+    def test_the_live_repository_reports_untracked_files(self):
+        """Not mocked: an untracked file really does make the tree dirty.
+
+        Creates and removes a probe file inside the repository so the whole
+        chain (git porcelain -> code_tree_status) is exercised against real
+        git output rather than a fabricated dict.
+        """
+        probe = ROOT / "src" / "causal_mllm" / "_untracked_probe_.py"
+        if probe.exists():  # pragma: no cover - stale probe from a crash
+            probe.unlink()
+        try:
+            before = seeds.code_tree_status()
+            probe.write_text("PROBE = True\n", encoding="utf-8")
+            after = seeds.code_tree_status()
+            assert after["dirty"] is True
+            assert "src/causal_mllm/_untracked_probe_.py" \
+                in after["untracked_paths"]
+            assert after["dirty_paths"] != before["dirty_paths"]
+        finally:
+            probe.unlink(missing_ok=True)
+        assert "src/causal_mllm/_untracked_probe_.py" \
+            not in seeds.code_tree_status()["untracked_paths"]
+
+    def test_dirty_tracked_files_still_ignores_untracked(self, monkeypatch):
+        # The narrow tracked-only answer is retained for provenance that
+        # RECORDS rather than gates.
+        monkeypatch.setattr(
+            seeds, "git_working_tree_paths",
+            lambda: _git_paths(modified=["a.py"], untracked=["b.py"]))
+        assert seeds.dirty_tracked_files() == ["a.py"]
 
 
 class TestCommittedArtifactProvenance:
@@ -435,17 +565,57 @@ def _write_lock(path: Path, dependency: dict, *, revision=REVISION,
     }, sort_keys=True), encoding="utf-8")
 
 
+def _eligibility_ids(n=ELIGIBILITY_N_FAMILIES):
+    """The first ``n`` family ids of the synthetic panel."""
+    return [f"fam{i:03d}" for i in range(n)]
+
+
 def _write_eligibility(root: Path, model_key: str, protocol_path: Path, *,
+                       lock_sha=None, model_id="Qwen/Qwen3.5-4B",
                        status="PASS", eligible=True, revision=REVISION,
-                       git_dirty=False) -> Path:
+                       processor_revision=PROCESSOR_REVISION,
+                       code_commit=COMMIT, git_dirty=False,
+                       family_ids=None, overrides=None) -> Path:
+    """A schema-conformant 11.5 report; perturb it with ``overrides``.
+
+    ``overrides`` is applied last and may set a field to None, which is how
+    the "required field missing" cases are produced.
+    """
+    ids = list(_eligibility_ids() if family_ids is None else family_ids)
+    doc = {
+        "status": status,
+        "eligible": eligible,
+        "model_key": model_key,
+        "model_id": model_id,
+        "model_revision": revision,
+        "processor_revision": processor_revision,
+        "code_commit": code_commit,
+        "git_dirty": git_dirty,
+        "protocol_sha256": protocol_sha256(protocol_path),
+        "dependency_lock_sha256": lock_sha,
+        "selected_family_ids": ids,
+        "selected_families_sha256": selected_families_sha256(ids),
+        "n_selected_families": len(ids),
+        "variants": list(ALL_VARIANT_NAMES),
+        "n_expected_attempts": ELIGIBILITY_N_ATTEMPTS,
+        "n_attempts": ELIGIBILITY_N_ATTEMPTS,
+        "n_succeeded": ELIGIBILITY_N_ATTEMPTS,
+        "truncation_by_variant": {
+            variant: {"n": ELIGIBILITY_N_FAMILIES, "n_truncated": 0,
+                      "truncation_rate": 0.0}
+            for variant in ALL_VARIANT_NAMES},
+        "gates": {
+            "generations_72_of_72": {"passed": True},
+            "truncation_by_variant_reviewed": {"passed": True},
+            "vision_path_engaged": {"passed": True},
+            "revision_pinned": True,
+        },
+    }
+    if overrides:
+        doc.update(overrides)
     path = root / model_key / "preflight_report.json"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({
-        "status": status, "eligible": eligible, "model_key": model_key,
-        "model_revision": revision,
-        "protocol_sha256": protocol_sha256(protocol_path),
-        "code_commit": COMMIT, "git_dirty": git_dirty,
-    }, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
     return path
 
 
@@ -490,7 +660,8 @@ def world(tmp_path, frozen_env, clean_tree):
     lock_path = tmp_path / "resolved_models.lock.yaml"
     _write_lock(lock_path, frozen_env)
     eligibility_root = tmp_path / "eligibility"
-    _write_eligibility(eligibility_root, "qwen35_4b", protocol_path)
+    _write_eligibility(eligibility_root, "qwen35_4b", protocol_path,
+                       lock_sha=dependency_lock_sha256(lock_path))
     spec = ResolvedModel(
         model_key="qwen35_4b", model_id="Qwen/Qwen3.5-4B", adapter="qwen35",
         revision=REVISION, revision_source="lock")
@@ -522,6 +693,19 @@ def _violations(world, **overrides) -> list[str]:
     with pytest.raises(ReplayError) as exc:
         _gate(world, **overrides)
     return str(exc.value).splitlines()
+
+
+def _eligibility(world, **kwargs) -> Path:
+    """Rewrite the world's 11.5 report with exactly one perturbation.
+
+    Supplies the lock digest automatically so a test that perturbs, say,
+    ``status`` does not also trip the dependency-lock requirement and mask
+    the thing it meant to check.
+    """
+    kwargs.setdefault("lock_sha", dependency_lock_sha256(world["lock_path"]))
+    return _write_eligibility(world["eligibility_root"],
+                              world["spec"].model_key,
+                              world["protocol_path"], **kwargs)
 
 
 class TestConfirmatoryGate:
@@ -633,7 +817,7 @@ class TestConfirmatoryGate:
             lambda exclude_prefixes=(): _tree(
                 True, dirty_paths=["src/causal_mllm/replay/runner.py"]))
         lines = _violations(world)
-        assert any("working tree is dirty" in line for line in lines)
+        assert any("working tree is not clean" in line for line in lines)
         assert any("src/causal_mllm/replay/runner.py" in line
                    for line in lines)
 
@@ -651,7 +835,7 @@ class TestConfirmatoryGate:
 
         def fake(exclude_prefixes=()):
             seen["prefixes"] = tuple(exclude_prefixes)
-            return _tree(False, excluded_paths=[
+            return _tree(False, own_outputs=[
                 "outputs/iteration_11/generations/qwen35_4b/r/replay_outputs"
                 ".jsonl"])
 
@@ -659,6 +843,50 @@ class TestConfirmatoryGate:
         result = _gate(world)
         assert result["passed"] is True
         assert seen["prefixes"] == confirmatory.OWN_OUTPUT_PREFIXES
+        assert result["checks"]["git_dirty_excluded_own_outputs"]
+
+    @pytest.mark.parametrize("untracked", [
+        "src/causal_mllm/replay/injected.py",
+        "scripts/iter11_model_preflight_v2.py",
+        "sitecustomize.py",
+    ])
+    def test_untracked_source_fails_the_confirmatory_gate(self, world,
+                                                          monkeypatch,
+                                                          untracked):
+        # End-to-end through the real gate: an untracked file must stop a
+        # confirmatory run even though nothing tracked changed.
+        monkeypatch.setattr(
+            confirmatory, "code_tree_status",
+            lambda exclude_prefixes=(): _tree(
+                True, dirty_paths=[untracked], untracked_paths=[untracked]))
+        lines = _violations(world)
+        assert any("working tree is not clean" in line and untracked in line
+                   for line in lines)
+
+    def test_the_gate_records_the_untracked_paths_it_refused(self,
+                                                            monkeypatch):
+        gate = confirmatory._Gate()
+        monkeypatch.setattr(
+            confirmatory, "code_tree_status",
+            lambda exclude_prefixes=(): _tree(
+                True, dirty_paths=["sitecustomize.py"],
+                untracked_paths=["sitecustomize.py"]))
+        confirmatory._check_clean_tree(gate)
+        assert gate.checks["git_dirty"] is True
+        assert gate.checks["git_untracked_paths"] == ["sitecustomize.py"]
+        assert len(gate.violations) == 1
+
+    def test_untracked_evidence_under_the_exclusion_passes(self, world,
+                                                           monkeypatch):
+        monkeypatch.setattr(
+            confirmatory, "code_tree_status",
+            lambda exclude_prefixes=(): _tree(
+                False, own_outputs=[
+                    "outputs/iteration_11/generations/qwen35_4b/r/"
+                    "replay_outputs.jsonl"]))
+        result = _gate(world)
+        assert result["passed"] is True
+        assert result["checks"]["git_untracked_paths"] == []
         assert result["checks"]["git_dirty_excluded_own_outputs"]
 
     def test_a_missing_commit_is_rejected(self, world, monkeypatch):
@@ -737,20 +965,17 @@ class TestConfirmatoryGate:
         assert any("no 11.5 eligibility report" in line for line in lines)
 
     def test_a_failing_eligibility_report_is_rejected(self, world):
-        _write_eligibility(world["eligibility_root"], "qwen35_4b",
-                           world["protocol_path"], status="FAIL")
+        _eligibility(world, status="FAIL")
         lines = _violations(world)
         assert any("not 'PASS'" in line for line in lines)
 
     def test_eligible_false_is_rejected(self, world):
-        _write_eligibility(world["eligibility_root"], "qwen35_4b",
-                           world["protocol_path"], eligible=False)
+        _eligibility(world, eligible=False)
         lines = _violations(world)
         assert any("eligible=true" in line for line in lines)
 
     def test_eligibility_for_another_revision_does_not_transfer(self, world):
-        _write_eligibility(world["eligibility_root"], "qwen35_4b",
-                           world["protocol_path"], revision="e" * 40)
+        _eligibility(world, revision="e" * 40)
         lines = _violations(world)
         assert any("does not transfer across revisions" in line
                    for line in lines)
@@ -766,8 +991,7 @@ class TestConfirmatoryGate:
                    for line in lines)
 
     def test_eligibility_from_a_dirty_tree_is_rejected(self, world):
-        _write_eligibility(world["eligibility_root"], "qwen35_4b",
-                           world["protocol_path"], git_dirty=True)
+        _eligibility(world, git_dirty=True)
         lines = _violations(world)
         assert any("not produced from a clean tree" in line
                    for line in lines)
@@ -803,7 +1027,7 @@ class TestConfirmatoryGate:
                   eligibility_root=world["tmp_path"] / "none")
         message = str(exc.value)
         assert "6 violation(s)" in message
-        for fragment in ("overwrite=True", "working tree is dirty",
+        for fragment in ("overwrite=True", "working tree is not clean",
                          "max_families=5", "uniform cap 1536",
                          "thinking disabled", "no 11.5 eligibility report"):
             assert fragment in message
@@ -841,6 +1065,250 @@ class TestConfirmatoryGate:
             pytest.skip("frozen protocol not present")
         assert protocol_sha256() == protocol_sha256(PROTOCOL)
         assert len(protocol_sha256()) == 64
+
+
+# ---------------------------------------------------------------------
+# P2    Strict 11.5 eligibility-report schema
+# ---------------------------------------------------------------------
+PANEL_IDS = {f"fam{i:03d}" for i in range(100)}
+
+
+def _report(world, **kwargs) -> dict:
+    """Write the world's 11.5 report with one perturbation, read it back."""
+    path = _eligibility(world, **kwargs)
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _validate(world, report, **kwargs) -> list[str]:
+    kwargs.setdefault("panel_family_ids", PANEL_IDS)
+    kwargs.setdefault("expected_protocol_sha",
+                      protocol_sha256(world["protocol_path"]))
+    kwargs.setdefault("expected_lock_sha",
+                      dependency_lock_sha256(world["lock_path"]))
+    return validate_eligibility_report(
+        report, model_spec=world["spec"], **kwargs)
+
+
+class TestEligibilityReportSchema:
+    """The report that authorizes a 11.6 run must itself be verified.
+
+    The earlier gate recorded ``code_commit`` without requiring it, so a
+    report carrying ``code_commit: null`` — or one written about a
+    different model_key entirely — could authorize a confirmatory run.
+    """
+
+    def test_a_conformant_report_is_valid(self, world):
+        assert _validate(world, _report(world)) == []
+
+    def test_the_schema_names_every_required_field(self):
+        for field in ("model_key", "code_commit", "git_dirty",
+                      "dependency_lock_sha256", "selected_families_sha256",
+                      "n_selected_families", "variants",
+                      "truncation_by_variant", "gates"):
+            assert field in ELIGIBILITY_REQUIRED_FIELDS
+
+    @pytest.mark.parametrize("field", list(ELIGIBILITY_REQUIRED_FIELDS))
+    def test_no_required_field_may_be_absent(self, world, field):
+        # The reported defect in its general form: a null field was recorded
+        # and then never required.
+        report = _report(world, overrides={field: None})
+        problems = _validate(world, report)
+        assert problems and field in problems[0]
+        assert "missing required field" in problems[0]
+
+    def test_a_null_code_commit_cannot_authorize_a_run(self, world):
+        report = _report(world, overrides={"code_commit": None})
+        assert any("missing required field" in p
+                   for p in _validate(world, report))
+        # ...and the same is true end-to-end through the confirmatory gate.
+        lines = _violations(world)
+        assert any("code_commit" in line for line in lines)
+
+    @pytest.mark.parametrize("commit", ["abc", "e55c352", "HEAD", "main",
+                                        "d" * 39, "e" * 41, "z" * 40])
+    def test_code_commit_must_be_immutable(self, world, commit):
+        problems = _validate(world, _report(world, code_commit=commit))
+        assert any("code_commit" in p and "immutable" in p for p in problems)
+
+    def test_an_uppercase_commit_sha_still_names_one_commit(self, world):
+        # Case is normalized: forty hex digits in upper case still identify
+        # exactly one immutable commit, so this is not a floating reference.
+        assert _validate(world, _report(world, code_commit=COMMIT.upper())) \
+            == []
+
+    def test_the_commit_that_certified_eligibility_is_recorded(self, world):
+        report = _report(world)
+        assert report["code_commit"] == COMMIT
+        result = _gate(world)
+        assert result["checks"]["eligibility_code_commit"] == COMMIT
+        assert result["checks"]["eligibility_git_dirty"] is False
+        assert result["checks"]["eligibility_report_violations"] == []
+
+    def test_a_report_for_another_model_key_is_rejected(self, world):
+        report = _report(world)
+        report["model_key"] = "ministral3_3b"
+        problems = _validate(world, report)
+        assert any("model_key" in p for p in problems)
+
+    def test_a_report_for_another_model_id_is_rejected(self, world):
+        problems = _validate(world, _report(world, model_id="mistralai/x"))
+        assert any("model_id" in p for p in problems)
+
+    def test_a_report_written_for_another_key_cannot_be_relocated(self, world):
+        # Written under the right target's path but naming a different one:
+        # the directory is not the identity.
+        _eligibility(world, overrides={"model_key": "phi4_mm"})
+        lines = _violations(world)
+        assert any("model_key" in line and "phi4_mm" in line
+                   for line in lines)
+
+    def test_a_report_certified_under_another_lock_is_rejected(self, world):
+        problems = _validate(world, _report(world),
+                             expected_lock_sha="b" * 64)
+        assert any("dependency_lock_sha256" in p for p in problems)
+
+    def test_the_gate_compares_the_report_lock_to_the_lock_in_force(
+            self, world):
+        report = _report(world)
+        report["dependency_lock_sha256"] = "c" * 64
+        path = world["eligibility_root"] / "qwen35_4b" / "preflight_report.json"
+        path.write_text(json.dumps(report), encoding="utf-8")
+        lines = _violations(world)
+        assert any("different environment" in line for line in lines)
+
+    @pytest.mark.parametrize("revision", ["main", "latest", None, "d" * 39])
+    def test_the_processor_revision_must_be_immutable(self, world, revision):
+        problems = _validate(world, _report(
+            world, processor_revision=revision))
+        assert any("processor_revision" in p for p in problems)
+
+    # --- the selected family subset -----------------------------------
+    @pytest.mark.parametrize("n", [0, 1, 11, 13, 100])
+    def test_the_selection_must_be_twelve_families(self, world, n):
+        problems = _validate(world, _report(
+            world, family_ids=_eligibility_ids(n)))
+        assert any(f"selected {n} families" in p for p in problems)
+
+    def test_duplicate_selections_are_rejected(self, world):
+        ids = _eligibility_ids(11) + ["fam000"]
+        problems = _validate(world, _report(world, family_ids=ids))
+        assert any("duplicates" in p and "fam000" in p for p in problems)
+
+    def test_n_selected_families_must_agree_with_the_ids(self, world):
+        report = _report(world)
+        report["n_selected_families"] = 99
+        problems = _validate(world, report)
+        assert any("n_selected_families=99" in p for p in problems)
+
+    def test_the_recorded_selection_hash_must_match_the_ids(self, world):
+        report = _report(world)
+        report["selected_families_sha256"] = "0" * 64
+        problems = _validate(world, report)
+        assert any("does not match the listed family ids" in p
+                   for p in problems)
+
+    def test_the_selection_hash_is_order_independent(self):
+        ids = _eligibility_ids()
+        assert selected_families_sha256(ids) \
+            == selected_families_sha256(list(reversed(ids)))
+        assert selected_families_sha256(ids) \
+            != selected_families_sha256(ids[:-1])
+
+    def test_a_selection_outside_the_frozen_panel_is_rejected(self, world):
+        ids = _eligibility_ids(11) + ["not_in_panel"]
+        problems = _validate(world, _report(world, family_ids=ids))
+        assert any("not in the frozen 100-family panel" in p
+                   for p in problems)
+
+    def test_panel_membership_is_checked_when_the_panel_is_known(self, world):
+        report = _report(world)
+        assert _validate(world, report, panel_family_ids=PANEL_IDS) == []
+        assert any("not in the frozen" in p
+                   for p in _validate(world, report,
+                                      panel_family_ids={"other"}))
+
+    # --- six-variant coverage and the 72/72 requirement ---------------
+    def test_variants_must_be_the_frozen_six(self, world):
+        report = _report(world)
+        report["variants"] = list(ALL_VARIANT_NAMES[:5])
+        problems = _validate(world, report)
+        assert any("eligibility variants" in p for p in problems)
+
+    def test_a_reordered_variant_list_is_rejected(self, world):
+        # Order matters: the report must name the frozen six in the
+        # declared order, so a reordering is a schema deviation rather
+        # than something to be silently tolerated.
+        report = _report(world)
+        report["variants"] = list(reversed(ALL_VARIANT_NAMES))
+        assert any("eligibility variants" in p
+                   for p in _validate(world, report))
+
+    @pytest.mark.parametrize("field", ["n_expected_attempts", "n_attempts",
+                                       "n_succeeded"])
+    def test_the_attempt_counts_must_be_seventy_two(self, world, field):
+        report = _report(world)
+        report[field] = ELIGIBILITY_N_ATTEMPTS - 1
+        problems = _validate(world, report)
+        assert any(f"{field}=71" in p for p in problems)
+
+    def test_a_partial_generation_run_is_not_eligibility(self, world):
+        report = _report(world)
+        report["n_succeeded"] = 70
+        problems = _validate(world, report)
+        assert any("every one of the 72 generations" in p for p in problems)
+
+    def test_truncation_must_cover_all_six_variants(self, world):
+        report = _report(world)
+        report["truncation_by_variant"].pop(ALL_VARIANT_NAMES[0])
+        problems = _validate(world, report)
+        assert any("missing variant(s)" in p for p in problems)
+
+    def test_truncation_counts_must_match_the_selection(self, world):
+        report = _report(world)
+        report["truncation_by_variant"][ALL_VARIANT_NAMES[0]]["n"] = 5
+        problems = _validate(world, report)
+        assert any("truncation_by_variant counts per variant" in p
+                   for p in problems)
+
+    # --- detailed gate results ----------------------------------------
+    @pytest.mark.parametrize("gates", [{}, [], {"overall": "PASS"}])
+    def test_detailed_gate_results_are_required(self, world, gates):
+        problems = _validate(world, _report(world, overrides={"gates": gates}))
+        if gates == {"overall": "PASS"}:
+            assert any("gate(s) failed" in p for p in problems)
+        else:
+            assert any("non-empty object" in p for p in problems)
+
+    def test_an_absent_gates_field_is_a_missing_required_field(self, world):
+        problems = _validate(world, _report(world, overrides={"gates": None}))
+        assert any("missing required field" in p and "gates" in p
+                   for p in problems)
+
+    def test_a_failing_detailed_gate_is_reported_by_name(self, world):
+        report = _report(world)
+        report["gates"]["generations_72_of_72"] = {"passed": False}
+        report["gates"]["vision_path_engaged"] = {"status": "FAIL"}
+        problems = _validate(world, report)
+        assert any("generations_72_of_72" in p and "vision_path_engaged" in p
+                   for p in problems)
+
+    @pytest.mark.parametrize("entry", [True, {"passed": True},
+                                       {"status": "PASS"}])
+    def test_accepted_detailed_gate_shapes(self, world, entry):
+        report = _report(world)
+        report["gates"] = {"only_gate": entry}
+        assert _validate(world, report) == []
+
+    @pytest.mark.parametrize("entry", [False, {"passed": False},
+                                       {"status": "FAIL"}, {}, "PASS", 1])
+    def test_ambiguous_gate_results_count_as_not_passed(self, world, entry):
+        report = _report(world)
+        report["gates"] = {"only_gate": entry}
+        assert any("gate(s) failed" in p for p in _validate(world, report))
+
+    def test_the_number_of_detailed_gates_is_recorded(self, world):
+        result = _gate(world)
+        assert result["checks"]["eligibility_n_gates"] == 4
 
 
 # ---------------------------------------------------------------------
@@ -1274,20 +1742,23 @@ class TestDependencyLockVerification:
         assert result["differences"] == {}
         assert result["checked_fields"] == list(LOCK_IDENTITY_FIELDS)
 
-    def test_a_sibling_editable_revision_does_not_move_the_hash(
+    def test_a_third_party_editable_revision_moves_the_hash(
             self, monkeypatch):
-        # MIDP moved five commits in forty minutes while nothing about CCMS
-        # inference changed; each move silently changed pip_freeze_sha256
-        # and, with the gate enforcing it, would have blocked every
-        # confirmatory run for a reason unrelated to the experiment.
+        # Reversed from the earlier behaviour, which normalized the revision
+        # out of the hashed text. That let an editable dependency's source
+        # change while the certified lock hash stood still — the opposite of
+        # what a reproducible dependency lock is for.
         before = FREEZE_TEXT + MIDP_EDITABLE.format(rev="a1df9be09a2f") + "\n"
         after = FREEZE_TEXT + MIDP_EDITABLE.format(rev="5e3fef64bcae") + "\n"
         _patch_freeze(monkeypatch, _Completed(stdout=before))
         first = dependency_lock_snapshot()
         _patch_freeze(monkeypatch, _Completed(stdout=after))
         second = dependency_lock_snapshot()
-        assert first["pip_freeze_sha256"] == second["pip_freeze_sha256"]
-        assert first["n_packages"] == second["n_packages"] == 4
+        assert first["pip_freeze_sha256"] != second["pip_freeze_sha256"]
+        assert first["editable_vcs_revisions"] \
+            == {"route_unlearning_data": "a1df9be09a2f"}
+        assert second["editable_vcs_revisions"] \
+            == {"route_unlearning_data": "5e3fef64bcae"}
 
     def test_the_sibling_revision_is_still_recorded(self, monkeypatch):
         _patch_freeze(monkeypatch, _Completed(
@@ -1296,13 +1767,12 @@ class TestDependencyLockVerification:
         snapshot = dependency_lock_snapshot()
         assert snapshot["editable_vcs_revisions"] \
             == {"route_unlearning_data": "5e3fef64bcae"}
-        # Recorded as operational metadata, not as identity.
+        # Recorded for diagnosis; the freeze hash already binds the revision.
         assert "editable_vcs_revisions" not in LOCK_IDENTITY_FIELDS
 
-    def test_the_editable_install_itself_is_still_certified(self, monkeypatch):
-        # Normalizing the REVISION must not normalize away the install: if
-        # the sibling package disappeared or moved URL, that is a real
-        # dependency change.
+    def test_the_editable_install_itself_is_certified(self, monkeypatch):
+        # If the sibling package disappeared or moved URL, that is a real
+        # dependency change either way.
         _patch_freeze(monkeypatch, _Completed(
             stdout=FREEZE_TEXT + MIDP_EDITABLE.format(rev="a1df9be09a2f")
             + "\n"))
@@ -1310,25 +1780,52 @@ class TestDependencyLockVerification:
         _patch_freeze(monkeypatch, _Completed(stdout=FREEZE_TEXT))
         without = dependency_lock_snapshot()
         assert with_sibling["pip_freeze_sha256"] != without["pip_freeze_sha256"]
+        assert without["editable_vcs_revisions"] == {}
 
-    def test_operational_drift_is_reported_but_not_fatal(self, tmp_path,
-                                                         monkeypatch):
+    def _lock_with_sibling(self, tmp_path, monkeypatch, rev="a1df9be09a2f"):
         _patch_freeze(monkeypatch, _Completed(
-            stdout=FREEZE_TEXT + MIDP_EDITABLE.format(rev="a1df9be09a2f")
-            + "\n"))
+            stdout=FREEZE_TEXT + MIDP_EDITABLE.format(rev=rev) + "\n"))
         snapshot = dependency_lock_snapshot()
         path = tmp_path / "lock.yaml"
         path.write_text(yaml.safe_dump({"dependency_lock": snapshot},
                                        sort_keys=True), encoding="utf-8")
-        # The sibling repository moves on; the identity does not.
-        _patch_freeze(monkeypatch, _Completed(
-            stdout=FREEZE_TEXT + MIDP_EDITABLE.format(rev="5e3fef64bcae")
-            + "\n"))
+        return path, snapshot
+
+    def test_a_third_party_editable_install_is_refused(self, tmp_path,
+                                                       monkeypatch):
+        # The actual protection. pip freeze identifies an editable
+        # dependency by the sibling repository's COMMITTED HEAD and is blind
+        # to that repository's uncommitted working-tree changes, so no hash
+        # of freeze output can prove which dependency source would execute.
+        path, _ = self._lock_with_sibling(tmp_path, monkeypatch)
+        with pytest.raises(ReplayError,
+                           match="third-party editable VCS install"):
+            verify_active_dependency_lock(path, strict=True)
+        # Non-strict callers still see it, so it can never be silent.
+        result = verify_active_dependency_lock(path, strict=False)
+        assert result["verified"] is False
+        assert result["third_party_editable_vcs"] \
+            == {"route_unlearning_data": "a1df9be09a2f"}
+        assert result["differences"] == {}
+
+    def test_a_lock_matching_a_clean_environment_still_verifies(
+            self, tmp_path, monkeypatch):
+        # Refusing editable installs must not refuse every environment.
+        _patch_freeze(monkeypatch, _Completed())
+        snapshot = dependency_lock_snapshot()
+        path = tmp_path / "lock.yaml"
+        path.write_text(yaml.safe_dump({"dependency_lock": snapshot},
+                                       sort_keys=True), encoding="utf-8")
         result = verify_active_dependency_lock(path, strict=True)
         assert result["verified"] is True
-        assert result["differences"] == {}
-        assert set(result["informational_differences"]) \
-            == {"editable_vcs_revisions"}
+        assert result["third_party_editable_vcs"] == {}
+
+    def test_the_gate_refuses_a_third_party_editable_environment(
+            self, world, monkeypatch):
+        path, _ = self._lock_with_sibling(world["tmp_path"], monkeypatch)
+        lines = _violations(world, lock_path=path)
+        assert any("third-party editable VCS install" in line
+                   and "route_unlearning_data" in line for line in lines)
 
     def test_pinned_lines_are_not_mistaken_for_vcs_revisions(
             self, monkeypatch):
@@ -1392,3 +1889,61 @@ class TestCommittedPreflightArtifacts:
         assert artifact["git_dirty"] is False
         assert artifact["allow_dirty"] is False
         assert artifact["dataset"]["matches_frozen_protocol"] is True
+
+    @pytest.mark.parametrize("model_key", MODEL_KEYS)
+    def test_a_passing_artifact_had_no_untracked_source(self, model_key):
+        # An untracked module or sitecustomize.py would have changed what
+        # executed without appearing in code_commit.
+        path = PREFLIGHT_ROOT / model_key / "preflight.json"
+        if not path.exists():
+            pytest.skip(f"{path} not present")
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+        if artifact["status"] != "PASS":
+            pytest.skip(f"{model_key} is not a PASS artifact")
+        assert artifact["git_dirty_paths"] == []
+        assert artifact["git_untracked_paths"] == []
+        # The exclusion that keeps a stage from deadlocking itself is narrow
+        # and visible, never a blanket ignore of outputs/.
+        assert all(
+            p.startswith("outputs/iteration_11/preflight/")
+            for p in artifact["git_dirty_excluded_own_outputs"])
+
+    @pytest.mark.parametrize("model_key", MODEL_KEYS)
+    def test_a_passing_artifact_came_from_a_certifiable_environment(
+            self, model_key):
+        path = PREFLIGHT_ROOT / model_key / "preflight.json"
+        if not path.exists() or not PROTOCOL.exists():
+            pytest.skip(f"{path} not present")
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+        if artifact["status"] != "PASS":
+            pytest.skip(f"{model_key} is not a PASS artifact")
+        environment = artifact["environment"]
+        # No third-party editable install: its source can change without
+        # its recorded revision moving.
+        assert environment["third_party_editable_vcs"] == {}
+        assert environment["excluded_self_distributions"]
+        # Every frozen reference_version still holds in the dedicated env.
+        assert environment["observed_versions"] \
+            == environment["frozen_reference_versions"]
+
+    @pytest.mark.parametrize("model_key", MODEL_KEYS)
+    def test_the_environment_name_deviation_is_declared(self, model_key):
+        # The frozen protocol names reference_env=midp-qwen35. The dedicated
+        # clone is a deliberate, recorded deviation — and the frozen file
+        # must not have been edited to hide it.
+        path = PREFLIGHT_ROOT / model_key / "preflight.json"
+        if not path.exists() or not PROTOCOL.exists():
+            pytest.skip(f"{path} not present")
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+        if artifact["status"] != "PASS":
+            pytest.skip(f"{model_key} is not a PASS artifact")
+        environment = artifact["environment"]
+        frozen_env = json.loads(PROTOCOL.read_text(
+            encoding="utf-8"))["dependency_lock"]["reference_env"]
+        assert environment["frozen_reference_env"] == frozen_env
+        assert environment["reference_env_matches_frozen"] is False
+        deviation = environment["reference_env_deviation"]
+        assert frozen_env in deviation["claim"]
+        assert environment["conda_env"] in deviation["observation"]
+        assert deviation["frozen_protocol_modified"] is False
+        assert deviation["rationale"]

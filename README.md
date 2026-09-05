@@ -594,10 +594,9 @@ gates resume on it, an unstable value would have rejected legitimate resumes
 during the 11.7 generation run. Nothing is lost: code identity is already
 bound separately and more precisely via `code_commit` / `git_dirty`, and the
 exclusion is reported by distribution *name* (recording the raw line would
-put the live HEAD back inside the hashed block). Third-party editable
-installs such as the MIDP prior-art package are kept, since a change there is
-a real dependency change — though their *revisions* are normalized out for
-the same reason (see below). All four targets were re-preflighted after the fix
+put the live HEAD back inside the hashed block). A **third-party** editable
+install is a different matter and is now refused outright rather than
+normalized (see below). All four targets were re-preflighted after the fix
 and reproduce their committed smoke responses byte-for-byte (identical
 `response_sha256` for every variant and repeat); the only other metadata
 movement is `revision_requested` becoming the pinned SHA in the two Qwen
@@ -806,20 +805,66 @@ instability: the lock recorded `dd9b04c7…` while the environment hashed to
 `190132ad…`. The cause was the MIDP prior-art editable install, whose
 `pip freeze` line embeds MIDP's *live git HEAD* — and MIDP had taken five
 commits in forty minutes, with the CCMS lock captured in the middle of that
-sequence. Keeping the install is right (its disappearance or a URL change is a
-real dependency change) but hashing a sibling repository's moving HEAD is the
-same defect already fixed for this project's own editable install, and would
-have invalidated resume mid-run and blocked every confirmatory run for reasons
-unrelated to the experiment. Editable-VCS revisions are therefore normalized
-to `<vcs-revision>` inside the hashed text and recorded separately as
-`editable_vcs_revisions`; that drift is reported as
-`informational_differences` rather than as a violation.
+sequence.
 
-The gate fixes the contract 11.5 must satisfy: a report at
-`outputs/iteration_11/eligibility/<model_key>/preflight_report.json` carrying
-`status: PASS`, `eligible: true`, the `model_revision` it certified, the
-`protocol_sha256` (raw-byte hash of `iteration_11_protocol.json`) it was
-checked against, and `git_dirty: false`. Until 11.5 produces one, every
+A first fix normalized those revisions out of the hashed text. **That fix was
+itself wrong and has been reversed.** An editable dependency's revision is
+part of dependency identity: normalizing it away let the dependency's source
+change while the certified lock hash stood still, which is the opposite of
+what a reproducible lock is for. Worse, normalization did not even solve the
+real problem, because `pip freeze` identifies an editable install by the
+sibling repository's *committed* HEAD and is blind to that repository's
+uncommitted working-tree changes — so no hash of freeze output can ever prove
+which dependency source would execute. The revisions are therefore back inside
+the hashed text, and the sound answer is to refuse the situation entirely:
+**a third-party editable VCS install is now fatal** for `verify_active_dependency_lock(strict=True)`,
+for the confirmatory gate, and for the technical preflight, which aborts
+before loading any checkpoint.
+
+Iteration 11 evidence is consequently generated in a **dedicated environment**,
+`ccms-iter11`: a `conda create --clone` of the frozen reference environment
+`midp-qwen35` with `route-unlearning-data` uninstalled (CCMS never imports it).
+Every frozen `reference_version` still holds exactly there — Python 3.10.20,
+transformers 5.14.1, torch 2.8.0+cu128, CUDA 12.8, peft 0.20.0 — and the
+preflight now *asserts* that rather than assuming it, so a version mismatch is
+a problem and blocks `status: PASS`. The environment name is a label for where
+those versions were observed, not a scientific dimension, so the one remaining
+difference is recorded as an explicit deviation in each artifact
+(`environment.reference_env_deviation`: claim, observation, rationale,
+`frozen_protocol_modified: false`). The frozen protocol file itself was not
+edited; its sha256 is bound into every artifact and into the gate.
+
+**Untracked files used to count as clean.** `git status --untracked-files=no`
+made an untracked `sitecustomize.py`, an untracked `conftest.py`, a top-level
+module shadowing an installed package, or a new module that tracked code
+imports completely invisible, while the artifact recorded `git_dirty: false`
+and a `code_commit` that could not reconstruct what ran. `code_tree_status`
+now uses `--untracked-files=all` (which expands untracked *directories* into
+individual files, so a new nested module cannot hide) and treats untracked
+paths as dirty. Only two things are excluded: cache/transient paths
+(`__pycache__`, `.pytest_cache`, `*.pyc`, `*.log`, …) and the calling stage's
+own output prefix — each recorded separately in the artifact as
+`excluded_cache_paths` and `excluded_own_outputs`, so neither exclusion is
+silent and neither is a blanket ignore of `outputs/`.
+
+The gate now also validates the **content** of the 11.5 report it depends on,
+via `validate_eligibility_report`. It previously recorded `code_commit`
+without requiring it, so a report carrying `code_commit: null`, or one written
+about a different `model_key` but filed under the right directory, could
+authorize a confirmatory run. Every field in
+`ELIGIBILITY_REQUIRED_FIELDS` is required *and* checked: exact `model_key`
+and `model_id`; an immutable 40-hex `code_commit`; `git_dirty: false`; the
+`protocol_sha256` and `dependency_lock_sha256` in force; a selection of
+exactly 12 unique family ids drawn from the frozen 100-family panel whose
+`selected_families_sha256` matches them under a published, order-independent
+recipe; the frozen six variants in declared order; `n_expected_attempts` =
+`n_attempts` = `n_succeeded` = 72; `truncation_by_variant` covering all six
+with per-variant counts of 12; and a non-empty `gates` object of detailed
+per-gate results, each of which must pass and any failure of which is reported
+by name. A bare overall status is not accepted — it is not auditable.
+
+Until 11.5 produces such a report at
+`outputs/iteration_11/eligibility/<model_key>/preflight_report.json`, every
 confirmatory `--model-key` run fails closed at the gate — which is the intent:
 technical eligibility must be signed off before the full 2,400-output run.
 

@@ -103,71 +103,132 @@ _REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
 
 
-def dirty_tracked_files() -> Optional[list]:
-    """Tracked files with uncommitted changes, as repo-root-relative paths.
+def git_working_tree_paths() -> Optional[dict]:
+    """Modified-tracked and untracked paths, repo-root relative.
 
-    Untracked files are excluded for the same reason as
-    :func:`is_git_dirty`: newly created run outputs are normal side effects
-    of running the pipeline. ``--porcelain`` reports paths relative to the
-    repository root, so the result is independent of the process cwd.
+    ``--untracked-files=all`` expands untracked DIRECTORIES into their
+    individual files, so an untracked ``src/.../new_module.py`` is visible
+    rather than hidden behind a directory entry. Files matched by
+    ``.gitignore`` are not reported by git at all, which is why the cache
+    filter in :func:`code_tree_status` is a belt-and-braces measure rather
+    than the primary defence.
 
-    Returns None if git is unavailable or this is not a repository
-    (provenance unknown, which callers must treat as "cannot certify").
+    Returns:
+        ``{"modified": [...], "untracked": [...]}``, or None if git is
+        unavailable or this is not a repository (provenance unknown, which
+        callers must treat as "cannot certify").
     """
     import subprocess
     try:
         result = subprocess.run(
-            ["git", "status", "--porcelain", "--untracked-files=no"],
+            ["git", "status", "--porcelain", "--untracked-files=all"],
             cwd=_REPO_ROOT,
             capture_output=True,
             text=True,
-            timeout=10,
+            timeout=30,
         )
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return None
     if result.returncode != 0:
         return None
-    paths = []
+    modified: list = []
+    untracked: list = []
     for line in result.stdout.splitlines():
         if not line.strip():
             continue
         # porcelain v1: "XY <path>", or "XY <orig> -> <path>" for renames.
+        code = line[:2]
         entry = line[3:].strip()
         if " -> " in entry:
             entry = entry.split(" -> ", 1)[1]
-        paths.append(entry.strip('"'))
-    return paths
+        entry = entry.strip('"')
+        if code == "??":
+            untracked.append(entry)
+        else:
+            modified.append(entry)
+    return {"modified": modified, "untracked": untracked}
+
+
+def dirty_tracked_files() -> Optional[list]:
+    """Tracked files with uncommitted changes (None if git is unavailable).
+
+    Retained for callers that want the narrow, tracked-only answer; the
+    provenance gate uses :func:`code_tree_status`, which also considers
+    untracked files.
+    """
+    paths = git_working_tree_paths()
+    return None if paths is None else paths["modified"]
+
+
+#: Path components that are caches or transient build state wherever they
+#: appear. ``.gitignore`` already excludes these in this repository, so the
+#: explicit list only matters if that ever changes — it is deliberately NOT
+#: a general escape hatch for untracked files.
+CACHE_PATH_COMPONENTS = frozenset({
+    "__pycache__", ".pytest_cache", ".ruff_cache", ".mypy_cache",
+    ".cache", ".conda", ".ci-venv", "node_modules",
+})
+
+#: Suffixes that are never execution-relevant source.
+CACHE_SUFFIXES = (".pyc", ".pyo", ".log")
+
+
+def is_cache_path(path: str) -> bool:
+    """True for cache/transient paths, which never affect what executes."""
+    if any(component in CACHE_PATH_COMPONENTS
+           for component in path.split("/")):
+        return True
+    return path.endswith(CACHE_SUFFIXES)
 
 
 def code_tree_status(exclude_prefixes=()) -> dict:
-    """Is the CODE tree clean, ignoring a stage's own output artifacts?
+    """Could ``code_commit`` reconstruct the code that is about to run?
 
-    ``is_git_dirty()`` answers "has any tracked file changed", which is the
-    honest thing to RECORD but the wrong thing to GATE on for a stage that
-    regenerates its own committed evidence: the first target's artifact
-    makes the tree dirty and blocks every subsequent target, even though
-    nothing about the code changed. The question a provenance gate actually
-    asks is narrower — could ``code_commit`` reconstruct the code that ran?
-    — and a stage's own outputs under ``outputs/`` do not affect that.
+    Considers modified tracked files AND untracked files. Untracked source
+    is the dangerous case, and ignoring it was a real hole: an untracked
+    ``sitecustomize.py`` or ``conftest.py``, a top-level module shadowing an
+    installed package, or a new module that tracked code imports all change
+    what executes while leaving ``code_commit`` pointing at a tree that
+    cannot reproduce it — and the artifact would still record
+    ``git_dirty: false``.
+
+    A stage's own output artifacts are the one legitimate exception, because
+    a stage that regenerates its own committed evidence would otherwise
+    deadlock itself: the first target's artifact would make the tree dirty
+    for every later target with no code change at all. That exclusion is
+    narrow, per-stage and REPORTED, never a blanket ignore of ``outputs/``.
 
     Args:
-        exclude_prefixes: repo-root-relative path prefixes belonging to the
-            calling stage's own outputs. Excluded paths are reported, never
-            silently dropped, so the exclusion is auditable.
+        exclude_prefixes: repo-root-relative prefixes belonging to the
+            calling stage's own outputs.
 
     Returns:
-        ``{"dirty": bool | None, "dirty_paths": [...], "excluded_paths":
+        ``{"dirty": bool | None, "dirty_paths": [...], "untracked_paths":
+        [...], "excluded_own_outputs": [...], "excluded_cache_paths":
         [...]}``. ``dirty`` is None when git status is unavailable.
     """
-    files = dirty_tracked_files()
-    if files is None:
-        return {"dirty": None, "dirty_paths": [], "excluded_paths": []}
+    paths = git_working_tree_paths()
+    if paths is None:
+        return {"dirty": None, "dirty_paths": [], "untracked_paths": [],
+                "excluded_own_outputs": [], "excluded_cache_paths": []}
     prefixes = tuple(exclude_prefixes)
-    dirty = [p for p in files
-             if not any(p.startswith(prefix) for prefix in prefixes)]
-    excluded = [p for p in files if p not in set(dirty)]
-    return {"dirty": bool(dirty), "dirty_paths": dirty,
-            "excluded_paths": excluded}
+    all_paths = list(paths["modified"]) + list(paths["untracked"])
+    own_outputs, caches, dirty = [], [], []
+    for path in all_paths:
+        if any(path.startswith(prefix) for prefix in prefixes):
+            own_outputs.append(path)
+        elif is_cache_path(path):
+            caches.append(path)
+        else:
+            dirty.append(path)
+    untracked_dirty = [p for p in dirty if p in set(paths["untracked"])]
+    return {
+        "dirty": bool(dirty),
+        "dirty_paths": sorted(dirty),
+        "untracked_paths": sorted(untracked_dirty),
+        "excluded_own_outputs": sorted(own_outputs),
+        "excluded_cache_paths": sorted(caches),
+    }
 
 
 def is_git_dirty() -> Optional[bool]:
