@@ -66,12 +66,14 @@ from causal_mllm.replay import confirmatory, registry, runner, selection
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.confirmatory import (
     ELIGIBILITY_GATE_EVIDENCE,
+    ELIGIBILITY_GENERATIONS_ROOT,
     ELIGIBILITY_N_ATTEMPTS,
     ELIGIBILITY_N_FAMILIES,
     ELIGIBILITY_REQUIRED_FIELDS,
     ELIGIBILITY_REQUIRED_GATES,
     GENERATIONS_ROOT,
     enforce_confirmatory_protocol,
+    enforce_eligibility_protocol,
     protocol_sha256,
     selected_families_sha256,
     validate_eligibility_report,
@@ -133,6 +135,7 @@ def _load_script(name: str):
 
 preflight = _load_script("iter11_model_preflight")
 write_selection = _load_script("iter11_write_selection")
+run_eligibility = _load_script("iter11_run_eligibility")
 
 
 def _tree(dirty, dirty_paths=(), untracked_paths=(), own_outputs=(),
@@ -2085,6 +2088,573 @@ class TestFrozenSelectionDerivation:
                 assert chosen["reference_median_output_tokens"] > 0
                 assert chosen["distance_to_cell_median"] >= 0
                 assert 0 <= chosen["max_compliance_level"] <= 3
+
+
+# ---------------------------------------------------------------------
+# 11.5  The eligibility subset run
+# ---------------------------------------------------------------------
+def _subset_run(tmp_path, ids, n_families=4, **kwargs):
+    """Replay a synthetic panel restricted to ``ids``."""
+    families = _families(tmp_path, n_families)
+    spec = _spec()
+    stub = kwargs.pop("backend", None) or _StubAdapter(spec)
+    report = run_replay_stage(
+        tmp_path, tmp_path / "runs", backend=stub, run_id="elig-run",
+        model_spec=spec, family_ids=ids, **kwargs)
+    return report, stub, families
+
+
+class TestFamilySubsetRuns:
+    """``family_ids`` is how 11.5 replays 12 of the frozen 100 families.
+
+    ``input_dir`` stays the full panel — so the run fingerprint still binds
+    the frozen panel digest — and the subset is bound separately, because a
+    subset and the whole panel are different runs and must not resume into
+    each other.
+    """
+
+    def test_only_the_named_families_are_replayed(self, tmp_path):
+        report, stub, _ = _subset_run(tmp_path, ["fam000", "fam002"])
+        assert report["n_families"] == 2
+        assert report["n_attempted"] == 2 * len(ALL_VARIANT_NAMES)
+        assert report["n_succeeded"] == 2 * len(ALL_VARIANT_NAMES)
+        assert stub.n_calls == 2 * len(ALL_VARIANT_NAMES)
+
+    def test_the_whole_panel_is_still_bound_by_the_fingerprint(self, tmp_path):
+        # The subset must not weaken panel identity: the run still reads —
+        # and is still bound to — the full frozen panel file.
+        report, _, _ = _subset_run(tmp_path, ["fam000"])
+        assert report["provenance"]["validated_families_sha256"] \
+            == _file_sha256(tmp_path / "validated_families.jsonl")
+        assert report["provenance"]["dataset_manifest_hash"] \
+            == _file_sha256(tmp_path / "validated_families.jsonl")
+
+    def test_the_subset_is_replayed_in_panel_order(self, tmp_path):
+        report, _, _ = _subset_run(tmp_path, ["fam003", "fam001", "fam002"])
+        seen = []
+        for record in read_jsonl(tmp_path / "runs" / "elig-run"
+                                 / REPLAY_OUTPUTS_FILE):
+            if record["family_id"] not in seen:
+                seen.append(record["family_id"])
+        assert seen == ["fam001", "fam002", "fam003"]
+
+    def test_the_report_records_the_subset_it_replayed(self, tmp_path):
+        report, _, _ = _subset_run(tmp_path, ["fam002", "fam000"])
+        subset = report["provenance"]["family_subset"]
+        assert subset["family_ids"] == ["fam000", "fam002"]
+        assert subset["n_families"] == 2
+        assert subset["family_ids_sha256"] \
+            == selected_families_sha256(["fam000", "fam002"])
+
+    def test_a_whole_panel_run_records_no_subset(self, tmp_path):
+        families = _families(tmp_path, 3)
+        spec = _spec()
+        report = run_replay_stage(
+            tmp_path, tmp_path / "runs", backend=_StubAdapter(spec),
+            run_id="full-run", model_spec=spec)
+        assert report["n_families"] == len(families)
+        assert report["provenance"]["family_subset"] is None
+
+    def test_an_unknown_family_id_is_refused(self, tmp_path):
+        _families(tmp_path, 3)
+        with pytest.raises(ReplayError, match="are not in"):
+            run_replay_stage(
+                tmp_path, tmp_path / "runs", backend=_StubAdapter(_spec()),
+                run_id="elig-run", model_spec=_spec(),
+                family_ids=["fam000", "fam999"])
+
+    def test_a_duplicate_family_id_is_refused(self, tmp_path):
+        _families(tmp_path, 3)
+        with pytest.raises(ReplayError, match="duplicate"):
+            run_replay_stage(
+                tmp_path, tmp_path / "runs", backend=_StubAdapter(_spec()),
+                run_id="elig-run", model_spec=_spec(),
+                family_ids=["fam000", "fam000"])
+
+    def test_an_empty_selection_is_refused(self, tmp_path):
+        _families(tmp_path, 3)
+        with pytest.raises(ReplayError, match="empty"):
+            run_replay_stage(
+                tmp_path, tmp_path / "runs", backend=_StubAdapter(_spec()),
+                run_id="elig-run", model_spec=_spec(), family_ids=[])
+
+    def test_a_subset_requires_a_resolved_target(self, tmp_path):
+        # The frozen legacy single-model report schema has no field for a
+        # subset, so a subset run there could not say what it replayed.
+        _families(tmp_path, 3)
+        with pytest.raises(ReplayError, match="Iteration 11 facility"):
+            run_replay_stage(
+                tmp_path, tmp_path / "runs", backend=_StubAdapter(_spec()),
+                run_id="legacy", family_ids=["fam000"])
+
+    def test_a_subset_cannot_be_combined_with_a_smoke_prefix(self, tmp_path):
+        _families(tmp_path, 4)
+        with pytest.raises(ReplayError, match="cannot be combined"):
+            run_replay_stage(
+                tmp_path, tmp_path / "runs", backend=_StubAdapter(_spec()),
+                run_id="elig-run", model_spec=_spec(),
+                family_ids=["fam000", "fam001"], max_families=1)
+
+    def test_the_fingerprint_binds_the_subset(self, tmp_path):
+        # Without this, --resume pointed at a 12-family eligibility run with
+        # the full panel would find 72 stored pairs, treat them as 72 of the
+        # 600 already done, and splice eligibility evidence into
+        # confirmatory evidence.
+        families = _families(tmp_path, 4)
+        spec = _spec()
+        stub = _StubAdapter(spec)
+        config = ReplayConfig(max_new_tokens=1536)
+        hw = stub.runtime_metadata()["hardware"]
+        ids = [f.family_id for f in families]
+        digests = {
+            "full": iteration11_run_fingerprint(
+                stub, config, tmp_path, spec, hw),
+            "first_two": iteration11_run_fingerprint(
+                stub, config, tmp_path, spec, hw, family_ids=ids[:2]),
+            "last_two": iteration11_run_fingerprint(
+                stub, config, tmp_path, spec, hw, family_ids=ids[2:]),
+        }
+        assert len(set(digests.values())) == 3, digests
+        # ...and the subset digest is order-independent, matching the
+        # published selection recipe.
+        assert iteration11_run_fingerprint(
+            stub, config, tmp_path, spec, hw, family_ids=ids[:2]) \
+            == iteration11_run_fingerprint(
+                stub, config, tmp_path, spec, hw,
+                family_ids=list(reversed(ids[:2])))
+
+    def test_resume_refuses_a_journal_from_a_different_subset(self, tmp_path):
+        _subset_run(tmp_path, ["fam000", "fam001"])
+        with pytest.raises(ReplayError):
+            _subset_run(tmp_path, ["fam000", "fam002"], resume=True)
+
+    def test_resume_continues_the_same_subset(self, tmp_path):
+        report, _, _ = _subset_run(tmp_path, ["fam000", "fam001"],
+                                   resume=True)
+        assert report["resume"]["enabled"] is True
+        assert report["n_succeeded"] == 2 * len(ALL_VARIANT_NAMES)
+
+    @pytest.mark.parametrize("gate_name,key", [
+        ("iteration11_confirmatory", "confirmatory_gate"),
+        ("iteration11_eligibility", "eligibility_gate"),
+    ])
+    def test_gate_evidence_is_filed_under_the_gate_that_produced_it(
+            self, tmp_path, gate_name, key):
+        # A 12-family eligibility run must never carry its evidence under
+        # the confirmatory key, or a reader could mistake it for a
+        # whole-panel PASS.
+        _families(tmp_path, 2)
+        spec = _spec()
+        gate = {"gate": gate_name, "passed": True, "n_violations": 0,
+                "violations": [], "checks": {}}
+        report = run_replay_stage(
+            tmp_path, tmp_path / "runs", backend=_StubAdapter(spec),
+            run_id="elig-run", model_spec=spec, gate_evidence=gate)
+        assert report[key] == gate
+        other = ("eligibility_gate" if key == "confirmatory_gate"
+                 else "confirmatory_gate")
+        assert other not in report
+
+
+# ---------------------------------------------------------------------
+# 11.5  The eligibility protocol gate
+# ---------------------------------------------------------------------
+def _eligibility_gate(world, frozen_repo, **overrides):
+    """Enforce the 11.5 gate on a conformant synthetic world."""
+    derived = selection.derive_frozen_selection(frozen_repo)
+    kwargs = {
+        "input_dir": world["input_dir"],
+        "config": world["config"],
+        "model_spec": world["spec"],
+        "family_ids": derived["selected_family_ids"],
+        "output_root": f"{ELIGIBILITY_GENERATIONS_ROOT}/qwen35_4b",
+        "lock_path": world["lock_path"],
+        "protocol_path": world["protocol_path"],
+        "repo_root": frozen_repo,
+    }
+    kwargs.update(overrides)
+    return enforce_eligibility_protocol(**kwargs)
+
+
+def _eligibility_violations(world, frozen_repo, **overrides) -> list[str]:
+    with pytest.raises(ReplayError) as exc:
+        _eligibility_gate(world, frozen_repo, **overrides)
+    return str(exc.value).splitlines()
+
+
+class TestEligibilityProtocolGate:
+    """11.5 is not confirmatory, but the frozen protocol still binds it.
+
+    Eligibility evidence generated under a different cap, decoding, prompt or
+    panel would certify a target against conditions the 11.6 confirmatory run
+    does not share — so every dimension the protocol fixes is enforced here
+    by the SAME checks, and only the family scope and the report requirement
+    differ.
+    """
+
+    def test_a_conformant_eligibility_run_passes(self, world, frozen_repo):
+        result = _eligibility_gate(world, frozen_repo)
+        assert result["passed"] is True
+        assert result["gate"] == "iteration11_eligibility"
+        assert result["checks"]["panel_sha256"] == world["panel_sha"]
+        assert result["checks"]["max_new_tokens"] == 1536
+        assert result["checks"]["n_family_ids_requested"] \
+            == ELIGIBILITY_N_FAMILIES
+
+    def test_it_requires_no_pre_existing_eligibility_report(self, world,
+                                                            frozen_repo):
+        # This stage WRITES the report, so demanding one would deadlock: no
+        # target could ever become eligible.
+        result = _eligibility_gate(world, frozen_repo)
+        assert "eligibility_report_path" not in result["checks"]
+        assert result["checks"]["selection_artifact_checked"] is True
+
+    def test_the_legacy_single_model_path_is_refused(self, world,
+                                                     frozen_repo):
+        with pytest.raises(ReplayError, match="requires a resolved"):
+            _eligibility_gate(world, frozen_repo, model_spec=None)
+
+    def test_a_smoke_prefix_is_refused(self, world, frozen_repo):
+        lines = _eligibility_violations(world, frozen_repo, max_families=5)
+        assert any("prefix of it" in line for line in lines)
+
+    @pytest.mark.parametrize("output_root", [
+        f"{GENERATIONS_ROOT}/qwen35_4b",
+        f"{ELIGIBILITY_GENERATIONS_ROOT}/ministral3_3b",
+        "/tmp/somewhere",
+    ])
+    def test_evidence_must_land_in_this_targets_eligibility_tree(
+            self, world, frozen_repo, output_root):
+        # Including the CONFIRMATORY root: a 12-family run written there
+        # could be read as a 100-family one by anything that globs it.
+        lines = _eligibility_violations(world, frozen_repo,
+                                       output_root=output_root)
+        assert any("eligibility generations tree" in line for line in lines)
+
+    def test_an_unnamed_subset_is_refused(self, world, frozen_repo):
+        lines = _eligibility_violations(world, frozen_repo, family_ids=None)
+        assert any("must name the families it replays" in line
+                   for line in lines)
+
+    @pytest.mark.parametrize("mutate", [
+        pytest.param(lambda ids: ids[:-1], id="eleven_of_the_twelve"),
+        pytest.param(lambda ids: ids + ["fam050"], id="twelve_plus_one"),
+        pytest.param(lambda ids: list(reversed(ids)), id="same_set_ok"),
+        pytest.param(lambda ids: _eligibility_ids(), id="the_panel_prefix"),
+        pytest.param(lambda ids: [f"fam{i:03d}" for i in range(50, 62)],
+                     id="twelve_others"),
+    ])
+    def test_the_subset_must_be_exactly_the_pre_registered_selection(
+            self, world, frozen_repo, mutate):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        ids = mutate(list(derived["selected_family_ids"]))
+        if sorted(ids) == sorted(derived["selected_family_ids"]):
+            # Order is not part of the selection: the digest is over the
+            # sorted ids, so a reordered list is the same subset.
+            assert _eligibility_gate(world, frozen_repo,
+                                     family_ids=ids)["passed"] is True
+            return
+        lines = _eligibility_violations(world, frozen_repo, family_ids=ids)
+        assert any("not the pre-registered 11.5 selection" in line
+                   for line in lines)
+
+    def test_an_id_outside_the_frozen_panel_is_refused(self, world,
+                                                       frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        ids = list(derived["selected_family_ids"])
+        ids[-1] = "CMST_999999"
+        lines = _eligibility_violations(world, frozen_repo, family_ids=ids)
+        assert any("not in the frozen panel" in line for line in lines)
+
+    def test_the_frozen_cap_is_enforced_here_too(self, world, frozen_repo):
+        derived = selection.derive_frozen_selection(frozen_repo)
+        lines = _eligibility_violations(
+            world, frozen_repo,
+            config=ReplayConfig(max_new_tokens=256, enable_thinking=True),
+            family_ids=derived["selected_family_ids"])
+        assert any("uniform cap 1536" in line for line in lines)
+        assert any("thinking disabled" in line for line in lines)
+
+    def test_a_dirty_tree_is_refused(self, world, frozen_repo, monkeypatch):
+        monkeypatch.setattr(
+            confirmatory, "code_tree_status",
+            lambda exclude_prefixes=(): _tree(True,
+                                              dirty_paths=["src/x.py"]))
+        lines = _eligibility_violations(world, frozen_repo)
+        assert any("working tree is not clean" in line for line in lines)
+
+    def test_overwrite_is_refused(self, world, frozen_repo):
+        lines = _eligibility_violations(world, frozen_repo, overwrite=True)
+        assert any("overwrite=True" in line for line in lines)
+
+    def test_a_different_panel_is_refused(self, world, frozen_repo):
+        other = world["tmp_path"] / "other" / "validated_families.jsonl"
+        _write_panel(other, n_families=100)
+        other.write_text(
+            other.read_text(encoding="utf-8").replace("fam", "fxm", 1),
+            encoding="utf-8")
+        lines = _eligibility_violations(world, frozen_repo,
+                                       input_dir=other.parent)
+        assert any("not the frozen" in line for line in lines)
+
+    def test_an_underivable_selection_blocks_the_run(self, world,
+                                                     frozen_repo):
+        (frozen_repo / selection.FROZEN_9B_REFERENCE).unlink()
+        with pytest.raises(ReplayError, match="not found"):
+            _eligibility_gate(world, frozen_repo)
+
+    def test_every_violation_is_reported_together(self, world, frozen_repo,
+                                                  monkeypatch):
+        monkeypatch.setattr(
+            confirmatory, "code_tree_status",
+            lambda exclude_prefixes=(): _tree(True,
+                                              dirty_paths=["src/x.py"]))
+        derived = selection.derive_frozen_selection(frozen_repo)
+        with pytest.raises(ReplayError) as exc:
+            _eligibility_gate(
+                world, frozen_repo, overwrite=True, max_families=5,
+                family_ids=derived["selected_family_ids"][:-1],
+                config=ReplayConfig(max_new_tokens=256,
+                                    enable_thinking=True))
+        message = str(exc.value)
+        # overwrite + dirty tree + max_families + cap + thinking + subset
+        assert "6 violation(s)" in message
+        for fragment in ("overwrite=True", "working tree is not clean",
+                         "prefix of it", "uniform cap 1536",
+                         "thinking disabled",
+                         "not the pre-registered 11.5 selection"):
+            assert fragment in message
+
+    def test_the_confirmatory_gate_refuses_a_named_subset(self, world):
+        # The same argument is a violation on the other side: a
+        # confirmatory run replays the whole panel, and a 12-family run must
+        # not be labelled confirmatory.
+        lines = _violations(world, family_ids=_eligibility_ids())
+        assert any("confirmatory run replays the ENTIRE frozen panel" in line
+                   for line in lines)
+        assert any("enforce_eligibility_protocol" in line for line in lines)
+
+    def test_the_confirmatory_gate_records_that_no_subset_was_requested(
+            self, world):
+        assert _gate(world)["checks"]["family_ids"] is None
+
+
+# ---------------------------------------------------------------------
+# 11.5  Evidence -> gate, computed rather than asserted
+# ---------------------------------------------------------------------
+def _record(family_id, variant, *, n_images=0, image_token_count=0,
+            output_token_count=120, hit=False, response="a response",
+            terminal_sha256=None):
+    """One replay output record, shaped like the runner writes it."""
+    return {
+        "family_id": family_id, "variant": variant, "n_images": n_images,
+        "image_token_count": image_token_count,
+        "output_token_count": output_token_count,
+        "hit_max_new_tokens": hit, "response": response,
+        "terminal_sha256": (terminal_sha256 if terminal_sha256 is not None
+                            else sha256_text(f"q*-{family_id}")),
+    }
+
+
+def _cells(families, **kwargs):
+    return [_record(family, variant, **kwargs)
+            for family in families
+            for variant in ALL_VARIANT_NAMES]
+
+
+class _GreedyAdapter:
+    """Byte-stable per prompt, except on the call numbers in ``drift_on``.
+
+    Stands in for greedy decoding so the determinism evidence can be tested
+    from both sides without a GPU.
+    """
+
+    def __init__(self, response="a response", drift_on=()):
+        self.response = response
+        self.drift_on = set(drift_on)
+        self.n_calls = 0
+
+    def generate(self, chat_messages):
+        self.n_calls += 1
+        if self.n_calls in self.drift_on:
+            return {"response": f"{self.response} (drifted on call "
+                                f"{self.n_calls})"}
+        return {"response": self.response}
+
+
+class TestEligibilityEvidenceComputation:
+    """The six gates must be COMPUTED from the run's own records.
+
+    A gate this script merely asserted would be exactly the ``passed: true``
+    without evidence that the report schema now refuses, so each of these
+    pins the computation from the side that fails as well as the side that
+    passes.
+    """
+
+    # --- terminal-query invariant -------------------------------------
+    def test_canonical_queries_prefer_the_harmonized_q_star(self, tmp_path):
+        panel = tmp_path / "validated_families.jsonl"
+        panel.write_text("\n".join(json.dumps(rec) for rec in (
+            {"family_id": "fam000",
+             "validation": {"terminal_harmonization":
+                            {"canonical_q": "the canonical q*"}},
+             "terminal_query": {"text": "the skeleton original"}},
+            {"family_id": "fam001", "terminal_query": {"text": "a dict q"}},
+            {"family_id": "fam002", "terminal_query": "a bare string"},
+        )) + "\n", encoding="utf-8")
+        canonical = run_eligibility.panel_canonical_queries(panel)
+        assert canonical == {"fam000": "the canonical q*",
+                             "fam001": "a dict q",
+                             "fam002": "a bare string"}
+
+    def test_one_terminal_query_per_family_across_all_six_variants(self):
+        records = _cells(["fam000", "fam001"])
+        evidence = run_eligibility.terminal_query_evidence(
+            records, {"fam000": "q*-fam000", "fam001": "q*-fam001"})
+        assert evidence["passed"] is True
+        assert evidence["n_families_checked"] == 2
+        assert evidence["n_mismatched"] == 0
+
+    def test_a_variant_that_changed_the_terminal_query_is_caught(self):
+        # This is the confound the invariant exists to rule out: if variant
+        # construction altered the question, any difference between variants
+        # would be a difference in the question rather than in the
+        # intervention.
+        records = _cells(["fam000"])
+        records[2]["terminal_sha256"] = sha256_text("something else")
+        evidence = run_eligibility.terminal_query_evidence(
+            records, {"fam000": "q*-fam000"})
+        assert evidence["passed"] is False
+        assert evidence["n_mismatched"] == 1
+        assert "distinct terminal hashes" in evidence["mismatched"][0]
+
+    def test_a_terminal_query_that_is_not_the_panels_q_star_is_caught(self):
+        records = _cells(["fam000"])
+        evidence = run_eligibility.terminal_query_evidence(
+            records, {"fam000": "a DIFFERENT question"})
+        assert evidence["passed"] is False
+        assert "canonical q*" in evidence["mismatched"][0]
+
+    def test_a_family_absent_from_the_panel_is_caught(self):
+        evidence = run_eligibility.terminal_query_evidence(
+            _cells(["fam000"]), {})
+        assert evidence["passed"] is False
+        assert "not in the frozen panel" in evidence["mismatched"][0]
+
+    # --- vision path ---------------------------------------------------
+    def test_an_engaged_vision_path_is_evidenced(self):
+        records = _cells(["fam000"], n_images=0, image_token_count=0)
+        records += _cells(["fam000"], n_images=1, image_token_count=81)
+        evidence = run_eligibility.vision_path_evidence(records[6:])
+        assert evidence["passed"] is True
+        assert evidence["n_image_bearing_cells"] == 6
+        assert evidence["min_image_token_count"] == 81
+
+    def test_an_image_bearing_cell_with_no_image_tokens_fails(self):
+        # The silent-degradation case: fluent, complete, text-only output
+        # from a cross-modal prompt, with every superficial check passing.
+        records = _cells(["fam000"], n_images=1, image_token_count=81)
+        records[3]["image_token_count"] = 0
+        evidence = run_eligibility.vision_path_evidence(records)
+        assert evidence["passed"] is False
+        assert evidence["n_cells_with_zero_image_tokens"] == 1
+        assert evidence["min_image_token_count"] == 0
+
+    def test_an_unmeasured_image_token_count_fails(self):
+        records = _cells(["fam000"], n_images=1, image_token_count=81)
+        records[0]["image_token_count"] = None
+        evidence = run_eligibility.vision_path_evidence(records)
+        assert evidence["passed"] is False
+        assert evidence["n_cells_without_a_measurement"] == 1
+
+    def test_a_run_that_never_bore_an_image_fails(self):
+        evidence = run_eligibility.vision_path_evidence(
+            _cells(["fam000"], n_images=0, image_token_count=0))
+        assert evidence["passed"] is False
+        assert evidence["n_image_bearing_cells"] == 0
+
+    # --- truncation ----------------------------------------------------
+    def test_a_complete_run_reports_zero_truncation(self):
+        evidence = run_eligibility.truncation_evidence(_cells(["f0", "f1"]))
+        assert evidence["passed"] is True
+        assert evidence["n_truncated"] == 0
+        assert evidence["truncation_rate"] == 0.0
+        assert evidence["max_variant_spread"] == 0.0
+        assert sorted(evidence["by_variant"]) == sorted(ALL_VARIANT_NAMES)
+        assert all(entry["n"] == 2
+                   for entry in evidence["by_variant"].values())
+
+    def test_any_truncation_fails_rather_than_warns(self):
+        records = _cells(["f0", "f1"])
+        records[0]["hit_max_new_tokens"] = True
+        records[0]["output_token_count"] = 1536
+        evidence = run_eligibility.truncation_evidence(records)
+        assert evidence["passed"] is False
+        assert evidence["n_truncated"] == 1
+        assert evidence["truncation_rate"] == 1 / 12
+        assert evidence["max_variant_spread"] == 1 / 2
+        assert evidence["by_variant"]["neutral"]["truncated_cells"] == ["f0:neutral"]
+
+    def test_the_spread_is_the_largest_per_variant_rate_difference(self):
+        # A global rate can hide condition-specific imbalance, which is why
+        # the by-variant breakdown and its spread are both required.
+        records = _cells(["f0", "f1", "f2", "f3"])
+        truncated = 0
+        for record in records:
+            if record["variant"] == "cross_modal" and truncated < 2:
+                record["hit_max_new_tokens"] = True
+                truncated += 1
+        evidence = run_eligibility.truncation_evidence(records)
+        rates = [e["truncation_rate"] for e in evidence["by_variant"].values()]
+        assert evidence["max_variant_spread"] == max(rates) - min(rates)
+        assert evidence["by_variant"]["cross_modal"]["n_truncated"] == 2
+        assert evidence["by_variant"]["cross_modal"]["truncation_rate"] == 0.5
+        assert evidence["by_variant"]["neutral"]["truncation_rate"] == 0.0
+        assert evidence["max_variant_spread"] == 0.5
+
+    # --- determinism ---------------------------------------------------
+    def test_a_byte_stable_run_is_evidenced(self, tmp_path):
+        families = _families(tmp_path, 2)
+        adapter = _GreedyAdapter()
+        records = _cells([f.family_id for f in families])
+        evidence = run_eligibility.determinism_evidence(
+            adapter, families, ReplayConfig(max_new_tokens=1536), records, 2)
+        assert evidence["passed"] is True
+        assert evidence["n_repeats"] == 2
+        assert evidence["n_distinct_responses"] == 1
+        assert evidence["n_cells_repeated"] == len(records)
+        assert evidence["n_unstable_cells"] == 0
+        assert adapter.n_calls == len(records)
+
+    def test_a_drifting_cell_is_caught(self, tmp_path):
+        families = _families(tmp_path, 2)
+        adapter = _GreedyAdapter(drift_on={1})
+        records = _cells([f.family_id for f in families])
+        evidence = run_eligibility.determinism_evidence(
+            adapter, families, ReplayConfig(max_new_tokens=1536), records, 2)
+        assert evidence["passed"] is False
+        assert evidence["n_distinct_responses"] == 2
+        assert evidence["n_unstable_cells"] == 1
+        # Cells are visited in SORTED (family_id, variant) order rather
+        # than panel order, so which cell a given call number belongs to is
+        # reproducible and the drift can be re-found.
+        first = min(records, key=lambda r: (r["family_id"], r["variant"]))
+        assert evidence["unstable_cells"] == [
+            f"{first['family_id']}:{first['variant']}"]
+        assert evidence["per_cell"][0]["family_id"] == first["family_id"]
+
+    def test_one_observation_cannot_show_a_difference(self, tmp_path):
+        # Which is why the gate requires n_repeats >= 2 rather than merely
+        # recording whatever the run happened to do.
+        families = _families(tmp_path, 1)
+        adapter = _GreedyAdapter(drift_on={1, 2, 3})
+        records = _cells([f.family_id for f in families])
+        evidence = run_eligibility.determinism_evidence(
+            adapter, families, ReplayConfig(max_new_tokens=1536), records, 1)
+        assert adapter.n_calls == 0
+        assert evidence["n_repeats"] == 1
+        assert validate_gate_entry("determinism", evidence)[0] \
+            .count("at least two repeats") == 1
 
 
 # ---------------------------------------------------------------------

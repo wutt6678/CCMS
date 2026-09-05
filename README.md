@@ -981,6 +981,59 @@ the report — has not run yet, so no target is currently eligible and every
 confirmatory run still fails closed. 11.6 (full 2,400-output generation),
 11.7 (frozen judging) and 11.8 (cross-model analysis) remain roadmap-only.
 
+**11.5 is a subset run, and a subset must not be able to pass as
+confirmatory.** `run_replay_stage` takes a `family_ids` argument: `input_dir`
+stays the FULL frozen panel — so the run fingerprint still binds the frozen
+panel digest — and the subset is bound into the fingerprint separately as
+`family_subset_sha256`. That binding is not bookkeeping. Without it a
+`--resume` pointed at a 12-family eligibility run with the full panel would
+find 72 stored pairs, treat them as 72 of the 600 already done, and quietly
+splice eligibility evidence into confirmatory evidence; with it, the stored
+records' fingerprint differs and `validate_journal` refuses them. The subset
+is replayed in PANEL order rather than the caller's, an unknown or duplicated
+id is refused rather than dropped, and the legacy single-model path refuses
+`family_ids` outright because its frozen report schema has nowhere to record
+what was replayed. `run_replay_stage`'s `confirmatory_gate` argument became
+`gate_evidence` and is filed under `confirmatory_gate` **or**
+`eligibility_gate` according to the gate that produced it, so a 12-family run
+can never carry its PASS under the confirmatory key.
+
+`enforce_eligibility_protocol` gates the 11.5 run on every dimension the
+frozen protocol fixes, using the SAME checks as the confirmatory gate — panel
+identity, all 100 families carrying exactly the six variants, the uniform
+1536 cap, greedy decoding with thinking suppressed, a clean tree, immutable
+model and processor revisions agreeing with the lock, no quantization, the
+live dependency environment, and no `--overwrite`. Exactly two things differ,
+both by necessity: the run MUST name a family subset and it must equal the
+pre-registered 12 (re-derived, not taken on the caller's word), and no
+eligibility report is required because this stage writes it. Its evidence
+lands in `outputs/iteration_11/eligibility/generations/<model_key>/`, kept
+separate from the confirmatory tree so a 12-family run cannot be read as a
+100-family one by anything that globs the latter. Symmetrically,
+`enforce_confirmatory_protocol` now rejects a named `family_ids` subset for
+the same reason it rejects `--max-families`.
+
+`scripts/iter11_run_eligibility.py` is the producer. It certifies the
+environment, derives the selection, runs the gate, replays 12 families × 6
+variants (72 generations), then **re-generates every cell** and compares
+response digests against the journaled response to establish greedy
+determinism. All six gates are COMPUTED from the run's own records rather
+than asserted: completion from the attempt/success/failure counts; truncation
+per variant with the largest per-variant rate difference (any truncation at
+all fails, because raising the cap would require a uniform five-model replay
+including the frozen 9B reference); vision engagement from the image-bearing
+cell count and the minimum image-token count **including zeros**, since an
+image-bearing cell reporting zero image tokens is a cross-modal prompt that
+silently degraded to text-only and would otherwise look like a legitimate
+null result; the terminal-query invariant as one `terminal_sha256` per family
+across all six variants, equal to the panel's canonical q* — the same
+definition `scale_c_replay_checks.py` uses, so the two cannot disagree about
+what the invariant is; revision pinning against the lock; and determinism
+from the repeat pass. The report is then validated with the SAME
+`validate_eligibility_report` the confirmatory gate will apply, *before* it is
+written, so a report this script could not satisfy is never filed as PASS and
+discovered invalid at 11.6 launch time.
+
 ## Schema Reports
 
 Pre-computed schema reports from programmatic inspection of all three source datasets are available in [`outputs/schema/`](outputs/schema/):

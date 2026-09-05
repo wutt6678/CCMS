@@ -152,7 +152,7 @@ def main() -> None:
         lock_path=args.lock,
         # Persist the gate evidence with the run so a PASS is auditable
         # rather than merely asserted on stdout.
-        confirmatory_gate=gate)
+        gate_evidence=gate)
     print(f"run_id: {report['run_id']}")
     if model_spec is not None:
         prov = report["provenance"]

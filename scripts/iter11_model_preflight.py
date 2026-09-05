@@ -27,7 +27,6 @@ from __future__ import annotations
 import argparse
 import datetime
 import json
-import os
 import sys
 from pathlib import Path
 
@@ -38,6 +37,10 @@ from causal_mllm.data.io import read_jsonl  # noqa: E402
 from causal_mllm.data.schemas import CausalFamily  # noqa: E402
 from causal_mllm.replay.checkpoint_size import checkpoint_size_metadata  # noqa: E402
 from causal_mllm.replay.config import ReplayConfig  # noqa: E402
+from causal_mllm.replay.confirmatory import (  # noqa: E402
+    OWN_OUTPUT_PREFIXES as REPLAY_OUTPUT_PREFIXES,
+)
+from causal_mllm.replay.environment import certify_environment  # noqa: E402
 from causal_mllm.replay.registry import is_immutable_revision, resolve_model  # noqa: E402
 from causal_mllm.replay.runner import build_chat_messages, verify_family_media  # noqa: E402
 from causal_mllm.seeds import (  # noqa: E402
@@ -55,16 +58,20 @@ FROZEN_CAP = 1536
 VISION_VARIANT = "cross_modal"
 TEXT_VARIANT = "text_only"
 
-#: Repo-root-relative prefixes THIS stage writes. Regenerating the first
-#: target's artifact (and the shared lock) must not make the tree count as
-#: dirty for the second target: nothing about the code changed, and
-#: ``code_commit`` still reconstructs it. Excluded paths are recorded in the
-#: artifact rather than silently dropped. ``eligibility/`` is included
-#: because the 11.5 eligibility report is this stage family's output too.
+#: Repo-root-relative prefixes THIS stage writes, plus the shared replay
+#: output trees. Regenerating the first target's artifact (and the shared
+#: lock) must not make the tree count as dirty for the second target:
+#: nothing about the code changed, and ``code_commit`` still reconstructs
+#: it. Excluded paths are recorded in the artifact rather than silently
+#: dropped.
+#:
+#: The eligibility REPORT is deliberately not excluded — it authorizes
+#: confirmatory generation, so an uncommitted copy must block evidence
+#: minting rather than pass unnoticed. Only the eligibility *generations*
+#: tree is, via the shared constant.
 OWN_OUTPUT_PREFIXES = (
     "outputs/iteration_11/preflight/",
-    "outputs/iteration_11/eligibility/",
-)
+) + REPLAY_OUTPUT_PREFIXES
 
 
 def load_frozen_protocol() -> dict:
@@ -177,105 +184,16 @@ def git_provenance(code_commit: str | None, tree: dict,
 def check_environment(protocol: dict) -> tuple[dict, list[str]]:
     """Certify the environment this preflight is about to run in.
 
-    Three separate questions:
-
-    1. Does the environment hold a third-party editable install? Fatal.
-       ``pip freeze`` identifies an editable dependency by the sibling
-       repository's COMMITTED HEAD and is blind to that repository's
-       uncommitted working-tree changes, so no hash of freeze output can
-       prove which dependency source would execute. A technical preflight
-       mints evidence that 11.5/11.6 rely on, so it must refuse here rather
-       than let the problem surface at analysis time.
-    2. Do the runtime versions match the frozen ``reference_versions``?
-       Fatal on mismatch — these are what determine model behaviour.
-    3. Is the conda environment NAME the frozen ``reference_env``? Recorded
-       as an explicit deviation, NOT fatal: the name labels where the frozen
-       versions were observed, and a dedicated clone carrying byte-identical
-       versions preserves every scientific property while removing the
-       editable install that question 1 forbids. The frozen protocol file is
-       never edited to accommodate this.
-
-    Returns the recorded environment identity plus any violations.
+    A thin delegation to :func:`causal_mllm.replay.environment.
+    certify_environment`, which is the ONE definition shared with the 11.5
+    eligibility run: "is this environment certifiable?" must not have a
+    different answer per script. See that function for the three questions
+    it asks (third-party editable installs and frozen-version mismatches are
+    fatal; the conda environment NAME is recorded as an explicit deviation
+    rather than absorbed, and the frozen protocol file is never edited to
+    accommodate it).
     """
-    from causal_mllm.replay.registry import dependency_lock_snapshot
-    snapshot = dependency_lock_snapshot()
-    # EVERY editable form counts, not just the ones naming a revision: a
-    # local-path or file:// editable install records no revision at all and
-    # is therefore the most mutable case, yet it used to be invisible here.
-    offenders = dict(snapshot.get("editable_installs") or {})
-    problems: list[str] = []
-    if offenders:
-        detail = "; ".join(
-            f"{name} ({info.get('kind')}: {info.get('target')})"
-            for name, info in sorted(offenders.items()))
-        problems.append(
-            f"environment holds third-party editable install(s): {detail}. An "
-            f"editable dependency's source can change without anything in a "
-            f"`pip freeze` hash moving — a VCS install hides uncommitted "
-            f"sibling changes behind its committed HEAD, and a local-path "
-            f"install names no revision at all — so this environment cannot "
-            f"be certified reproducible. Use a dedicated Iteration 11 "
-            f"environment with no third-party editable installs.")
-
-    frozen_lock = protocol.get("dependency_lock") or {}
-    frozen_versions = dict(frozen_lock.get("reference_versions") or {})
-    observed: dict = {}
-    try:
-        import torch
-        import transformers
-        observed = {"transformers": transformers.__version__,
-                    "torch": torch.__version__,
-                    "cuda": torch.version.cuda}
-    except ImportError as exc:  # pragma: no cover - env without inference
-        problems.append(f"cannot read runtime versions: {exc}")
-    mismatched = {
-        key: {"frozen": frozen_versions.get(key), "observed": observed.get(key)}
-        for key in sorted(frozen_versions)
-        if observed.get(key) != frozen_versions.get(key)
-    }
-    if mismatched:
-        detail = "; ".join(
-            f"{k}: frozen={v['frozen']!r} observed={v['observed']!r}"
-            for k, v in mismatched.items())
-        problems.append(
-            f"runtime versions do not match the frozen reference_versions — "
-            f"{detail}")
-
-    conda_env = os.environ.get("CONDA_DEFAULT_ENV")
-    frozen_env = frozen_lock.get("reference_env")
-    values = {
-        "python_version": snapshot.get("python_version"),
-        "executable": snapshot.get("executable"),
-        "conda_env": conda_env,
-        "n_packages": snapshot.get("n_packages"),
-        "pip_freeze_sha256": snapshot.get("pip_freeze_sha256"),
-        "pyproject_sha256": snapshot.get("pyproject_sha256"),
-        "excluded_self_distributions":
-            snapshot.get("excluded_self_distributions"),
-        "third_party_editable_installs": offenders,
-        "third_party_editable_vcs": {
-            name: info.get("revision")
-            for name, info in offenders.items() if info.get("revision")},
-        "observed_versions": observed,
-        "frozen_reference_versions": frozen_versions,
-        "frozen_reference_env": frozen_env,
-        "reference_env_matches_frozen": conda_env == frozen_env,
-    }
-    if conda_env != frozen_env:
-        values["reference_env_deviation"] = {
-            "claim": f"the frozen protocol names reference_env={frozen_env!r}",
-            "observation": f"this preflight ran in conda env {conda_env!r}",
-            "rationale": (
-                "a dedicated clone of that environment with the third-party "
-                "editable install removed; every frozen reference_version "
-                "matches exactly, so only the environment NAME differs. The "
-                "clone is required because the shared environment carries an "
-                "editable sibling install whose source can change without its "
-                "recorded revision moving, which is not certifiable. The "
-                "frozen protocol file is immutable and was not edited."),
-            "frozen_protocol_modified": False,
-        }
-    return values, problems
+    return certify_environment(protocol)
 
 
 # Runtime conditions observed in the frozen reference environment. They

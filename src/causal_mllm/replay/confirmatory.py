@@ -65,25 +65,38 @@ ELIGIBILITY_ROOT = REPO_ROOT / "outputs" / "iteration_11" / "eligibility"
 #: default so a default run passes and a redirected one does not).
 GENERATIONS_ROOT = "outputs/iteration_11/generations"
 
+#: Canonical root for the 11.5 eligibility generations. Kept separate from
+#: :data:`GENERATIONS_ROOT` so a 12-family eligibility run can never be
+#: mistaken for confirmatory evidence by anything that globs the latter.
+ELIGIBILITY_GENERATIONS_ROOT = "outputs/iteration_11/eligibility/generations"
+
 #: 11.5 artifact name (per the frozen plan: a signed ``preflight_report.json``
 #: whose ``eligible=true`` is required to start the full run).
 ELIGIBILITY_REPORT_FILE = "preflight_report.json"
 
 VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
 
-#: Repo-root-relative prefixes a confirmatory run writes into. Excluded
-#: from the clean-tree determination because a run must not be blocked by
-#: its own (or a sibling target's) regenerated evidence; every other
-#: tracked modification still fails the gate. Excluded paths are recorded
-#: in the gate evidence rather than silently dropped.
+#: Repo-root-relative prefixes a replay run writes its PRODUCTS into.
+#: Excluded from the clean-tree determination because a run must not be
+#: blocked by its own (or a sibling target's) regenerated evidence — and
+#: because a resumed run would otherwise see its own prior outputs as
+#: untracked files, compute a dirtier tree than its first attempt did, and
+#: so bind a DIFFERENT fingerprint that refuses the resume. Every other
+#: tracked modification still fails the gate, and excluded paths are
+#: recorded in the gate evidence rather than silently dropped.
 #:
-#: ``outputs/iteration_11/eligibility/`` is deliberately NOT here, even
-#: though the 11.5 stage writes it: the eligibility report is an INPUT that
-#: authorizes the confirmatory run, not evidence the run produces. Leaving
-#: it unexcluded means that report must be committed before generation
-#: starts, so an uncommitted — and therefore unreproducible — document can
-#: never be what authorized a run.
-OWN_OUTPUT_PREFIXES = ("outputs/iteration_11/generations/",)
+#: The two exclusions are exactly the run-output trees. The rest of
+#: ``outputs/iteration_11/eligibility/`` is deliberately NOT excluded, even
+#: though the 11.5 stage writes it: ``selection.json`` is the
+#: pre-registration record and ``<model_key>/preflight_report.json`` is an
+#: INPUT that authorizes the confirmatory run, not a product of it. Leaving
+#: those unexcluded means both must be committed before generation starts,
+#: so an uncommitted — and therefore unreproducible — document can never be
+#: what authorized a run.
+OWN_OUTPUT_PREFIXES = (
+    f"{GENERATIONS_ROOT}/",
+    f"{ELIGIBILITY_GENERATIONS_ROOT}/",
+)
 
 #: Sampling values that are INERT under greedy decoding. The frozen
 #: protocol records Iteration 10's temperature=0.0/top_p=1.0 and
@@ -900,7 +913,6 @@ def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
     evidence, so a report cannot authorize a different subset by recording
     matching ids and digest of its own choosing.
     """
-    root = Path(repo_root) if repo_root is not None else REPO_ROOT
     path = eligibility_report_path(model_spec.model_key, eligibility_root)
     gate.record("eligibility_report_path", str(path))
     expected_protocol_sha = protocol_sha256(protocol_path)
@@ -914,20 +926,10 @@ def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
         entry.get("processor_revision") if isinstance(entry, dict) else None)
     gate.record("expected_processor_revision", expected_processor_revision)
 
-    derived_here = expected_selection is None
-    if derived_here:
-        # Fail-closed: an underivable selection blocks the run rather than
-        # falling back to whatever the report claims.
-        expected_selection = derive_frozen_selection(root)
-    expected_ids = list(expected_selection["selected_family_ids"])
-    expected_selection_sha = expected_selection["selected_families_sha256"]
-    gate.record("expected_selection_sha256", expected_selection_sha)
-    gate.record("expected_selection_n_families",
-                expected_selection.get("n_selected_families"))
-    gate.record("selection_artifact_path", str(root / SELECTION_ARTIFACT))
-    gate.record("selection_artifact_checked", derived_here)
-    if derived_here:
-        _check_selection_artifact(gate, root, expected_selection)
+    expected = _resolve_expected_selection(gate, repo_root,
+                                           expected_selection)
+    expected_ids = list(expected["selected_family_ids"])
+    expected_selection_sha = expected["selected_families_sha256"]
 
     report = load_eligibility_report(model_spec.model_key, eligibility_root)
     if report is None:
@@ -965,7 +967,8 @@ def _check_no_overwrite(gate: _Gate, overwrite: bool) -> None:
 
 
 def _check_scope(gate: _Gate, max_families: int | None,
-                 output_root: str | Path | None, model_key: str) -> None:
+                 output_root: str | Path | None, model_key: str,
+                 family_ids: Sequence[str] | None = None) -> None:
     """The run must cover the whole panel and land in the tracked tree.
 
     ``--max-families`` is a smoke facility. A run that replays a prefix of
@@ -974,6 +977,11 @@ def _check_scope(gate: _Gate, max_families: int | None,
     ``--output-root`` likewise: evidence written outside the Iteration 11
     generations tree is not where the analysis or the manifest looks for
     it, and may be gitignored.
+
+    A named ``family_ids`` subset is rejected for the same reason as
+    ``max_families``: it is the 11.5 eligibility facility, and a
+    12-family run must not be labelled confirmatory. The subset a
+    confirmatory run may replay is the whole panel.
     """
     gate.record("max_families", max_families)
     if max_families is not None:
@@ -981,6 +989,15 @@ def _check_scope(gate: _Gate, max_families: int | None,
             f"max_families={max_families}; a confirmatory run replays the "
             f"ENTIRE frozen panel. --max-families is a smoke facility and "
             f"a partial run must not be labelled confirmatory.")
+    gate.record("family_ids", sorted({str(f) for f in family_ids})
+                if family_ids else None)
+    if family_ids is not None:
+        gate.fail(
+            f"family_ids names {len(set(family_ids))} families; a "
+            f"confirmatory run replays the ENTIRE frozen panel. A named "
+            f"subset is the 11.5 eligibility facility and its evidence is "
+            f"not confirmatory — route it through "
+            f"enforce_eligibility_protocol instead.")
     expected_root = f"{GENERATIONS_ROOT}/{model_key}"
     gate.record("output_root", str(output_root) if output_root else None)
     gate.record("expected_output_root", expected_root)
@@ -992,6 +1009,63 @@ def _check_scope(gate: _Gate, max_families: int | None,
             f"generations tree for this model_key")
 
 
+def _resolve_expected_selection(gate: _Gate,
+                                repo_root: str | Path | None,
+                                expected_selection: dict | None) -> dict:
+    """The pre-registered 11.5 selection, derived rather than trusted.
+
+    Shared by the confirmatory gate (which compares a report against it)
+    and the 11.5 gate (which compares the families about to be replayed
+    against it), so both stages hold the same expectation from the same
+    derivation. Fail-closed: an underivable selection raises instead of
+    falling back to whatever a caller or a report claims.
+    """
+    root = Path(repo_root) if repo_root is not None else REPO_ROOT
+    derived_here = expected_selection is None
+    if derived_here:
+        expected_selection = derive_frozen_selection(root)
+    gate.record("expected_selection_sha256",
+                expected_selection["selected_families_sha256"])
+    gate.record("expected_selection_n_families",
+                expected_selection.get("n_selected_families"))
+    gate.record("selection_artifact_path", str(root / SELECTION_ARTIFACT))
+    gate.record("selection_artifact_checked", derived_here)
+    if derived_here:
+        _check_selection_artifact(gate, root, expected_selection)
+    return expected_selection
+
+
+def _check_selection_scope(gate: _Gate,
+                           family_ids: Sequence[str] | None,
+                           expected_selection: dict) -> None:
+    """An 11.5 run must replay EXACTLY the pre-registered 12 families.
+
+    Not "at least" and not "a subset of": the selection exists so that
+    which families were replayed is fixed before any target is measured, so
+    replaying fewer (or others) is the selection freedom the frozen
+    protocol removes.
+    """
+    want = sorted(str(f) for f in expected_selection["selected_family_ids"])
+    got = sorted({str(f) for f in family_ids}) if family_ids else []
+    gate.record("n_family_ids_requested", len(got))
+    gate.record("family_ids_sha256",
+                selected_families_sha256(got) if got else None)
+    if not got:
+        gate.fail(
+            "an 11.5 eligibility run must name the families it replays; "
+            f"the pre-registered selection is {want}")
+        return
+    if got != want:
+        extra = sorted(set(got) - set(want))
+        absent = sorted(set(want) - set(got))
+        gate.fail(
+            f"family_ids are not the pre-registered 11.5 selection: not in "
+            f"the selection {extra}, missing from the run {absent}. "
+            f"Eligibility is established on exactly the "
+            f"{len(want)} families the frozen recipe selects, so that which "
+            f"families were measured is fixed before any target is.")
+
+
 def enforce_confirmatory_protocol(
     *,
     input_dir: str | Path,
@@ -999,6 +1073,7 @@ def enforce_confirmatory_protocol(
     model_spec: ResolvedModel | None,
     overwrite: bool = False,
     max_families: int | None = None,
+    family_ids: Sequence[str] | None = None,
     output_root: str | Path | None = None,
     lock_path: str | Path | None = None,
     protocol_path: str | Path | None = None,
@@ -1015,6 +1090,9 @@ def enforce_confirmatory_protocol(
             single-model path is out of scope and must not be gated here.
         overwrite: The ``--overwrite`` flag value.
         max_families: The ``--max-families`` value (must be None).
+        family_ids: The ``family_ids`` subset value (must be None). A named
+            subset is the 11.5 eligibility facility; a confirmatory run
+            replays the whole panel and its subset is that panel.
         output_root: The resolved output root for this run.
         lock_path: Lock file supplying revisions and the dependency lock.
         protocol_path: Frozen protocol (override for tests).
@@ -1049,7 +1127,8 @@ def enforce_confirmatory_protocol(
     gate.record("adapter", model_spec.adapter)
 
     _check_no_overwrite(gate, overwrite)
-    _check_scope(gate, max_families, output_root, model_spec.model_key)
+    _check_scope(gate, max_families, output_root, model_spec.model_key,
+                 family_ids)
     _check_clean_tree(gate)
     _check_decoding(gate, config, protocol)
     _check_revisions(gate, model_spec, lock_path)
@@ -1073,8 +1152,134 @@ def enforce_confirmatory_protocol(
                        lock_path, panel_family_ids, expected_selection,
                        repo_root)
 
+    return _finalize_gate(gate, "iteration11_confirmatory",
+                          model_spec.model_key)
+
+
+def enforce_eligibility_protocol(
+    *,
+    input_dir: str | Path,
+    config: ReplayConfig,
+    model_spec: ResolvedModel | None,
+    family_ids: Sequence[str] | None = None,
+    overwrite: bool = False,
+    max_families: int | None = None,
+    output_root: str | Path | None = None,
+    lock_path: str | Path | None = None,
+    protocol_path: str | Path | None = None,
+    expected_selection: dict | None = None,
+    repo_root: str | Path | None = None,
+) -> dict:
+    """Enforce the frozen protocol on an Iteration 11.5 eligibility run.
+
+    The 11.5 run is NOT confirmatory — it replays 12 families, not 100, and
+    it is what produces the eligibility report the confirmatory gate later
+    requires — but every dimension the frozen protocol fixes is enforced
+    identically here, using the same checks. Eligibility evidence generated
+    under a different cap, decoding, prompt or panel would certify a target
+    against conditions the confirmatory run does not share.
+
+    Two things differ from :func:`enforce_confirmatory_protocol`, both by
+    necessity:
+
+    * the run MUST name a family subset, and it must be exactly the
+      pre-registered 12 — derived here from the frozen Iteration 10
+      evidence, never taken from the caller's word alone;
+    * no eligibility report is required, because this stage writes it.
+
+    Args:
+        input_dir: The FULL frozen panel directory. The subset is applied
+            by the runner; reading the whole panel is what binds the frozen
+            panel digest into the run fingerprint.
+        config: The replay configuration about to be used.
+        model_spec: The resolved target. Required.
+        family_ids: The families about to be replayed. Must equal the
+            pre-registered selection.
+        overwrite: The ``--overwrite`` flag value.
+        max_families: The ``--max-families`` value (must be None).
+        output_root: The resolved output root for this run.
+        lock_path: Lock file supplying revisions and the dependency lock.
+        protocol_path: Frozen protocol (override for tests).
+        expected_selection: Injected pre-registered selection (tests, or a
+            caller that has already derived it). Derived when None.
+        repo_root: Repository root used to locate the frozen evidence.
+
+    Returns:
+        The gate evidence: every value checked. Callers should persist it.
+
+    Raises:
+        ReplayError: listing ALL violations found.
+    """
+    if model_spec is None:
+        raise ReplayError(
+            "the 11.5 eligibility gate requires a resolved Iteration 11 "
+            "target (model_spec); the frozen legacy single-model path is "
+            "out of scope and must not be routed through this gate")
+    protocol = load_protocol(protocol_path)
+    gate = _Gate()
+    gate.record("model_key", model_spec.model_key)
+    gate.record("model_id", model_spec.model_id)
+    gate.record("adapter", model_spec.adapter)
+
+    _check_no_overwrite(gate, overwrite)
+    if max_families is not None:
+        gate.record("max_families", max_families)
+        gate.fail(
+            f"max_families={max_families}; an 11.5 run replays exactly the "
+            f"pre-registered selection, and --max-families would replay a "
+            f"prefix of it while the gate certified the whole selection.")
+    expected_root = f"{ELIGIBILITY_GENERATIONS_ROOT}/{model_spec.model_key}"
+    gate.record("output_root", str(output_root) if output_root else None)
+    gate.record("expected_output_root", expected_root)
+    if output_root is not None and \
+            str(output_root).rstrip("/") != expected_root:
+        gate.fail(
+            f"output_root={str(output_root)!r} != {expected_root!r}; 11.5 "
+            f"evidence must land in the eligibility generations tree for "
+            f"this model_key, kept separate from confirmatory evidence so "
+            f"a 12-family run can never be read as a 100-family one.")
+
+    _check_clean_tree(gate)
+    _check_decoding(gate, config, protocol)
+    _check_revisions(gate, model_spec, lock_path)
+    _check_dependencies(gate, lock_path)
+
+    # The whole frozen panel is read and checked, exactly as confirmatory
+    # does: the subset is drawn FROM it, so a panel that is not the frozen
+    # one would make the selection meaningless even if the 12 ids matched.
+    panel = _check_panel_identity(gate, Path(input_dir), protocol)
+    if panel is not None:
+        records = [
+            json.loads(line)
+            for line in Path(panel).read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        _check_family_coverage(gate, records, protocol)
+        absent = sorted(set(str(f) for f in (family_ids or []))
+                        - {r.get("family_id") for r in records})
+        if absent:
+            gate.fail(
+                f"family_ids {absent} are not in the frozen panel at "
+                f"{panel}; the pre-registered selection is drawn from that "
+                f"panel, so an id outside it cannot be part of it")
+
+    expected = _resolve_expected_selection(gate, repo_root,
+                                           expected_selection)
+    _check_selection_scope(gate, family_ids, expected)
+
+    return _finalize_gate(gate, "iteration11_eligibility",
+                          model_spec.model_key)
+
+
+def _finalize_gate(gate: _Gate, name: str, model_key: str) -> dict:
+    """The gate evidence, or a ReplayError listing EVERY violation.
+
+    Collecting all of them rather than raising on the first is deliberate:
+    one launch surfaces every problem, so an operator fixing a misconfigured
+    run does not discover the next violation only after fixing this one.
+    """
     result = {
-        "gate": "iteration11_confirmatory",
+        "gate": name,
         "passed": not gate.violations,
         "n_violations": len(gate.violations),
         "violations": gate.violations,
@@ -1083,9 +1288,8 @@ def enforce_confirmatory_protocol(
     if gate.violations:
         listing = "\n".join(f"  - {v}" for v in gate.violations)
         raise ReplayError(
-            f"confirmatory protocol gate FAILED for "
-            f"{model_spec.model_key} with {len(gate.violations)} "
-            f"violation(s):\n{listing}\n"
+            f"{name} gate FAILED for {model_key} with "
+            f"{len(gate.violations)} violation(s):\n{listing}\n"
             f"No output was generated. The frozen protocol fixes these "
             f"dimensions; a run that departs from any of them is not "
             f"comparable to the Qwen3.5-9B reference.")

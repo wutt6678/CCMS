@@ -38,7 +38,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Sequence
 
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
 from causal_mllm.data.io import read_jsonl
@@ -58,6 +58,11 @@ from causal_mllm.replay.registry import (
     dependency_lock_sha256,
     verify_active_dependency_lock,
 )
+
+# The canonical digest over a family selection. Imported from the selection
+# contract rather than re-implemented, so the subset bound into a run
+# fingerprint is the same value the confirmatory gate compares against.
+from causal_mllm.replay.selection import selected_families_sha256
 from causal_mllm.seeds import (
     code_tree_status,
     get_git_commit,
@@ -151,6 +156,7 @@ def iteration11_run_fingerprint(
     model_spec: "ResolvedModel | None" = None,
     hardware: dict | None = None,
     lock_path: str | Path | None = None,
+    family_ids: Sequence[str] | None = None,
 ) -> str:
     """Iteration 11 resolved-run fingerprint.
 
@@ -178,6 +184,18 @@ def iteration11_run_fingerprint(
         "enable_thinking": config.enable_thinking,
         "torch_dtype": config.torch_dtype,
         "validated_families_sha256": _file_sha256(validated_path),
+        # Which families were replayed, when the run is a subset of the
+        # panel. ``validated_families_sha256`` above binds the PANEL FILE
+        # and is identical for a 12-family eligibility run and the 100-
+        # family confirmatory run that reads the same frozen panel, so on
+        # its own it would let one resume into the other: pointing
+        # --resume at an eligibility run_dir with the full panel would find
+        # 72 stored pairs, treat them as 72 of the 600 already done, and
+        # quietly splice eligibility evidence into confirmatory evidence.
+        # Binding the subset makes the stored records' fingerprint differ,
+        # so validate_journal refuses them. None for a whole-panel run.
+        "family_subset_sha256": (selected_families_sha256(family_ids)
+                                 if family_ids else None),
         "transformers_version": backend.transformers_version(),
         "torch_version": backend.torch_version(),
         "cuda_version": backend.cuda_version(),
@@ -504,18 +522,62 @@ def validate_journal(
     return pairs
 
 
+def _select_families(families: list[CausalFamily],
+                     family_ids: Sequence[str], source_path: Path,
+                     model_spec: "ResolvedModel | None") -> list[CausalFamily]:
+    """The named subset of ``families``, in PANEL order.
+
+    Fails closed on an id the panel does not contain and on a duplicate:
+    silently dropping one would produce a run that looks complete while
+    having replayed fewer families than its selection named, which is
+    exactly the discrepancy the 11.5 gates exist to catch.
+    """
+    if model_spec is None:
+        raise ReplayError(
+            "family_ids is an Iteration 11 facility and requires a resolved "
+            "model_spec; the frozen legacy single-model report schema "
+            "records no subset, so a subset run there could not say which "
+            "families it replayed")
+    names = [str(f) for f in family_ids]
+    duplicates = sorted({n for n in names if names.count(n) > 1})
+    if duplicates:
+        raise ReplayError(
+            f"family_ids contains duplicate(s) {duplicates}; a family is "
+            f"replayed once per run, and a duplicate would make the attempt "
+            f"count disagree with the selection it came from")
+    if not names:
+        raise ReplayError(
+            "family_ids is empty; a subset run must name the families it "
+            "replays. Omit the argument to replay the whole panel.")
+    absent = sorted(set(names) - {f.family_id for f in families})
+    if absent:
+        shown = absent[:8] + (["..."] if len(absent) > 8 else [])
+        raise ReplayError(
+            f"family_ids {shown} ({len(absent)} of {len(names)}) are not in "
+            f"{source_path}; a subset run may only select families the panel "
+            f"actually contains")
+    selected = set(names)
+    # Panel order, not the caller's, so the evidence does not depend on the
+    # order a selection happened to be listed in.
+    subset = [family for family in families if family.family_id in selected]
+    log.info("Family subset: replaying %d of %d families from %s",
+             len(subset), len(families), source_path.name)
+    return subset
+
+
 def run_replay_stage(
     input_dir: str | Path,
     output_root: str | Path,
     config: ReplayConfig | None = None,
     backend: ReplayBackend | None = None,
     max_families: int | None = None,
+    family_ids: Sequence[str] | None = None,
     run_id: str | None = None,
     overwrite: bool = False,
     model_spec: "ResolvedModel | None" = None,
     resume: bool = False,
     lock_path: str | Path | None = None,
-    confirmatory_gate: dict | None = None,
+    gate_evidence: dict | None = None,
 ) -> dict:
     """Replay validated families; persist outputs/failures/report.
 
@@ -529,6 +591,17 @@ def run_replay_stage(
         config: Frozen replay settings (defaults: Qwen3.5-9B, greedy).
         backend: Injectable backend; defaults per config.backend.
         max_families: Optional limit (smoke runs).
+        family_ids: Replay ONLY these families, by id. The Iteration 11.5
+            eligibility facility: ``input_dir`` stays the full frozen panel
+            — so the fingerprint still binds the frozen panel digest — and
+            the subset is bound into the fingerprint separately. Every id
+            must exist in the panel. Order is taken from the panel, not
+            from this argument, so the evidence does not depend on the
+            order a selection happened to be listed in. Iteration 11 only
+            (``model_spec`` required): the frozen legacy single-model
+            report schema has no place to record a subset, and a run whose
+            own report cannot say which families it replayed is not
+            auditable.
         run_id: Override the generated run id.
         overwrite: If False (default), fail when the run directory
             already contains evidence files.  This prevents accidental
@@ -542,6 +615,13 @@ def run_replay_stage(
             lock bound into the resolved run fingerprint. Must be the same
             path used for revision resolution, otherwise the fingerprint
             silently binds the DEFAULT lock instead of the selected one.
+        gate_evidence: The protocol gate result (from
+            ``enforce_confirmatory_protocol`` or
+            ``enforce_eligibility_protocol``) to persist with the run, so a
+            PASS is auditable from the evidence itself rather than only
+            from the launching terminal's stdout. Stored under
+            ``confirmatory_gate`` or ``eligibility_gate`` according to the
+            gate that produced it.
 
     Raises:
         ReplayError: On missing validated_families.jsonl, missing
@@ -560,6 +640,16 @@ def run_replay_stage(
             f"first (raw families.jsonl is never replayed)")
     families = [CausalFamily.from_dict(rec)
                 for rec in read_jsonl(source_path)]
+    if family_ids is not None:
+        if max_families is not None:
+            raise ReplayError(
+                f"family_ids cannot be combined with "
+                f"max_families={max_families}: a named subset is a "
+                f"SELECTION and --max-families is a smoke PREFIX, so "
+                f"applying both would replay a prefix of the selection "
+                f"while the fingerprint bound all of it")
+        families = _select_families(families, family_ids, source_path,
+                                    model_spec)
     if max_families is not None:
         families = families[:max_families]
 
@@ -611,9 +701,19 @@ def run_replay_stage(
             "code_dirty_paths": code_tree["dirty_paths"],
             "code_untracked_paths": code_tree["untracked_paths"],
             "dataset_manifest_hash": _file_sha256(source_path),
+            # Recorded so the evidence itself says which families this run
+            # replayed. ``dataset_manifest_hash`` above is the WHOLE panel,
+            # because a subset run still reads — and must still be bound to
+            # — the frozen panel file.
+            "family_subset": ({
+                "family_ids": [f.family_id for f in families],
+                "n_families": len(families),
+                "family_ids_sha256": selected_families_sha256(
+                    f.family_id for f in families),
+            } if family_ids is not None else None),
             "resolved_run_fingerprint": iteration11_run_fingerprint(
                 backend, config, input_dir, model_spec, hardware,
-                lock_path=lock_path),
+                lock_path=lock_path, family_ids=family_ids),
             # Recorded, not merely assumed: the lock hash bound above is
             # read from the lock FILE, so on its own it does not prove the
             # environment actually running inference is the one certified
@@ -832,10 +932,14 @@ def run_replay_stage(
             "enabled": bool(resume), "n_pairs_resumed": len(done),
             "n_prior_failure_attempts_retained": len(prior_failures),
         }
-    if confirmatory_gate is not None:
+    if gate_evidence is not None:
         # Persisted with the run so the PASS is auditable from the evidence
-        # itself rather than only from the launching terminal's stdout.
-        report["confirmatory_gate"] = confirmatory_gate
+        # itself rather than only from the launching terminal's stdout. The
+        # key names the gate that produced it, so a 12-family eligibility
+        # run can never carry its evidence under the confirmatory key.
+        report["confirmatory_gate"
+               if gate_evidence.get("gate") == "iteration11_confirmatory"
+               else "eligibility_gate"] = gate_evidence
     with (run_dir / REPLAY_REPORT_FILE).open(
             "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)

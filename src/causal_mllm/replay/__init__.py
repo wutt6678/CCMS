@@ -33,9 +33,11 @@ from causal_mllm.replay.config import (
     ReplayConfig,
 )
 from causal_mllm.replay.confirmatory import (
+    ELIGIBILITY_GENERATIONS_ROOT,
     ELIGIBILITY_REQUIRED_GATES,
     eligibility_report_path,
     enforce_confirmatory_protocol,
+    enforce_eligibility_protocol,
     load_eligibility_report,
     protocol_sha256,
     validate_eligibility_report,
@@ -83,6 +85,7 @@ from causal_mllm.replay.selection import (
 __all__ = [
     "CallableBackend",
     "DEFAULT_SYSTEM_PROMPT",
+    "ELIGIBILITY_GENERATIONS_ROOT",
     "ELIGIBILITY_REQUIRED_GATES",
     "HFAdapterBase",
     "HFLocalBackend",
@@ -108,6 +111,7 @@ __all__ = [
     "editable_vcs_revisions",
     "eligibility_report_path",
     "enforce_confirmatory_protocol",
+    "enforce_eligibility_protocol",
     "fingerprint_hardware",
     "is_immutable_revision",
     "iteration11_run_fingerprint",
