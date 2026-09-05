@@ -26,6 +26,12 @@ DEVICE="${DEVICE:-cuda:3}"
 KEYS="${KEYS:-qwen35_2b qwen35_4b ministral3_3b}"
 RESUME="${RESUME:-}"
 POLL_SECONDS="${POLL_SECONDS:-120}"
+# cuda:3 is shared with several long-running jobs, so "wait" has to mean
+# longer than any one of them is likely to hold the card. Give up after three
+# days rather than six hours: a poller that exits silently overnight looks
+# exactly like a poller that is still waiting, and the difference is only
+# discovered when the evidence is needed.
+MAX_WAIT_SECONDS="${MAX_WAIT_SECONDS:-259200}"
 GPU_INDEX="${DEVICE#cuda:}"
 
 # MiB that must be FREE before a load is attempted, per target. Sized from
