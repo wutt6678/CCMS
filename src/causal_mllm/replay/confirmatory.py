@@ -39,7 +39,7 @@ from causal_mllm.replay.registry import (
     load_lock,
     verify_active_dependency_lock,
 )
-from causal_mllm.seeds import get_git_commit, is_git_dirty
+from causal_mllm.seeds import code_tree_status, get_git_commit
 from causal_mllm.validation.relations import _file_sha256
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -61,6 +61,13 @@ GENERATIONS_ROOT = "outputs/iteration_11/generations"
 ELIGIBILITY_REPORT_FILE = "preflight_report.json"
 
 VALIDATED_FAMILIES_FILE = "validated_families.jsonl"
+
+#: Repo-root-relative prefixes a confirmatory run writes into. Excluded
+#: from the clean-tree determination because a run must not be blocked by
+#: its own (or a sibling target's) regenerated evidence; every other
+#: tracked modification still fails the gate. Excluded paths are recorded
+#: in the gate evidence rather than silently dropped.
+OWN_OUTPUT_PREFIXES = ("outputs/iteration_11/generations/",)
 
 #: Sampling values that are INERT under greedy decoding. The frozen
 #: protocol records Iteration 10's temperature=0.0/top_p=1.0 and
@@ -271,18 +278,25 @@ def _check_decoding(gate: _Gate, config: ReplayConfig, protocol: dict) -> None:
 
 
 def _check_clean_tree(gate: _Gate) -> None:
-    """The tree must be clean, so ``code_commit`` identifies the code run.
+    """The CODE tree must be clean, so ``code_commit`` identifies what ran.
 
-    ``is_git_dirty()`` ignores untracked files, so the run's own outputs do
-    not trip this. It returns None outside a git repository, which is
-    treated as a violation: unknown provenance cannot be certified, and
-    accepting it would make a source tarball indistinguishable from a
-    committed tree.
+    Measured over code paths with :data:`OWN_OUTPUT_PREFIXES` excluded: a
+    run must not be blocked by evidence it is itself regenerating, but any
+    other tracked modification fails the gate. Untracked files never count,
+    so a run's own new output directories do not trip it.
+
+    ``code_tree_status`` reports ``dirty=None`` outside a git repository,
+    which is treated as a violation: unknown provenance cannot be
+    certified, and accepting it would make a source tarball
+    indistinguishable from a committed tree.
     """
     commit = get_git_commit()
-    dirty = is_git_dirty()
+    tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
+    dirty = tree["dirty"]
     gate.record("code_commit", commit)
     gate.record("git_dirty", dirty)
+    gate.record("git_dirty_paths", tree["dirty_paths"])
+    gate.record("git_dirty_excluded_own_outputs", tree["excluded_paths"])
     if commit is None:
         gate.fail("no git commit resolvable — code provenance is unknown, so "
                   "this run cannot be reconstructed from evidence")
@@ -291,10 +305,10 @@ def _check_clean_tree(gate: _Gate) -> None:
                   "confirmatory runs require a verified clean tree")
     elif dirty is True:
         gate.fail(
-            f"working tree is dirty at commit {commit}: the code that would "
-            f"execute is NOT the code that commit contains, so the recorded "
-            f"code_commit could not reconstruct this run. Commit or stash "
-            f"first.")
+            f"working tree is dirty at commit {commit}: uncommitted changes "
+            f"to {tree['dirty_paths']}. The code that would execute is NOT "
+            f"the code that commit contains, so the recorded code_commit "
+            f"could not reconstruct this run. Commit or stash first.")
 
 
 def _check_revisions(gate: _Gate, model_spec: ResolvedModel,

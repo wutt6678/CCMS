@@ -744,6 +744,18 @@ actually move the fingerprint instead of being allowed to resume into a clean
 run. A test now asserts that whatever commit an artifact names **contains the
 adapter file it certifies**, which is the defect stated as an invariant.
 
+The clean-tree determination is scoped to *code* paths. An unscoped "has any
+tracked file changed?" check is unusable for a stage that regenerates its own
+committed evidence: the first target's artifact and the shared lock make the
+tree dirty and block every subsequent target, even though nothing about the
+code changed — which is exactly what happened when all four preflights were
+first re-run. `seeds.code_tree_status(exclude_prefixes=…)` therefore excludes
+the calling stage's own output tree (preflight artifacts and lock for the
+preflight; `generations/` for a confirmatory run) and reports the excluded
+paths in the artifact, so the exclusion is auditable rather than silent. Any
+other tracked modification still fails, and `is_git_dirty()` keeps its
+original unscoped meaning for the provenance the runner *records*.
+
 **"Confirmatory" enforced only revision pinning.** `--input-dir`,
 `--max-families`, `--max-new-tokens`, `--output-root` and `--overwrite` were
 all free, so a run against an edited panel, a 12-family subset, or the

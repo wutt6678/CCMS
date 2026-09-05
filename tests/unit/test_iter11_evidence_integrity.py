@@ -38,6 +38,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+from causal_mllm import seeds
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
 from causal_mllm.data.io import read_jsonl, write_jsonl
 from causal_mllm.replay import confirmatory, registry
@@ -100,6 +101,12 @@ def _load_script(name: str):
 
 
 preflight = _load_script("iter11_model_preflight")
+
+
+def _tree(dirty, dirty_paths=(), excluded_paths=()) -> dict:
+    """A ``causal_mllm.seeds.code_tree_status`` result."""
+    return {"dirty": dirty, "dirty_paths": list(dirty_paths),
+            "excluded_paths": list(excluded_paths)}
 
 
 # ---------------------------------------------------------------------
@@ -195,25 +202,28 @@ class TestPanelHashIsRawBytes:
 # ---------------------------------------------------------------------
 class TestGitProvenance:
     def test_a_clean_tree_aborts_nothing_and_reports_nothing(self):
-        result = preflight.git_provenance(COMMIT, False, False)
+        result = preflight.git_provenance(COMMIT, _tree(False), False)
         assert result["abort"] is False
         assert result["problems"] == []
 
     def test_a_dirty_tree_aborts_before_any_gpu_work(self):
-        result = preflight.git_provenance(COMMIT, True, False)
+        result = preflight.git_provenance(
+            COMMIT, _tree(True, dirty_paths=["src/causal_mllm/x.py"]), False)
         assert result["abort"] is True
         assert COMMIT in result["abort_message"]
+        assert "src/causal_mllm/x.py" in result["abort_message"]
         assert result["problems"]
 
     def test_unknown_git_status_is_treated_as_dirty(self):
-        # is_git_dirty() returns None outside a repository: provenance that
-        # cannot be verified cannot certify evidence.
-        result = preflight.git_provenance(None, None, False)
+        # code_tree_status reports dirty=None outside a repository:
+        # provenance that cannot be verified cannot certify evidence.
+        result = preflight.git_provenance(None, _tree(None), False)
         assert result["abort"] is True
         assert result["problems"]
 
     def test_allow_dirty_runs_but_can_never_reach_pass(self):
-        result = preflight.git_provenance(COMMIT, True, True)
+        result = preflight.git_provenance(
+            COMMIT, _tree(True, dirty_paths=["src/x.py"]), True)
         assert result["abort"] is False, "--allow-dirty must still run"
         assert result["problems"], \
             "but it must record a problem, and status is derived from " \
@@ -222,10 +232,82 @@ class TestGitProvenance:
     def test_the_status_derivation_makes_a_dirty_run_fail(self):
         # status is "PASS" iff problems is empty, so the recorded problem
         # is what enforces "no PASS from a dirty tree".
-        result = preflight.git_provenance(COMMIT, True, True)
+        result = preflight.git_provenance(
+            COMMIT, _tree(True, dirty_paths=["src/x.py"]), True)
         problems = list(result["problems"])
         status = "PASS" if not problems else "FAIL"
         assert status == "FAIL"
+
+    def test_a_stages_own_outputs_are_excluded_and_reported(self):
+        # The defect this prevents: regenerating target 1's artifact made
+        # the tree "dirty" and blocked targets 2-4, though no code changed.
+        tree = _tree(False, excluded_paths=[
+            "outputs/iteration_11/preflight/qwen35_2b/preflight.json",
+            "outputs/iteration_11/preflight/resolved_models.lock.yaml"])
+        result = preflight.git_provenance(COMMIT, tree, False)
+        assert result["abort"] is False
+        assert result["problems"] == []
+        # Excluded paths are surfaced, never silently dropped.
+        assert len(result["excluded_paths"]) == 2
+
+    def test_a_dirty_code_path_is_not_excused_by_the_exclusion(self):
+        tree = _tree(True, dirty_paths=["src/causal_mllm/replay/runner.py"],
+                     excluded_paths=["outputs/iteration_11/preflight/x.json"])
+        result = preflight.git_provenance(COMMIT, tree, False)
+        assert result["abort"] is True
+        assert result["dirty_paths"] == ["src/causal_mllm/replay/runner.py"]
+
+
+class TestCodeTreeStatus:
+    def test_own_output_prefixes_are_excluded_but_reported(self, monkeypatch):
+        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: [
+            "outputs/iteration_11/preflight/qwen35_2b/preflight.json",
+            "outputs/iteration_11/preflight/resolved_models.lock.yaml",
+            "src/causal_mllm/replay/runner.py",
+        ])
+        status = seeds.code_tree_status(
+            exclude_prefixes=("outputs/iteration_11/preflight/",))
+        assert status["dirty"] is True
+        assert status["dirty_paths"] == ["src/causal_mllm/replay/runner.py"]
+        assert len(status["excluded_paths"]) == 2
+
+    def test_only_own_outputs_dirty_means_clean(self, monkeypatch):
+        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: [
+            "outputs/iteration_11/preflight/qwen35_2b/preflight.json"])
+        status = seeds.code_tree_status(
+            exclude_prefixes=("outputs/iteration_11/preflight/",))
+        assert status["dirty"] is False
+        assert status["dirty_paths"] == []
+        assert status["excluded_paths"] == [
+            "outputs/iteration_11/preflight/qwen35_2b/preflight.json"]
+
+    def test_an_unavailable_git_status_is_none(self, monkeypatch):
+        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: None)
+        status = seeds.code_tree_status(exclude_prefixes=("outputs/",))
+        assert status["dirty"] is None
+        assert status["dirty_paths"] == []
+
+    def test_no_exclusions_matches_the_unscoped_answer(self, monkeypatch):
+        paths = ["README.md", "src/causal_mllm/seeds.py"]
+        monkeypatch.setattr(seeds, "dirty_tracked_files", lambda: paths)
+        status = seeds.code_tree_status()
+        assert status["dirty"] is True
+        assert status["dirty_paths"] == paths
+        assert status["excluded_paths"] == []
+
+    def test_the_live_repository_reports_its_own_state(self):
+        # Not mocked: proves the porcelain parsing works against real git
+        # output in this repository.
+        files = seeds.dirty_tracked_files()
+        assert files is None or isinstance(files, list)
+        status = seeds.code_tree_status()
+        assert status["dirty"] in (True, False, None)
+        if files is not None:
+            assert status["dirty"] == bool(files)
+
+
+class TestCommittedArtifactProvenance:
+    """The committed artifacts, checked against the P0-2 invariants."""
 
     @pytest.mark.parametrize("model_key", MODEL_KEYS)
     def test_committed_artifacts_record_git_dirty(self, model_key):
@@ -394,7 +476,8 @@ def frozen_env(monkeypatch):
 @pytest.fixture
 def clean_tree(monkeypatch):
     monkeypatch.setattr(confirmatory, "get_git_commit", lambda: COMMIT)
-    monkeypatch.setattr(confirmatory, "is_git_dirty", lambda: False)
+    monkeypatch.setattr(confirmatory, "code_tree_status",
+                        lambda exclude_prefixes=(): _tree(False))
 
 
 @pytest.fixture
@@ -545,14 +628,38 @@ class TestConfirmatoryGate:
 
     # --- tree state ----------------------------------------------------
     def test_a_dirty_tree_is_rejected(self, world, monkeypatch):
-        monkeypatch.setattr(confirmatory, "is_git_dirty", lambda: True)
+        monkeypatch.setattr(
+            confirmatory, "code_tree_status",
+            lambda exclude_prefixes=(): _tree(
+                True, dirty_paths=["src/causal_mllm/replay/runner.py"]))
         lines = _violations(world)
         assert any("working tree is dirty" in line for line in lines)
+        assert any("src/causal_mllm/replay/runner.py" in line
+                   for line in lines)
 
     def test_an_unknown_tree_state_is_rejected(self, world, monkeypatch):
-        monkeypatch.setattr(confirmatory, "is_git_dirty", lambda: None)
+        monkeypatch.setattr(confirmatory, "code_tree_status",
+                            lambda exclude_prefixes=(): _tree(None))
         lines = _violations(world)
         assert any("git tree status unknown" in line for line in lines)
+
+    def test_the_gate_excludes_only_its_own_output_tree(self, world,
+                                                        monkeypatch):
+        # A run must not be blocked by evidence it is itself regenerating,
+        # and the exclusion must be narrow and visible.
+        seen = {}
+
+        def fake(exclude_prefixes=()):
+            seen["prefixes"] = tuple(exclude_prefixes)
+            return _tree(False, excluded_paths=[
+                "outputs/iteration_11/generations/qwen35_4b/r/replay_outputs"
+                ".jsonl"])
+
+        monkeypatch.setattr(confirmatory, "code_tree_status", fake)
+        result = _gate(world)
+        assert result["passed"] is True
+        assert seen["prefixes"] == confirmatory.OWN_OUTPUT_PREFIXES
+        assert result["checks"]["git_dirty_excluded_own_outputs"]
 
     def test_a_missing_commit_is_rejected(self, world, monkeypatch):
         monkeypatch.setattr(confirmatory, "get_git_commit", lambda: None)
@@ -685,7 +792,10 @@ class TestConfirmatoryGate:
     # --- aggregation ---------------------------------------------------
     def test_every_violation_is_reported_together(self, world, monkeypatch):
         # One launch must surface every problem, not one per attempt.
-        monkeypatch.setattr(confirmatory, "is_git_dirty", lambda: True)
+        monkeypatch.setattr(
+            confirmatory, "code_tree_status",
+            lambda exclude_prefixes=(): _tree(
+                True, dirty_paths=["src/causal_mllm/replay/runner.py"]))
         with pytest.raises(ReplayError) as exc:
             _gate(world, overwrite=True, max_families=5,
                   config=ReplayConfig(max_new_tokens=256,

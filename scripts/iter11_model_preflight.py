@@ -39,7 +39,11 @@ from causal_mllm.replay.checkpoint_size import checkpoint_size_metadata  # noqa:
 from causal_mllm.replay.config import ReplayConfig  # noqa: E402
 from causal_mllm.replay.registry import is_immutable_revision, resolve_model  # noqa: E402
 from causal_mllm.replay.runner import build_chat_messages, verify_family_media  # noqa: E402
-from causal_mllm.seeds import get_git_commit, is_git_dirty, sha256_text  # noqa: E402
+from causal_mllm.seeds import (  # noqa: E402
+    code_tree_status,
+    get_git_commit,
+    sha256_text,
+)
 from causal_mllm.validation.relations import _file_sha256  # noqa: E402
 
 FROZEN_PANEL = REPO_ROOT / "outputs" / "scale_c" / "families_panel"
@@ -49,6 +53,13 @@ PREFLIGHT_ROOT = REPO_ROOT / "outputs" / "iteration_11" / "preflight"
 FROZEN_CAP = 1536
 VISION_VARIANT = "cross_modal"
 TEXT_VARIANT = "text_only"
+
+#: Repo-root-relative prefixes THIS stage writes. Regenerating the first
+#: target's artifact (and the shared lock) must not make the tree count as
+#: dirty for the second target: nothing about the code changed, and
+#: ``code_commit`` still reconstructs it. Excluded paths are recorded in the
+#: artifact rather than silently dropped.
+OWN_OUTPUT_PREFIXES = ("outputs/iteration_11/preflight/",)
 
 
 def load_frozen_protocol() -> dict:
@@ -104,39 +115,49 @@ def check_frozen_inputs(panel: Path, protocol: dict,
     return values, problems
 
 
-def git_provenance(code_commit: str | None, git_dirty: bool | None,
+def git_provenance(code_commit: str | None, tree: dict,
                    allow_dirty: bool) -> dict:
     """Decide what a dirty/unknown tree means for this run.
 
-    Returns ``abort`` (stop before doing any GPU work), ``abort_message``,
-    and ``problems`` (recorded in the artifact, which makes status PASS
-    unreachable because the status is derived from problems).
+    ``tree`` is a :func:`causal_mllm.seeds.code_tree_status` result, i.e.
+    dirtiness measured over CODE paths with this stage's own outputs
+    excluded (and reported).
 
-    ``is_git_dirty()`` returns None outside a git repository. That is
-    treated like a dirty tree: provenance that cannot be verified cannot
-    certify evidence.
+    Returns ``abort`` (stop before doing any GPU work), ``abort_message``,
+    ``problems`` (recorded in the artifact, which makes status PASS
+    unreachable because the status is derived from problems), and the two
+    path lists so the exclusion is auditable.
+
+    ``code_tree_status`` reports ``dirty=None`` when git is unavailable.
+    That is treated like a dirty tree: provenance that cannot be verified
+    cannot certify evidence.
     """
+    dirty = tree.get("dirty")
+    dirty_paths = list(tree.get("dirty_paths") or [])
+    excluded_paths = list(tree.get("excluded_paths") or [])
     problems: list[str] = []
-    if git_dirty is not False:
+    abort = False
+    abort_message = None
+    if dirty is not False:
         reason = ("git status unavailable (not a repository?)"
-                  if git_dirty is None else "uncommitted changes present")
+                  if dirty is None
+                  else f"uncommitted changes to {dirty_paths}")
         problems.append(
             f"working tree was not clean at code_commit {code_commit} "
-            f"({reason}; git_dirty={git_dirty}); this artifact cannot "
-            f"certify the code that produced it and is diagnostic only")
+            f"({reason}); this artifact cannot certify the code that "
+            f"produced it and is diagnostic only")
         if not allow_dirty:
-            return {
-                "abort": True,
-                "abort_message": (
-                    f"working tree is not clean ({reason}) at code_commit "
-                    f"{code_commit}. The code that would execute is not the "
-                    f"code that commit contains, so the artifact could not "
-                    f"be reconstructed from its own recorded provenance. "
-                    f"Commit first; --allow-dirty runs diagnostics but can "
-                    f"never produce status PASS."),
-                "problems": problems,
-            }
-    return {"abort": False, "abort_message": None, "problems": problems}
+            abort = True
+            abort_message = (
+                f"working tree is not clean ({reason}) at code_commit "
+                f"{code_commit}. The code that would execute is not the "
+                f"code that commit contains, so the artifact could not be "
+                f"reconstructed from its own recorded provenance. Commit "
+                f"first; --allow-dirty runs diagnostics but can never "
+                f"produce status PASS.")
+    return {"abort": abort, "abort_message": abort_message,
+            "problems": problems, "dirty_paths": dirty_paths,
+            "excluded_paths": excluded_paths}
 
 
 # Runtime conditions observed in the frozen reference environment. They
@@ -515,13 +536,14 @@ def main() -> int:
                              "reconstructed from its recorded code_commit.")
     args = parser.parse_args()
 
-    # Captured BEFORE anything is written. This preflight writes its own
-    # artifact into the TRACKED outputs tree, so by the time the report is
-    # assembled the tree is dirty as a side effect of the run itself;
-    # sampling git status later would misattribute that to the code.
+    # Captured BEFORE anything is written, and measured over CODE paths:
+    # this stage regenerates its own committed artifacts and the shared
+    # lock, so an unscoped "is anything tracked modified?" check would let
+    # the first target's output block every subsequent target even though
+    # nothing about the code changed. Excluded paths are recorded below.
     code_commit = get_git_commit()
-    git_dirty = is_git_dirty()
-    provenance = git_provenance(code_commit, git_dirty, args.allow_dirty)
+    tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
+    provenance = git_provenance(code_commit, tree, args.allow_dirty)
     if provenance["abort"]:
         print(f"FAIL {args.model_key}: {provenance['abort_message']}")
         return 2
@@ -568,7 +590,12 @@ def main() -> int:
         "code_commit": code_commit,
         # Recorded alongside code_commit: a commit hash alone does not
         # identify the code that ran when the tree is dirty.
-        "git_dirty": git_dirty,
+        "git_dirty": tree["dirty"],
+        "git_dirty_paths": provenance["dirty_paths"],
+        # This stage's own regenerated artifacts and lock: excluded from
+        # the determination above, and reported so the exclusion is
+        # auditable rather than silent.
+        "git_dirty_excluded_own_outputs": provenance["excluded_paths"],
         "allow_dirty": bool(args.allow_dirty),
         "gpu_smoke": None,
         "runtime_metadata": None,
