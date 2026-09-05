@@ -43,13 +43,27 @@
   },
   "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
   "prompt_template_revision": "v1",
+  "protocol_path": "/scratch/wutiantong/CCMS/outputs/iteration_11/protocol/iteration_11_protocol.json",
+  "protocol_sha256": "8867143465d1dfbae7f8e87981c40d4a40d3f9ccc5a209d8e2993c0cd8ab34a1",
   "dataset": {
     "input_dir": "/scratch/wutiantong/CCMS/outputs/scale_c/families_panel",
-    "validated_families_sha256": "0d77226b2d5f4c030bede5e351a8ee41df1c689b47b9253a758bc389ec34e1db",
+    "validated_families_sha256": "97b8bb7cb3a69903c1988c6a1a8fb1ff9167fdd135c9e5b4b3bd69828fc69863",
+    "hash_method": "sha256(raw file bytes)",
+    "frozen_panel_sha256": "97b8bb7cb3a69903c1988c6a1a8fb1ff9167fdd135c9e5b4b3bd69828fc69863",
+    "matches_frozen_protocol": true,
+    "frozen_system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+    "system_prompt_matches_frozen_protocol": true,
     "n_families_smoked": 1
   },
   "device": "cuda:3",
-  "code_commit": "64f96ca5ce51f7ca2de224b2455061f10bc8697a",
+  "code_commit": "eeff7370629d6c50355d98b9ed57dccbe2ef2287",
+  "git_dirty": false,
+  "git_dirty_paths": [],
+  "git_dirty_excluded_own_outputs": [
+    "outputs/iteration_11/preflight/qwen35_2b/preflight.json",
+    "outputs/iteration_11/preflight/resolved_models.lock.yaml"
+  ],
+  "allow_dirty": false,
   "gpu_smoke": [
     {
       "variant": "cross_modal",
@@ -177,14 +191,17 @@
     "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
     "processor_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
     "dependency_lock": {
-      "pip_freeze_sha256": "dd9b04c7eee47c55a79d9112333fe4b701f9994893e3476ee05bd077aa89695a",
+      "pip_freeze_sha256": "4f8ab00e2c8370f7394c54d2cb9d1758d0749418244952b66dd74fb7aef4199e",
       "n_packages": 101,
       "excluded_self_distributions": [
-        "causal_mllm"
+        "causal-mllm"
       ],
       "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
       "python_version": "3.10.20",
-      "executable": "/scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python"
+      "executable": "/scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python",
+      "editable_vcs_revisions": {
+        "route_unlearning_data": "5e3fef64bcae88b9f31a00ca3fb275f50d5125b2"
+      }
     },
     "forced": false
   },
@@ -214,5 +231,5 @@
   },
   "problems": [],
   "status": "PASS",
-  "timestamp": "2026-09-05T06:27:59+00:00"
+  "timestamp": "2026-09-05T08:19:19+00:00"
 }
