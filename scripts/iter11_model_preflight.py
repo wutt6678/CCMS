@@ -39,13 +39,105 @@ from causal_mllm.replay.checkpoint_size import checkpoint_size_metadata  # noqa:
 from causal_mllm.replay.config import ReplayConfig  # noqa: E402
 from causal_mllm.replay.registry import is_immutable_revision, resolve_model  # noqa: E402
 from causal_mllm.replay.runner import build_chat_messages, verify_family_media  # noqa: E402
-from causal_mllm.seeds import get_git_commit, sha256_text  # noqa: E402
+from causal_mllm.seeds import get_git_commit, is_git_dirty, sha256_text  # noqa: E402
+from causal_mllm.validation.relations import _file_sha256  # noqa: E402
 
 FROZEN_PANEL = REPO_ROOT / "outputs" / "scale_c" / "families_panel"
+FROZEN_PROTOCOL = REPO_ROOT / "outputs" / "iteration_11" / "protocol" \
+    / "iteration_11_protocol.json"
 PREFLIGHT_ROOT = REPO_ROOT / "outputs" / "iteration_11" / "preflight"
 FROZEN_CAP = 1536
 VISION_VARIANT = "cross_modal"
 TEXT_VARIANT = "text_only"
+
+
+def load_frozen_protocol() -> dict:
+    """The frozen protocol this preflight must agree with.
+
+    Read-only: the preflight checks itself against the frozen values, it
+    never restates them from memory or from a config default.
+    """
+    if not FROZEN_PROTOCOL.exists():
+        raise SystemExit(f"frozen protocol not found: {FROZEN_PROTOCOL}")
+    return json.loads(FROZEN_PROTOCOL.read_text(encoding="utf-8"))
+
+
+def check_frozen_inputs(panel: Path, protocol: dict,
+                        config: ReplayConfig) -> tuple[dict, list[str]]:
+    """Compare the preflight's own inputs against the frozen protocol.
+
+    Returns the recorded values plus any violations. The panel is hashed
+    over RAW BYTES: the frozen protocol and the replay runner both use a
+    raw-byte digest, so a whitespace-normalized digest of the same file is
+    a DIFFERENT number that matches neither, and an artifact carrying it
+    silently asserts a panel nobody can verify.
+    """
+    frozen_inputs = protocol["frozen_inputs"]
+    frozen_panel_sha = frozen_inputs["panel_validated_families_sha256"]
+    panel_sha = _file_sha256(panel) if panel.exists() else None
+    prompt_sha = sha256_text(config.system_prompt)
+    frozen_prompt_sha = frozen_inputs["system_prompt_sha256"]
+    problems: list[str] = []
+    if panel_sha is None:
+        problems.append(f"frozen panel not found: {panel}")
+    elif panel_sha != frozen_panel_sha:
+        problems.append(
+            f"panel is not the frozen Iteration 11 panel: raw-byte SHA-256 "
+            f"{panel_sha} != frozen {frozen_panel_sha} ({panel})")
+    if prompt_sha != frozen_prompt_sha:
+        problems.append(
+            f"system prompt SHA-256 {prompt_sha} != frozen "
+            f"{frozen_prompt_sha}")
+    if config.max_new_tokens != protocol["uniform_cap_rule"]["initial_cap"]:
+        problems.append(
+            f"max_new_tokens={config.max_new_tokens} != the frozen uniform "
+            f"cap {protocol['uniform_cap_rule']['initial_cap']}")
+    values = {
+        "input_dir": str(panel.parent.resolve()),
+        "validated_families_sha256": panel_sha,
+        "hash_method": "sha256(raw file bytes)",
+        "frozen_panel_sha256": frozen_panel_sha,
+        "matches_frozen_protocol": panel_sha == frozen_panel_sha,
+        "frozen_system_prompt_sha256": frozen_prompt_sha,
+        "system_prompt_matches_frozen_protocol": prompt_sha == frozen_prompt_sha,
+    }
+    return values, problems
+
+
+def git_provenance(code_commit: str | None, git_dirty: bool | None,
+                   allow_dirty: bool) -> dict:
+    """Decide what a dirty/unknown tree means for this run.
+
+    Returns ``abort`` (stop before doing any GPU work), ``abort_message``,
+    and ``problems`` (recorded in the artifact, which makes status PASS
+    unreachable because the status is derived from problems).
+
+    ``is_git_dirty()`` returns None outside a git repository. That is
+    treated like a dirty tree: provenance that cannot be verified cannot
+    certify evidence.
+    """
+    problems: list[str] = []
+    if git_dirty is not False:
+        reason = ("git status unavailable (not a repository?)"
+                  if git_dirty is None else "uncommitted changes present")
+        problems.append(
+            f"working tree was not clean at code_commit {code_commit} "
+            f"({reason}; git_dirty={git_dirty}); this artifact cannot "
+            f"certify the code that produced it and is diagnostic only")
+        if not allow_dirty:
+            return {
+                "abort": True,
+                "abort_message": (
+                    f"working tree is not clean ({reason}) at code_commit "
+                    f"{code_commit}. The code that would execute is not the "
+                    f"code that commit contains, so the artifact could not "
+                    f"be reconstructed from its own recorded provenance. "
+                    f"Commit first; --allow-dirty runs diagnostics but can "
+                    f"never produce status PASS."),
+                "problems": problems,
+            }
+    return {"abort": False, "abort_message": None, "problems": problems}
+
 
 # Runtime conditions observed in the frozen reference environment. They
 # are recorded rather than "fixed", because changing them would break
@@ -415,7 +507,24 @@ def main() -> int:
     parser.add_argument("--force-lock", action="store_true", default=False,
                         help="Allow deliberately re-pinning a model_key that "
                              "is already locked to a different revision")
+    parser.add_argument("--allow-dirty", action="store_true", default=False,
+                        help="Diagnostics ONLY: proceed with uncommitted "
+                             "changes. The run still records git_dirty and "
+                             "still cannot reach status PASS, because "
+                             "evidence produced from a dirty tree cannot be "
+                             "reconstructed from its recorded code_commit.")
     args = parser.parse_args()
+
+    # Captured BEFORE anything is written. This preflight writes its own
+    # artifact into the TRACKED outputs tree, so by the time the report is
+    # assembled the tree is dirty as a side effect of the run itself;
+    # sampling git status later would misattribute that to the code.
+    code_commit = get_git_commit()
+    git_dirty = is_git_dirty()
+    provenance = git_provenance(code_commit, git_dirty, args.allow_dirty)
+    if provenance["abort"]:
+        print(f"FAIL {args.model_key}: {provenance['abort_message']}")
+        return 2
 
     spec = resolve_model(args.model_key, confirmatory=False,
                          lock_path=args.lock)
@@ -431,7 +540,10 @@ def main() -> int:
         device=args.device,
         enable_thinking=spec.thinking_mode)
 
+    protocol = load_frozen_protocol()
     panel = Path(args.input_dir) / "validated_families.jsonl"
+    dataset_values, frozen_problems = check_frozen_inputs(
+        panel, protocol, config)
     report: dict = {
         "iteration": "11",
         "stage": "model_preflight",
@@ -446,15 +558,18 @@ def main() -> int:
             "max_new_tokens": config.max_new_tokens},
         "system_prompt_sha256": sha256_text(config.system_prompt),
         "prompt_template_revision": config.prompt_template_revision,
-        "dataset": {
-            "input_dir": str(Path(args.input_dir).resolve()),
-            "validated_families_sha256": (sha256_text(
-                panel.read_text(encoding="utf-8"))
-                if panel.exists() else None),
-            "n_families_smoked": args.n_families,
-        },
+        # Binds this artifact to the exact frozen protocol document it was
+        # checked against, so a later reader can tell which protocol
+        # version certified the run.
+        "protocol_path": str(FROZEN_PROTOCOL),
+        "protocol_sha256": _file_sha256(FROZEN_PROTOCOL),
+        "dataset": {**dataset_values, "n_families_smoked": args.n_families},
         "device": args.device,
-        "code_commit": get_git_commit(),
+        "code_commit": code_commit,
+        # Recorded alongside code_commit: a commit hash alone does not
+        # identify the code that ran when the tree is dirty.
+        "git_dirty": git_dirty,
+        "allow_dirty": bool(args.allow_dirty),
         "gpu_smoke": None,
         "runtime_metadata": None,
         "determinism": None,
@@ -463,7 +578,10 @@ def main() -> int:
         "resolved_revision": None,
         "processor_revision": None,
         "size_metadata": None,
-        "problems": [],
+        # Provenance problems are listed first: --allow-dirty may RUN, but
+        # it may never mint PASS evidence, because the status is derived
+        # from problems and a non-clean tree is always one of them.
+        "problems": list(provenance["problems"]) + list(frozen_problems),
         "status": "PENDING",
     }
 

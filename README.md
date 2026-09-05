@@ -596,7 +596,8 @@ bound separately and more precisely via `code_commit` / `git_dirty`, and the
 exclusion is reported by distribution *name* (recording the raw line would
 put the live HEAD back inside the hashed block). Third-party editable
 installs such as the MIDP prior-art package are kept, since a change there is
-a real dependency change. All four targets were re-preflighted after the fix
+a real dependency change — though their *revisions* are normalized out for
+the same reason (see below). All four targets were re-preflighted after the fix
 and reproduce their committed smoke responses byte-for-byte (identical
 `response_sha256` for every variant and repeat); the only other metadata
 movement is `revision_requested` becoming the pinned SHA in the two Qwen
@@ -714,6 +715,101 @@ repeat-stable): `cross_modal` in=709 / image=545 / out=92 / `eos`,
 `text_only` in=178 / image=0 / out=67 / `eos`. The two arms produce
 different answers to the same terminal question, so the contrast is real
 rather than a degraded language-only run.
+
+### Evidence-integrity remediation (post-11.4 review)
+
+A review of the committed 11.1–11.4 substrate found five defects. All five
+were confirmed empirically before being fixed, and each is now pinned by a
+regression test in `tests/unit/test_iter11_evidence_integrity.py`.
+
+**The preflight reported a panel hash that matched nothing.** The frozen
+protocol and the replay runner both hash `validated_families.jsonl` over
+**raw bytes** (`97b8bb7c…`), but the preflight used the
+whitespace-normalizing `sha256_text`, producing `0d77226b…` — a different
+number for the same file under the *same field name*, so all four committed
+artifacts asserted a panel nobody could verify. The preflight now hashes raw
+bytes and asserts equality against `iteration_11_protocol.json`, also
+checking the system-prompt hash and the uniform cap while it is there.
+
+**The evidence did not name the code that produced it.** All four artifacts
+recorded `code_commit = 64f96ca` (11.3), but the Phi-4 adapter only exists
+from `541cb5e`: they were generated from a dirty tree, so the recorded commit
+could not reconstruct the run, and no `git_dirty` field exposed that.
+`git_dirty` is now captured *before* anything is written (the preflight writes
+into the tracked `outputs/` tree, so sampling git status afterwards would
+misattribute its own side effect), a non-clean tree aborts before any GPU work
+and can never yield `status: PASS` (`--allow-dirty` runs diagnostics only),
+and `iteration11_run_fingerprint` binds `git_dirty` so uncommitted edits
+actually move the fingerprint instead of being allowed to resume into a clean
+run. A test now asserts that whatever commit an artifact names **contains the
+adapter file it certifies**, which is the defect stated as an invariant.
+
+**"Confirmatory" enforced only revision pinning.** `--input-dir`,
+`--max-families`, `--max-new-tokens`, `--output-root` and `--overwrite` were
+all free, so a run against an edited panel, a 12-family subset, or the
+`ReplayConfig` default cap of **256** instead of the frozen 1536 would have
+produced a complete-looking artifact incomparable to the 9B reference.
+`causal_mllm/replay/confirmatory.py` now gates every confirmatory
+`--model-key` run on: the raw-byte frozen panel hash; exactly 100 families
+each carrying all six variants and no undeclared seventh; `max_new_tokens`
+equal to the frozen uniform cap; greedy decoding with thinking disabled; a
+verified clean tree; immutable model **and processor** revisions agreeing with
+the lock; no quantization; an active dependency environment matching the
+lock; a passing 11.5 `preflight_report.json` bound to the same revision and
+protocol hash; the canonical output root; and no `--overwrite`. It collects
+**every** violation and reports them together, and its evidence is persisted
+into the run report so a PASS is auditable rather than merely printed. The
+frozen legacy single-model path (Iterations 8–10) is deliberately not gated,
+so its evidence stays byte-for-byte reproducible.
+
+**Resume was not crash-safe.** Outputs and failures were written only after
+the final family, so a kill after 90 families lost all 90 — the precise
+situation `--resume` exists for. Both journals are now append-only with
+`flush` + `fsync` after every family, and line formatting is byte-identical to
+a one-shot `write_jsonl` (asserted by test) so evidence continuity is
+preserved. Resume also used to accept records whose
+`resolved_run_fingerprint` or `model_key` was **missing**, treating `None` as
+compatible with anything; every stored record is now validated for required
+fields, a known variant, and exact provenance equality, with missing fields
+failing closed. Failure records are retained across interruptions as
+append-only history: `n_failed` counts cells whose *latest* attempt failed
+while `n_failure_attempts` reports the journaled total, so a retried-and-
+recovered cell is visible rather than silently erased. An empty journal is
+explicitly not evidence, so restarting a run killed before its first family
+still does not demand `--overwrite`.
+
+**The dependency lock was recorded but never verified.** The fingerprint
+bound a hash read from the lock *file*, which proves nothing about the
+interpreter actually running inference; the CLI's `--lock` reached revision
+resolution but not `iteration11_run_fingerprint`, which silently fell back to
+the default lock; a failed `pip freeze` was accepted as an empty (but
+stably-hashing) snapshot; and the absolute interpreter path was hashed as
+though it were dependency identity. `verify_active_dependency_lock` now
+compares the live snapshot against the lock field by field, the selected lock
+path is propagated to the fingerprint, a non-zero `pip freeze` exit raises,
+and `executable` moved to recorded-but-unhashed operational metadata.
+
+Enforcing that comparison immediately exposed a **live** residual
+instability: the lock recorded `dd9b04c7…` while the environment hashed to
+`190132ad…`. The cause was the MIDP prior-art editable install, whose
+`pip freeze` line embeds MIDP's *live git HEAD* — and MIDP had taken five
+commits in forty minutes, with the CCMS lock captured in the middle of that
+sequence. Keeping the install is right (its disappearance or a URL change is a
+real dependency change) but hashing a sibling repository's moving HEAD is the
+same defect already fixed for this project's own editable install, and would
+have invalidated resume mid-run and blocked every confirmatory run for reasons
+unrelated to the experiment. Editable-VCS revisions are therefore normalized
+to `<vcs-revision>` inside the hashed text and recorded separately as
+`editable_vcs_revisions`; that drift is reported as
+`informational_differences` rather than as a violation.
+
+The gate fixes the contract 11.5 must satisfy: a report at
+`outputs/iteration_11/eligibility/<model_key>/preflight_report.json` carrying
+`status: PASS`, `eligible: true`, the `model_revision` it certified, the
+`protocol_sha256` (raw-byte hash of `iteration_11_protocol.json`) it was
+checked against, and `git_dirty: false`. Until 11.5 produces one, every
+confirmatory `--model-key` run fails closed at the gate — which is the intent:
+technical eligibility must be signed off before the full 2,400-output run.
 
 Iterations 11.5–11.8 (12-family eligibility preflight, full 2,400-output
 generation, frozen judging, and cross-model analysis) remain roadmap-only.

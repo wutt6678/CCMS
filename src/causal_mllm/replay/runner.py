@@ -36,17 +36,22 @@ from __future__ import annotations
 import datetime
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
-from causal_mllm.data.io import read_jsonl, write_jsonl
+from causal_mllm.data.io import read_jsonl
 from causal_mllm.data.logging import get_logger
 from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.replay.backend import HFLocalBackend, ReplayBackend
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.errors import ReplayError, ReplayMediaError, classify_error
-from causal_mllm.replay.registry import ResolvedModel, dependency_lock_sha256
+from causal_mllm.replay.registry import (
+    ResolvedModel,
+    dependency_lock_sha256,
+    verify_active_dependency_lock,
+)
 from causal_mllm.seeds import get_git_commit, is_git_dirty, sha256_text
 from causal_mllm.validation.relations import _file_sha256
 
@@ -166,6 +171,15 @@ def iteration11_run_fingerprint(
         "torch_version": backend.torch_version(),
         "cuda_version": backend.cuda_version(),
         "code_commit": get_git_commit(),
+        # ``code_commit`` alone does not identify the code that ran: a
+        # dirty tree executes whatever is on disk, not what the commit
+        # contains, and two runs from the same commit with different
+        # uncommitted edits would otherwise share a fingerprint (and so
+        # would be allowed to resume into each other). ``is_git_dirty()``
+        # ignores untracked files, so normal run side effects do not move
+        # it. None (not a git repo) is bound as-is: unknown provenance
+        # must not collide with a known-clean run.
+        "git_dirty": is_git_dirty(),
         "hardware": fingerprint_hardware(hardware),
         # The frozen protocol requires the pip-freeze dependency lock hash
         # to be bound into every resolved run fingerprint.
@@ -359,6 +373,116 @@ def _replay_family(run_id: str, family: CausalFamily, config: ReplayConfig,
     return outputs, failures
 
 
+#: Fields every stored journal record must carry before it may be trusted
+#: on resume. A record missing one of these cannot be attributed to a
+#: (family, variant) cell, so accepting it would let a truncated or
+#: foreign file silently satisfy coverage.
+REQUIRED_JOURNAL_FIELDS = ("run_id", "family_id", "variant")
+
+
+def append_journal(path: Path, records: list[dict]) -> None:
+    """Append records to a JSONL journal, flushed and fsync'd to disk.
+
+    Crash-safety is the whole point. The frozen protocol requires a
+    600-output run per model to be resumable, but a runner that persists
+    only after the final family would lose every completed family when
+    the process is killed (preemption, OOM, node failure) — the exact
+    situation ``--resume`` exists for. Each family is therefore durable
+    before the next one is started.
+
+    Line formatting is byte-identical to :func:`write_jsonl`, so an
+    incrementally journaled file is indistinguishable from a one-shot
+    write of the same records in the same order.
+    """
+    if not records:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record, ensure_ascii=False) + "\n")
+        f.flush()
+        # flush() only hands the bytes to the OS; fsync() is what survives
+        # a machine-level interruption.
+        os.fsync(f.fileno())
+
+
+def validate_journal(
+    records: list[dict],
+    *,
+    path: Path,
+    expected_fingerprint: str | None,
+    expected_model_key: str | None,
+    allowed_variants: tuple[str, ...] = tuple(ALL_VARIANT_NAMES),
+    allow_duplicate_pairs: bool = False,
+) -> set[tuple[str, str]]:
+    """Validate every stored record; return the (family, variant) pairs.
+
+    Fail-closed on provenance: for an Iteration 11 run
+    (``expected_fingerprint``/``expected_model_key`` not None) a record
+    whose ``resolved_run_fingerprint`` or ``model_key`` is MISSING is
+    rejected, not treated as compatible. Treating an absent value as a
+    wildcard would let records produced by different code, a different
+    dependency environment or a different target model be resumed into
+    one run — the resulting file would look complete while mixing
+    provenance that the estimands assume to be uniform.
+
+    Args:
+        allow_duplicate_pairs: the OUTPUTS journal must hold each pair
+            exactly once (a duplicate means two responses for one cell and
+            the analysis could not pick between them). The FAILURES journal
+            is append-only history, so the same pair may legitimately
+            appear once per interrupted attempt.
+    """
+    pairs: set[tuple[str, str]] = set()
+    for index, rec in enumerate(records):
+        where = f"{path} line {index + 1}"
+        if not isinstance(rec, dict):
+            raise ReplayError(f"{where}: stored record is not an object")
+        missing = [f for f in REQUIRED_JOURNAL_FIELDS if rec.get(f) is None]
+        if missing:
+            raise ReplayError(
+                f"{where}: stored record is missing required field(s) "
+                f"{missing}; refusing to resume onto a record that cannot "
+                f"be attributed to a (family, variant) cell")
+        variant = rec["variant"]
+        if variant not in allowed_variants:
+            raise ReplayError(
+                f"{where}: stored variant {variant!r} is not one of "
+                f"{list(allowed_variants)}")
+        if expected_fingerprint is not None:
+            prior_fp = rec.get("resolved_run_fingerprint")
+            if prior_fp is None:
+                raise ReplayError(
+                    f"{where}: stored record has no resolved_run_fingerprint; "
+                    f"refusing to resume — its provenance cannot be "
+                    f"confirmed against the current run "
+                    f"({expected_fingerprint[:16]}…)")
+            if prior_fp != expected_fingerprint:
+                raise ReplayError(
+                    f"{where}: resume mismatch — stored "
+                    f"resolved_run_fingerprint {prior_fp!r} != current "
+                    f"{expected_fingerprint!r}; refusing to append to a run "
+                    f"with different provenance")
+        if expected_model_key is not None:
+            prior_key = rec.get("model_key")
+            if prior_key is None:
+                raise ReplayError(
+                    f"{where}: stored record has no model_key; refusing to "
+                    f"resume — it cannot be confirmed to belong to "
+                    f"{expected_model_key!r}")
+            if prior_key != expected_model_key:
+                raise ReplayError(
+                    f"{where}: resume mismatch — stored model_key "
+                    f"{prior_key!r} != current {expected_model_key!r}")
+        pair = (rec["family_id"], variant)
+        if pair in pairs and not allow_duplicate_pairs:
+            raise ReplayError(
+                f"{where}: duplicate stored record for {pair[0]}:{pair[1]} — "
+                f"two responses exist for one (family, variant) cell and "
+                f"the analysis could not choose between them")
+        pairs.add(pair)
+    return pairs
+
 
 def run_replay_stage(
     input_dir: str | Path,
@@ -370,8 +494,14 @@ def run_replay_stage(
     overwrite: bool = False,
     model_spec: "ResolvedModel | None" = None,
     resume: bool = False,
+    lock_path: str | Path | None = None,
+    confirmatory_gate: dict | None = None,
 ) -> dict:
     """Replay validated families; persist outputs/failures/report.
+
+    Outputs and failures are journaled append-only with flush+fsync after
+    EVERY family, so an interrupted run keeps the families it finished
+    and ``--resume`` continues from them instead of regenerating.
 
     Args:
         input_dir: Dataset dir containing validated_families.jsonl.
@@ -383,11 +513,22 @@ def run_replay_stage(
         overwrite: If False (default), fail when the run directory
             already contains evidence files.  This prevents accidental
             overwriting of retained evidence.
+        model_spec: Resolved Iteration 11 target (None = frozen legacy
+            single-model path, whose records are unchanged).
+        resume: Continue an interrupted run in the same run_dir, skipping
+            (family, variant) pairs already recorded under the SAME
+            resolved run fingerprint and model_key.
+        lock_path: ``resolved_models.lock.yaml`` supplying the dependency
+            lock bound into the resolved run fingerprint. Must be the same
+            path used for revision resolution, otherwise the fingerprint
+            silently binds the DEFAULT lock instead of the selected one.
 
     Raises:
         ReplayError: On missing validated_families.jsonl, missing
-            (family, variant) coverage, or an existing run directory
-            when overwrite is False.
+            (family, variant) coverage, an existing run directory when
+            overwrite is False, or a stored journal record whose
+            provenance (fingerprint / model_key / required fields) cannot
+            be confirmed identical to the current run.
     """
     config = config or ReplayConfig()
     input_dir = Path(input_dir)
@@ -428,13 +569,31 @@ def run_replay_stage(
         rt = (backend.runtime_metadata()
               if hasattr(backend, "runtime_metadata") else {})
         hardware = rt.get("hardware")
+        try:
+            dependency_check = verify_active_dependency_lock(
+                lock_path, strict=False)
+        except ReplayError as exc:
+            # Recorded, not fatal: enforcement is the confirmatory gate's
+            # job, and a run must not be lost because `pip freeze` could
+            # not be executed. The reason stays in the evidence.
+            dependency_check = {"verified": False, "reason": str(exc)}
         run_prov = {
             "model_key": model_spec.model_key,
             "adapter": model_spec.adapter,
             "code_commit": get_git_commit(),
+            "git_dirty": is_git_dirty(),
             "dataset_manifest_hash": _file_sha256(source_path),
             "resolved_run_fingerprint": iteration11_run_fingerprint(
-                backend, config, input_dir, model_spec, hardware),
+                backend, config, input_dir, model_spec, hardware,
+                lock_path=lock_path),
+            # Recorded, not merely assumed: the lock hash bound above is
+            # read from the lock FILE, so on its own it does not prove the
+            # environment actually running inference is the one certified
+            # at preflight. strict=False here because enforcement belongs
+            # to the confirmatory gate (a technical preflight must still be
+            # able to run and REPORT a drift); the comparison is stored so
+            # any drift is visible in the evidence either way.
+            "dependency_lock_check": dependency_check,
             "deterministic_algorithms": rt.get("deterministic_algorithms"),
             "runtime_versions": {
                 "transformers": backend.transformers_version(),
@@ -451,49 +610,63 @@ def run_replay_stage(
     # granularity, refusing to mix records from a different resolved run
     # fingerprint / model_key.  Only successful outputs count as
     # complete; failed variants are retried.
+    outputs_path = run_dir / REPLAY_OUTPUTS_FILE
+    failures_path = run_dir / REPLAY_FAILURES_FILE
+    cur_fp = run_prov.get("resolved_run_fingerprint")
+    cur_key = model_spec.model_key if model_spec else None
     existing_outputs: list[dict] = []
+    prior_failures: list[dict] = []
     done: set[tuple[str, str]] = set()
     if resume:
-        if (run_dir / REPLAY_OUTPUTS_FILE).exists():
-            existing_outputs = read_jsonl(run_dir / REPLAY_OUTPUTS_FILE)
-            cur_fp = run_prov.get("resolved_run_fingerprint")
-            cur_key = model_spec.model_key if model_spec else None
-            for rec in existing_outputs:
-                prior_fp = rec.get("resolved_run_fingerprint")
-                if cur_fp is not None and prior_fp not in (None, cur_fp):
-                    raise ReplayError(
-                        f"resume mismatch: stored resolved_run_fingerprint "
-                        f"{prior_fp!r} != current {cur_fp!r}; refusing to "
-                        f"append to a run with different provenance")
-                prior_key = rec.get("model_key")
-                if cur_key is not None and prior_key not in (None, cur_key):
-                    raise ReplayError(
-                        f"resume mismatch: stored model_key {prior_key!r} != "
-                        f"current {cur_key!r}")
-                pair = (rec["family_id"], rec["variant"])
-                if pair in done:
-                    raise ReplayError(
-                        f"resume: duplicate stored record for "
-                        f"{pair[0]}:{pair[1]}")
-                done.add(pair)
-            log.info("Resume %s: %d (family, variant) pairs already done",
-                     run_id, len(done))
+        if outputs_path.exists():
+            existing_outputs = read_jsonl(outputs_path)
+        if failures_path.exists():
+            prior_failures = read_jsonl(failures_path)
+        done = validate_journal(
+            existing_outputs, path=outputs_path,
+            expected_fingerprint=cur_fp, expected_model_key=cur_key)
+        # The failure journal is append-only HISTORY retained across
+        # interruptions. Its pairs are deliberately NOT added to ``done``,
+        # so they are retried; a pair that later succeeds is excluded from
+        # the failure count below instead of being double-counted.
+        validate_journal(
+            prior_failures, path=failures_path,
+            expected_fingerprint=cur_fp, expected_model_key=cur_key,
+            allow_duplicate_pairs=True)
+        log.info("Resume %s: %d (family, variant) pairs already done, "
+                 "%d prior failure attempt(s) retained",
+                 run_id, len(done), len(prior_failures))
     elif run_dir.exists() and not overwrite:
         # Evidence-protection guard: refuse to overwrite existing evidence
-        # unless the caller explicitly opts in.
-        evidence_files = [REPLAY_OUTPUTS_FILE, REPLAY_FAILURES_FILE,
-                         REPLAY_REPORT_FILE]
-        existing = [f for f in evidence_files
-                    if (run_dir / f).exists()]
+        # unless the caller explicitly opts in. An EMPTY journal is not
+        # evidence — it is a run interrupted before its first family
+        # completed — so restarting over one must not demand --overwrite.
+        def _holds_evidence(name: str) -> bool:
+            p = run_dir / name
+            if not p.exists():
+                return False
+            if name == REPLAY_REPORT_FILE:
+                return True  # only written once a run completed
+            return p.stat().st_size > 0
+
+        existing = [f for f in (REPLAY_OUTPUTS_FILE, REPLAY_FAILURES_FILE,
+                                REPLAY_REPORT_FILE) if _holds_evidence(f)]
         if existing:
             raise ReplayError(
                 f"run directory {run_dir} already contains evidence "
                 f"{existing}; pass overwrite=True or use a new run_id "
                 f"to avoid overwriting retained evidence")
     run_dir.mkdir(parents=True, exist_ok=True)
+    if not resume:
+        # A fresh run starts from empty journals even under overwrite=True:
+        # append-only journaling must never splice new records onto
+        # retained evidence from an earlier attempt.
+        for p in (outputs_path, failures_path):
+            with p.open("w", encoding="utf-8"):
+                pass
 
     outputs: list[dict] = list(existing_outputs)
-    failures: list[dict] = []
+    failures: list[dict] = list(prior_failures)
     for family in families:
         skip = {variant for (fid, variant) in done
                 if fid == family.family_id}
@@ -504,6 +677,11 @@ def run_replay_stage(
         family_outputs, family_failures = _replay_family(
             run_id, family, config, backend, model_spec, run_prov,
             skip_variants=skip)
+        # Durable BEFORE the next family starts: if the process is killed
+        # mid-run, everything already journaled survives and --resume
+        # continues from it instead of regenerating it.
+        append_journal(outputs_path, family_outputs)
+        append_journal(failures_path, family_failures)
         outputs.extend(family_outputs)
         failures.extend(family_failures)
         log.info("Replay %s: %d outputs, %d failures",
@@ -511,9 +689,12 @@ def run_replay_stage(
                  len(family_failures))
 
     expected = len(families) * len(ALL_VARIANT_NAMES)
-    attempted = len(outputs) + len(failures)
-    covered = {(r["family_id"], r["variant"])
-               for r in outputs + failures}
+    succeeded = {(r["family_id"], r["variant"]) for r in outputs}
+    # A pair whose LATEST outcome failed counts once as failed; earlier
+    # attempts kept in the journal are history, not additional failures.
+    failed = {(r["family_id"], r["variant"]) for r in failures} - succeeded
+    attempted = len(succeeded) + len(failed)
+    covered = succeeded | failed
     missing = [
         f"{family.family_id}:{variant}"
         for family in families
@@ -525,8 +706,8 @@ def run_replay_stage(
             f"replay coverage broken: attempted {attempted} != expected "
             f"{expected}; missing: {missing}")
 
-    write_jsonl(run_dir / REPLAY_OUTPUTS_FILE, outputs)
-    write_jsonl(run_dir / REPLAY_FAILURES_FILE, failures)
+    # The journals are already complete on disk, written incrementally
+    # above; rewriting them here would defeat the crash-safety guarantee.
 
     input_tokens = [r["input_token_count"] for r in outputs
                     if r["input_token_count"] is not None]
@@ -561,7 +742,13 @@ def run_replay_stage(
         "expected_attempts": expected,
         "n_attempted": attempted,
         "n_succeeded": len(outputs),
-        "n_failed": len(failures),
+        # Cells whose LATEST attempt failed. The failure journal itself is
+        # append-only history and may hold more lines than this across
+        # interruptions; n_failure_attempts reports that total so a
+        # retried-and-recovered cell is visible rather than silently erased.
+        "n_failed": len(failed),
+        "n_failure_attempts": len(failures),
+        "failed_cells": sorted(f"{fid}:{variant}" for fid, variant in failed),
         "missing_variants": missing,
         "provenance": {
             "backend": config.backend,
@@ -615,11 +802,18 @@ def run_replay_stage(
         report["provenance"].update(run_prov)
         report["resume"] = {
             "enabled": bool(resume), "n_pairs_resumed": len(done),
+            "n_prior_failure_attempts_retained": len(prior_failures),
         }
+    if confirmatory_gate is not None:
+        # Persisted with the run so the PASS is auditable from the evidence
+        # itself rather than only from the launching terminal's stdout.
+        report["confirmatory_gate"] = confirmatory_gate
     with (run_dir / REPLAY_REPORT_FILE).open(
             "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, ensure_ascii=False)
 
-    log.info("Replay %s: %d/%d succeeded (%d failed) -> %s",
-             run_id, len(outputs), attempted, len(failures), run_dir)
+    log.info("Replay %s: %d/%d succeeded (%d failed, %d failure attempt(s) "
+             "journaled) -> %s",
+             run_id, len(outputs), attempted, len(failed), len(failures),
+             run_dir)
     return report

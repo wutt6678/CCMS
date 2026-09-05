@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 
 from causal_mllm.replay.config import ReplayConfig
+from causal_mllm.replay.confirmatory import enforce_confirmatory_protocol
 from causal_mllm.replay.registry import resolve_model
 from causal_mllm.replay.runner import run_replay_stage
 
@@ -113,11 +114,45 @@ def main() -> None:
     else:
         output_root = LEGACY_OUTPUT_ROOT
 
+    # Confirmatory gate: revision pinning alone does not make a run
+    # confirmatory. Before any generation, the frozen panel hash, family
+    # and variant counts, cap, decoding, clean tree, locked model AND
+    # processor revisions, the live dependency environment and a passing
+    # 11.5 eligibility report are all enforced together. A technical
+    # preflight (--preflight) is exempt by design — it exists to discover
+    # whether a target is loadable at all — but it cannot produce
+    # confirmatory evidence.
+    if model_spec is not None and not args.preflight:
+        gate = enforce_confirmatory_protocol(
+            input_dir=args.input_dir,
+            config=config,
+            model_spec=model_spec,
+            overwrite=args.overwrite,
+            max_families=args.max_families,
+            output_root=output_root,
+            lock_path=args.lock,
+        )
+        print(f"confirmatory gate: PASS "
+              f"({len(gate['checks'])} checks, panel="
+              f"{gate['checks']['panel_sha256'][:16]}…, cap="
+              f"{gate['checks']['max_new_tokens']}, "
+              f"code_commit={str(gate['checks']['code_commit'])[:12]}, "
+              f"git_dirty={gate['checks']['git_dirty']})")
+    else:
+        gate = None
+
     report = run_replay_stage(
         args.input_dir, output_root, config=config,
         max_families=args.max_families, run_id=args.run_id,
         overwrite=args.overwrite, model_spec=model_spec,
-        resume=args.resume)
+        resume=args.resume,
+        # The SAME lock path must reach the fingerprint: resolving
+        # revisions from a custom lock while the fingerprint silently binds
+        # the default one would certify an environment the run never read.
+        lock_path=args.lock,
+        # Persist the gate evidence with the run so a PASS is auditable
+        # rather than merely asserted on stdout.
+        confirmatory_gate=gate)
     print(f"run_id: {report['run_id']}")
     if model_spec is not None:
         prov = report["provenance"]

@@ -55,6 +55,24 @@ VENDOR_PROMPT_SHA = (
     "331b249682cd52226c50e533f59825184997f3b31f9a62b2c3fea940db6999c5")
 
 
+def _dependency_block(**overrides) -> dict:
+    """A COMPLETE dependency-lock identity block.
+
+    ``dependency_lock_sha256`` refuses to hash a partial identity, so
+    tests that exercise it must supply every field rather than the one or
+    two they care about.
+    """
+    block = {
+        "pip_freeze_sha256": "d" * 64,
+        "n_packages": 3,
+        "excluded_self_distributions": [],
+        "pyproject_sha256": "e" * 64,
+        "python_version": "3.10.20",
+    }
+    block.update(overrides)
+    return block
+
+
 # --- fakes -------------------------------------------------------------
 class _FakeConfig:
     def __init__(self, **kwargs):
@@ -325,7 +343,7 @@ class TestPreflightLock:
 
     def test_dependency_lock_hash_is_stable(self, tmp_path):
         path = tmp_path / "lock.yaml"
-        dep = {"pip_freeze_sha256": "d" * 64, "n_packages": 3}
+        dep = _dependency_block(pip_freeze_sha256="d" * 64)
         update_lock("m1", revision="a" * 40, dependency_lock=dep,
                     lock_path=path)
         first = dependency_lock_sha256(path)
@@ -338,11 +356,13 @@ class TestPreflightLock:
                                                               tmp_path):
         path = tmp_path / "lock.yaml"
         update_lock("m1", revision="a" * 40,
-                    dependency_lock={"pip_freeze_sha256": "d" * 64},
+                    dependency_lock=_dependency_block(
+                        pip_freeze_sha256="d" * 64),
                     lock_path=path)
         before = dependency_lock_sha256(path)
         update_lock("m1", revision="a" * 40,
-                    dependency_lock={"pip_freeze_sha256": "e" * 64},
+                    dependency_lock=_dependency_block(
+                        pip_freeze_sha256="e" * 64),
                     lock_path=path)
         assert dependency_lock_sha256(path) != before
 
@@ -374,6 +394,10 @@ class TestDependencyLockStability:
     def _snapshot(self, monkeypatch, freeze_text):
         class _Completed:
             stdout = freeze_text
+            # A non-zero exit is now an error rather than an empty
+            # snapshot, so the fake has to model a successful freeze.
+            returncode = 0
+            stderr = ""
 
         monkeypatch.setattr(
             "causal_mllm.replay.registry.subprocess.run",

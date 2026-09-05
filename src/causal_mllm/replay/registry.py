@@ -17,6 +17,7 @@ This module never loads models; it only resolves declarative specs.
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -231,24 +232,92 @@ def _is_self_distribution_line(line: str) -> bool:
     return _self_distribution_name(line) is not None
 
 
+#: The revision of an editable VCS install, matched as the LAST ``@``-
+#: separated hex segment before any ``#egg=``/``#subdirectory=`` fragment.
+#: The URL itself may contain ``@`` (``ssh://git@host``), so the match is
+#: anchored on a hex revision followed by end-of-line or a fragment.
+_EDITABLE_VCS_REVISION = re.compile(
+    r"^(?P<head>.*@)(?P<rev>[0-9a-fA-F]{7,40})(?P<tail>(#.*)?)$")
+
+#: Substituted for the revision inside the hashed freeze text.
+VCS_REVISION_PLACEHOLDER = "<vcs-revision>"
+
+#: ``#egg=<name>`` of an editable VCS line, used to key the recorded
+#: revisions by something readable.
+_EGG_NAME = re.compile(r"#egg=([^&\s]+)")
+
+
+def _editable_vcs_name(line: str) -> str:
+    """A readable key for an editable VCS freeze line."""
+    match = _EGG_NAME.search(line)
+    if match:
+        return match.group(1)
+    return line.split()[0] if line.split() else line
+
+
+def normalize_freeze_lines(lines: list[str]) -> tuple[list[str], dict]:
+    """Split editable-VCS revisions out of the hashed package set.
+
+    ``pip freeze`` renders a sibling editable install as
+    ``-e git+<url>@<LIVE HEAD OF THAT REPOSITORY>#egg=<name>``. The
+    revision is therefore a property of another project's working tree,
+    not of this project's dependency set: MIDP moved five commits in forty
+    minutes while nothing about CCMS inference changed, and each move
+    silently changed ``pip_freeze_sha256``. That is the same instability
+    already removed for this project's own editable install, and it has the
+    same consequences — a resume key that invalidates itself mid-run and a
+    confirmatory gate that fails for reasons unrelated to the experiment.
+
+    The revision is replaced by :data:`VCS_REVISION_PLACEHOLDER` in the
+    hashed text and returned separately, so what is INSTALLED (name, URL,
+    subdirectory) stays certified while the sibling's HEAD is recorded as
+    operational metadata rather than as dependency identity.
+    """
+    normalized: list[str] = []
+    revisions: dict[str, str] = {}
+    for line in lines:
+        match = _EDITABLE_VCS_REVISION.match(line)
+        if match:
+            revisions[_editable_vcs_name(line)] = match.group("rev")
+            normalized.append(
+                f"{match.group('head')}{VCS_REVISION_PLACEHOLDER}"
+                f"{match.group('tail')}")
+        else:
+            normalized.append(line)
+    return normalized, revisions
+
+
 def dependency_lock_snapshot() -> dict:
     """Hashed snapshot of the reference environment.
 
     The frozen protocol requires a complete pip-freeze lock hash to be
     captured at preflight and bound into each resolved run fingerprint.
     The project's own editable install is excluded (see
-    :data:`SELF_DISTRIBUTIONS`) so the hash depends only on third-party
-    packages and is reproducible across invocations of the same tree.
+    :data:`SELF_DISTRIBUTIONS`) and editable VCS revisions are normalized
+    out (see :func:`normalize_freeze_lines`) so the hash depends only on
+    what is installed and is reproducible across invocations of the same
+    tree at different times.
+
+    Fail-closed: a non-zero ``pip freeze`` exit is an error, not an empty
+    snapshot. A partial or empty freeze still hashes to a STABLE value, so
+    it would silently certify an environment that was never observed.
     """
     completed = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
         capture_output=True, text=True, check=False)
+    if completed.returncode != 0:
+        raise ReplayError(
+            f"`{sys.executable} -m pip freeze` exited "
+            f"{completed.returncode}; refusing to record a dependency lock "
+            f"from a partial snapshot. stderr: "
+            f"{(completed.stderr or '').strip()[:400]}")
     all_lines = sorted(line.strip() for line in completed.stdout.splitlines()
                        if line.strip() and not line.startswith("#"))
     excluded = sorted({name for name in
                        (_self_distribution_name(line) for line in all_lines)
                        if name})
-    lines = [line for line in all_lines if not _is_self_distribution_line(line)]
+    kept = [line for line in all_lines if not _is_self_distribution_line(line)]
+    lines, editable_revisions = normalize_freeze_lines(kept)
     freeze_text = "\n".join(lines)
     pyproject = REPO_ROOT / "pyproject.toml"
     return {
@@ -259,23 +328,152 @@ def dependency_lock_snapshot() -> dict:
         "pyproject_sha256": _file_sha256(pyproject),
         "python_version": sys.version.split()[0],
         "executable": sys.executable,
+        "editable_vcs_revisions": editable_revisions,
     }
 
 
-def dependency_lock_sha256(lock_path: str | Path | None = None) -> str | None:
-    """Hash of the recorded dependency lock (None if not yet captured)."""
+#: Fields that constitute PORTABLE dependency identity.
+#:
+#: ``executable`` is deliberately excluded: it is an absolute interpreter
+#: path that differs between hosts and virtualenvs even when the installed
+#: package set is byte-identical, so hashing it would make the lock
+#: un-transferable while describing no dependency change at all. It is
+#: still RECORDED in the snapshot as operational metadata (useful when
+#: debugging which interpreter produced an artifact), it simply is not
+#: part of what the hash certifies.
+LOCK_IDENTITY_FIELDS = (
+    "pip_freeze_sha256",
+    "n_packages",
+    "excluded_self_distributions",
+    "pyproject_sha256",
+    "python_version",
+)
+
+#: Operational (non-identity) metadata recorded alongside the lock:
+#: ``executable`` is where the interpreter happens to live, and
+#: ``editable_vcs_revisions`` are the live HEADs of SIBLING repositories
+#: that are editable-installed into the same environment. Both are recorded
+#: and reported, but neither is part of what the lock hash certifies.
+LOCK_OPERATIONAL_FIELDS = ("executable", "editable_vcs_revisions")
+
+
+def load_dependency_lock(lock_path: str | Path | None = None) -> dict | None:
+    """The recorded ``dependency_lock`` block, or None if not captured.
+
+    None means "no lock has been captured yet" (absent file, or the file
+    has no ``dependency_lock`` block). A CORRUPT lock is not None: a YAML
+    parse failure raises, because reading a corrupt lock as "nothing
+    recorded" would let a run proceed with no dependency evidence.
+    """
     path = Path(lock_path) if lock_path else DEFAULT_LOCK
     if not path.exists():
         return None
     try:
         lock = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except yaml.YAMLError:
+    except yaml.YAMLError as exc:
+        raise ReplayError(f"{path}: unreadable dependency lock: {exc}") from exc
+    dependency = lock.get("dependency_lock") if isinstance(lock, dict) else None
+    return dependency if isinstance(dependency, dict) else None
+
+
+def dependency_lock_sha256(lock_path: str | Path | None = None) -> str | None:
+    """Hash of the recorded dependency lock (None if not yet captured).
+
+    Hashes :data:`LOCK_IDENTITY_FIELDS` only, so the value is a statement
+    about the installed package set and not about where the interpreter
+    happens to live. A lock block that is present but missing an identity
+    field is an error rather than a weaker hash.
+    """
+    dependency = load_dependency_lock(lock_path)
+    if dependency is None:
         return None
-    dependency = lock.get("dependency_lock")
-    if not isinstance(dependency, dict):
-        return None
-    blob = yaml.safe_dump(dependency, sort_keys=True)
+    missing = [f for f in LOCK_IDENTITY_FIELDS if f not in dependency]
+    if missing:
+        raise ReplayError(
+            f"{Path(lock_path) if lock_path else DEFAULT_LOCK}: recorded "
+            f"dependency_lock is missing identity fields {missing}; "
+            f"refusing to hash a partial dependency identity")
+    identity = {f: dependency[f] for f in LOCK_IDENTITY_FIELDS}
+    blob = yaml.safe_dump(identity, sort_keys=True)
     return hashlib.sha256(blob.encode("utf-8")).hexdigest()
+
+
+def verify_active_dependency_lock(
+    lock_path: str | Path | None = None,
+    *,
+    strict: bool = True,
+) -> dict:
+    """Compare the environment RUNNING NOW against the recorded lock.
+
+    Recording a lock hash is not the same as enforcing it: without this
+    check a run could execute under a different transformers/PEFT install
+    while still reporting the old recorded hash, because the hash is read
+    from the lock FILE rather than measured from the live environment.
+
+    Args:
+        strict: raise on any difference (confirmatory/eligibility runs).
+            When False the differences are only reported, for diagnostics.
+
+    Returns:
+        A dict recording both snapshots' identity fields, the per-field
+        differences, and the operational ``executable`` paths.
+    """
+    resolved_path = Path(lock_path) if lock_path else DEFAULT_LOCK
+    locked = load_dependency_lock(resolved_path)
+    if locked is None:
+        if strict:
+            raise ReplayError(
+                f"{resolved_path}: no dependency lock recorded; a "
+                f"confirmatory run cannot certify its environment. Run the "
+                f"model preflight to capture one.")
+        return {
+            "verified": False,
+            "reason": "no_dependency_lock_recorded",
+            "lock_path": str(resolved_path),
+            "checked_fields": list(LOCK_IDENTITY_FIELDS),
+            "differences": {},
+        }
+    active = dependency_lock_snapshot()
+    differences = {
+        f: {"locked": locked.get(f), "active": active.get(f)}
+        for f in LOCK_IDENTITY_FIELDS
+        if locked.get(f) != active.get(f)
+    }
+    # Operational drift is RECORDED but never fatal: a sibling editable
+    # install moving its HEAD, or a different interpreter path, does not
+    # change what this project has installed.
+    informational = {
+        f: {"locked": locked.get(f), "active": active.get(f)}
+        for f in LOCK_OPERATIONAL_FIELDS
+        if locked.get(f) != active.get(f)
+    }
+    result = {
+        "verified": not differences,
+        "lock_path": str(resolved_path),
+        "checked_fields": list(LOCK_IDENTITY_FIELDS),
+        "differences": differences,
+        "informational_differences": informational,
+        "locked_identity": {f: locked.get(f) for f in LOCK_IDENTITY_FIELDS},
+        "active_identity": {f: active.get(f) for f in LOCK_IDENTITY_FIELDS},
+        # Operational only: differing interpreters or sibling-repository
+        # HEADs with identical identity fields is expected and is NOT a
+        # failure.
+        "locked_executable": locked.get("executable"),
+        "active_executable": active.get("executable"),
+        "locked_editable_vcs_revisions": locked.get("editable_vcs_revisions"),
+        "active_editable_vcs_revisions": active.get("editable_vcs_revisions"),
+        "dependency_lock_sha256": dependency_lock_sha256(resolved_path),
+    }
+    if differences and strict:
+        detail = "; ".join(
+            f"{f}: locked={v['locked']!r} active={v['active']!r}"
+            for f, v in sorted(differences.items()))
+        raise ReplayError(
+            f"active environment does not match the recorded dependency "
+            f"lock at {resolved_path} — {detail}. Inference would run under "
+            f"a different dependency set than the one certified at "
+            f"preflight; re-run the preflight to re-lock deliberately.")
+    return result
 
 
 def update_lock(model_key: str, *, revision: str,

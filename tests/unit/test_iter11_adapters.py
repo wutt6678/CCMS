@@ -596,7 +596,8 @@ class TestRunnerIteration11Provenance:
         assert report["model_key"] == "qwen35_9b"
         assert report["adapter"] == "qwen35"
         assert report["model_spec"]["model_id"] == FROZEN_9B_REF["model"]
-        assert report["resume"] == {"enabled": False, "n_pairs_resumed": 0}
+        assert report["resume"]["enabled"] is False
+        assert report["resume"]["n_pairs_resumed"] == 0
         prov = report["provenance"]
         assert prov["resolved_run_fingerprint"]
         assert prov["model_key"] == "qwen35_9b"
@@ -829,7 +830,13 @@ class TestResume:
         assert second.n_calls == 6, "completed family was regenerated"
         assert report["n_succeeded"] == 12 and report["n_failed"] == 0
         assert report["missing_variants"] == []
-        assert report["resume"] == {"enabled": True, "n_pairs_resumed": 6}
+        assert report["resume"]["enabled"] is True
+        assert report["resume"]["n_pairs_resumed"] == 6
+        # fam001's six failed attempts from the interrupted run are
+        # retained as history even though every cell recovered.
+        assert report["resume"]["n_prior_failure_attempts_retained"] == 6
+        assert report["n_failure_attempts"] == 6
+        assert report["failed_cells"] == []
         outputs = self._outputs(tmp_path)
         assert len(outputs) == 12
         pairs = {(r["family_id"], r["variant"]) for r in outputs}
