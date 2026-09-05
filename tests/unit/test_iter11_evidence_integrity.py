@@ -449,6 +449,22 @@ class TestCodeTreeStatus:
             lambda: _git_paths(modified=["a.py"], untracked=["b.py"]))
         assert seeds.dirty_tracked_files() == ["a.py"]
 
+    def test_provenance_is_anchored_to_the_repository_not_the_cwd(
+            self, monkeypatch, tmp_path):
+        # Launching a stage from outside the repository used to record
+        # code_commit=None while the (already anchored) tree determination
+        # described the repository correctly: two answers to one question,
+        # and the gate refused on the first while trusting the second.
+        expected = subprocess.run(
+            ["git", "rev-parse", "HEAD"], cwd=ROOT,
+            capture_output=True, text=True).stdout.strip()
+        assert expected, "the repository HEAD should be resolvable"
+        assert seeds.get_git_commit() == expected
+        monkeypatch.chdir(tmp_path)  # outside the repository
+        assert seeds.get_git_commit() == expected
+        assert isinstance(seeds.is_git_dirty(), bool)
+        assert isinstance(seeds.code_tree_status()["dirty"], bool)
+
 
 class TestCommittedArtifactProvenance:
     """The committed artifacts, checked against the P0-2 invariants."""

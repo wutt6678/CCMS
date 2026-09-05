@@ -80,12 +80,31 @@ def config_hash(config_dict: dict) -> str:
     return sha256_bytes(canonical.encode("utf-8"))
 
 
+#: Repository root, derived from this file rather than from the process
+#: cwd so the answer does not depend on where a script was launched.
+#: Every provenance question below is anchored here: ``git_commit`` and
+#: ``git_dirty`` must describe the repository whose code executed, not
+#: whatever directory the process happened to be started in. Launching a
+#: stage from outside the repo used to record ``code_commit: None`` (and so
+#: an unresolvable provenance) while the tree determination, which was
+#: already anchored, described the repo correctly — two answers to one
+#: question. For a non-editable install this reports the installed source's
+#: own repository, or None; that is the honest answer, and strictly better
+#: than recording the commit of an unrelated repository the caller stood in.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))))
+
+
 def get_git_commit() -> Optional[str]:
-    """Return the current git commit hash, or None if not in a git repo."""
+    """Return the current git commit hash, or None if not in a git repo.
+
+    Anchored on :data:`_REPO_ROOT`, not on the process cwd.
+    """
     import subprocess
     try:
         result = subprocess.run(
             ["git", "rev-parse", "HEAD"],
+            cwd=_REPO_ROOT,
             capture_output=True,
             text=True,
             timeout=5,
@@ -95,12 +114,6 @@ def get_git_commit() -> Optional[str]:
     except (FileNotFoundError, subprocess.TimeoutExpired):
         pass
     return None
-
-
-#: Repository root, derived from this file rather than from the process
-#: cwd so the answer does not depend on where a script was launched.
-_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(
-    os.path.abspath(__file__))))
 
 
 def git_working_tree_paths() -> Optional[dict]:
@@ -237,12 +250,19 @@ def is_git_dirty() -> Optional[bool]:
     directories) are NOT counted — they are normal side effects of
     running the pipeline and become evidence once committed.
 
+    This is the narrow, tracked-only answer, and it is what provenance
+    RECORDS as ``git_dirty``. It is not sufficient to GATE on: use
+    :func:`code_tree_status`, which also considers untracked files.
+
+    Anchored on :data:`_REPO_ROOT`, not on the process cwd.
+
     Returns None if not inside a git repo (provenance unknown).
     """
     import subprocess
     try:
         result = subprocess.run(
             ["git", "status", "--porcelain", "--untracked-files=no"],
+            cwd=_REPO_ROOT,
             capture_output=True,
             text=True,
             timeout=5,
