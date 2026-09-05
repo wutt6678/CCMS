@@ -194,23 +194,68 @@ def _file_sha256(path: Path) -> str | None:
         return None
 
 
+#: This project's own distribution, excluded from the dependency-lock hash.
+#:
+#: ``pip freeze`` reports an editable self-install in one of two ways
+#: depending on how the process was invoked — either
+#: ``-e git+<url>@<revision>#egg=causal_mllm`` or ``causal-mllm==0.1.0`` —
+#: and the first form embeds the repository's LIVE git HEAD. The same
+#: working tree therefore hashed to four different values across four
+#: invocations, and the value moved on every commit. Since
+#: ``iteration11_run_fingerprint`` binds this hash and uses it to decide
+#: whether a run may be resumed, an unstable value would reject a
+#: legitimate resume and makes the recorded lock useless as evidence.
+#:
+#: Nothing is lost by excluding it: the code identity is already bound
+#: separately and more precisely via ``code_commit`` / ``git_dirty``. The
+#: exclusion is still reported — by distribution NAME, deliberately, since
+#: recording the raw editable line would embed the live git HEAD inside the
+#: hashed lock block and reintroduce the same instability one level up.
+#: Third-party editable installs (e.g. the MIDP prior-art package) are KEPT —
+#: a change there is a real dependency change.
+SELF_DISTRIBUTIONS = ("causal_mllm", "causal-mllm")
+
+
+def _self_distribution_name(line: str) -> str | None:
+    """Which of :data:`SELF_DISTRIBUTIONS` a freeze line refers to, if any."""
+    lowered = line.lower()
+    for name in SELF_DISTRIBUTIONS:
+        if f"#egg={name}" in lowered:
+            return name
+        if lowered.startswith(f"{name}==") or lowered.startswith(f"{name} @"):
+            return name
+    return None
+
+
+def _is_self_distribution_line(line: str) -> bool:
+    return _self_distribution_name(line) is not None
+
+
 def dependency_lock_snapshot() -> dict:
     """Hashed snapshot of the reference environment.
 
     The frozen protocol requires a complete pip-freeze lock hash to be
     captured at preflight and bound into each resolved run fingerprint.
+    The project's own editable install is excluded (see
+    :data:`SELF_DISTRIBUTIONS`) so the hash depends only on third-party
+    packages and is reproducible across invocations of the same tree.
     """
     completed = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
         capture_output=True, text=True, check=False)
-    lines = sorted(line.strip() for line in completed.stdout.splitlines()
-                   if line.strip() and not line.startswith("#"))
+    all_lines = sorted(line.strip() for line in completed.stdout.splitlines()
+                       if line.strip() and not line.startswith("#"))
+    excluded = sorted({name for name in
+                       (_self_distribution_name(line) for line in all_lines)
+                       if name})
+    lines = [line for line in all_lines if not _is_self_distribution_line(line)]
     freeze_text = "\n".join(lines)
     pyproject = REPO_ROOT / "pyproject.toml"
     return {
         "pip_freeze_sha256": hashlib.sha256(
             freeze_text.encode("utf-8")).hexdigest(),
         "n_packages": len(lines),
+        "excluded_self_distributions": excluded,
         "pyproject_sha256": _file_sha256(pyproject),
         "python_version": sys.version.split()[0],
         "executable": sys.executable,

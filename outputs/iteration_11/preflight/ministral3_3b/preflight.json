@@ -50,7 +50,7 @@
     "n_families_smoked": 1
   },
   "device": "cuda:3",
-  "code_commit": "025b794582c61c462f01ada0e560dd2731e7bded",
+  "code_commit": "64f96ca5ce51f7ca2de224b2455061f10bc8697a",
   "gpu_smoke": [
     {
       "variant": "cross_modal",
@@ -224,8 +224,11 @@
     "revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
     "processor_revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
     "dependency_lock": {
-      "pip_freeze_sha256": "a5cdb2750d468bbbbf938554f346b74aef10b9024cb462af92224ab373bcafc3",
-      "n_packages": 102,
+      "pip_freeze_sha256": "dd9b04c7eee47c55a79d9112333fe4b701f9994893e3476ee05bd077aa89695a",
+      "n_packages": 101,
+      "excluded_self_distributions": [
+        "causal_mllm"
+      ],
       "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
       "python_version": "3.10.20",
       "executable": "/scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python"
@@ -257,5 +260,5 @@
   },
   "problems": [],
   "status": "PASS",
-  "timestamp": "2026-09-04T04:27:50+00:00"
+  "timestamp": "2026-09-05T06:30:02+00:00"
 }

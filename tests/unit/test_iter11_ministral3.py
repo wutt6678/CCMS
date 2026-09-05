@@ -17,10 +17,21 @@ import yaml
 
 from causal_mllm.replay import ReplayConfig, ReplayError, build_adapter
 from causal_mllm.replay.adapters.ministral3 import (
-    IMAGE_TOKEN, Ministral3Adapter, VENDOR_DEFAULT_MARKERS)
+    IMAGE_TOKEN,
+    VENDOR_DEFAULT_MARKERS,
+    Ministral3Adapter,
+)
 from causal_mllm.replay.registry import (
-    DEFAULT_LOCK, dependency_lock_sha256, is_immutable_revision,
-    load_lock, resolve_model, update_lock)
+    DEFAULT_LOCK,
+    SELF_DISTRIBUTIONS,
+    _is_self_distribution_line,
+    dependency_lock_sha256,
+    dependency_lock_snapshot,
+    is_immutable_revision,
+    load_lock,
+    resolve_model,
+    update_lock,
+)
 
 PREFLIGHT_ROOT = (
     Path(__file__).resolve().parents[2]
@@ -334,6 +345,108 @@ class TestPreflightLock:
                     dependency_lock={"pip_freeze_sha256": "e" * 64},
                     lock_path=path)
         assert dependency_lock_sha256(path) != before
+
+
+# ---------------------------------------------------------------------
+# Dependency-lock stability
+# ---------------------------------------------------------------------
+class TestDependencyLockStability:
+    """The lock hash must depend only on third-party packages.
+
+    ``pip freeze`` reports this project's own editable install either as
+    ``-e git+<url>@<live HEAD>#egg=causal_mllm`` or as ``causal-mllm==0.1.0``
+    depending on how the process was invoked; both forms were observed in
+    the SAME working tree, and the first embeds the live git HEAD. Hashing
+    them made ``dependency_lock_sha256`` — which
+    ``iteration11_run_fingerprint`` binds and resume is gated on — differ
+    between invocations and move on every commit.
+    """
+
+    THIRD_PARTY = "numpy==1.26.0\ntransformers==5.14.1\n"
+    EDITABLE_SELF = (
+        "-e git+ssh://git@github.com/wutt6678/CCMS.git@"
+        "64f96ca5ce51f7ca2de224b2455061f10bc8697a#egg=causal_mllm\n")
+    PINNED_SELF = "causal-mllm==0.1.0\n"
+    EDITABLE_DEPENDENCY = (
+        "-e git+ssh://git@github.com/wutt6678/MIDP.git@a1df9be09a2f"
+        "#egg=route_unlearning_data&subdirectory=datasets/route-x\n")
+
+    def _snapshot(self, monkeypatch, freeze_text):
+        class _Completed:
+            stdout = freeze_text
+
+        monkeypatch.setattr(
+            "causal_mllm.replay.registry.subprocess.run",
+            lambda *args, **kwargs: _Completed())
+        return dependency_lock_snapshot()
+
+    def test_the_editable_self_form_is_excluded_and_reported(self,
+                                                             monkeypatch):
+        snap = self._snapshot(
+            monkeypatch, self.THIRD_PARTY + self.EDITABLE_SELF)
+        assert snap["n_packages"] == 2
+        assert snap["excluded_self_distributions"] == ["causal_mllm"]
+
+    def test_the_pinned_self_form_is_excluded_and_reported(self, monkeypatch):
+        snap = self._snapshot(monkeypatch, self.THIRD_PARTY + self.PINNED_SELF)
+        assert snap["n_packages"] == 2
+        assert snap["excluded_self_distributions"] == ["causal-mllm"]
+
+    def test_the_recorded_exclusion_carries_no_live_revision(self,
+                                                            monkeypatch):
+        # Recording the raw editable line would embed the live git HEAD
+        # inside the hashed lock block, reintroducing the very instability
+        # the exclusion exists to remove. Only the NAME is recorded.
+        snap = self._snapshot(
+            monkeypatch, self.THIRD_PARTY + self.EDITABLE_SELF)
+        recorded = json.dumps(snap["excluded_self_distributions"])
+        assert "64f96ca" not in recorded
+        assert "git+" not in recorded
+        assert "ssh://" not in recorded
+
+    def test_both_self_forms_hash_identically(self, monkeypatch):
+        # This is the actual defect: one tree, two invocations, two hashes.
+        editable = self._snapshot(
+            monkeypatch, self.THIRD_PARTY + self.EDITABLE_SELF)
+        pinned = self._snapshot(monkeypatch, self.THIRD_PARTY + self.PINNED_SELF)
+        assert editable["pip_freeze_sha256"] == pinned["pip_freeze_sha256"]
+
+    def test_a_third_party_editable_dependency_is_kept(self, monkeypatch):
+        # MIDP is prior art this project depends on; a change there IS a
+        # dependency change and must move the hash.
+        snap = self._snapshot(
+            monkeypatch, self.THIRD_PARTY + self.EDITABLE_DEPENDENCY)
+        assert snap["n_packages"] == 3
+        assert snap["excluded_self_distributions"] == []
+
+    def test_the_hash_still_moves_when_a_real_dependency_moves(self,
+                                                              monkeypatch):
+        before = self._snapshot(monkeypatch, self.THIRD_PARTY)
+        after = self._snapshot(
+            monkeypatch, self.THIRD_PARTY.replace("1.26.0", "2.0.0"))
+        assert before["pip_freeze_sha256"] != after["pip_freeze_sha256"]
+
+    def test_lookalike_names_are_not_excluded(self):
+        assert _is_self_distribution_line("not-causal-mllm==1.0") is False
+        assert _is_self_distribution_line(
+            "-e git+ssh://x/y.git@abc#egg=not_causal_mllm") is False
+        assert _is_self_distribution_line("causal-mllm-extras==1.0") is False
+
+    def test_recognised_self_forms(self):
+        assert _is_self_distribution_line(self.PINNED_SELF.strip()) is True
+        assert _is_self_distribution_line(self.EDITABLE_SELF.strip()) is True
+        assert _is_self_distribution_line(
+            "causal-mllm @ file:///scratch/x/CCMS") is True
+
+    def test_the_live_environment_snapshot_is_stable(self):
+        first = dependency_lock_snapshot()
+        second = dependency_lock_snapshot()
+        # The WHOLE snapshot must be reproducible, not just the hash: it is
+        # what gets written into the lock and bound into the fingerprint.
+        assert first == second
+        assert first["n_packages"] > 0
+        for name in first["excluded_self_distributions"]:
+            assert name in SELF_DISTRIBUTIONS
 
 
 # ---------------------------------------------------------------------

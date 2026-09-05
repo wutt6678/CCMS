@@ -6,7 +6,7 @@
     "model_key": "qwen35_2b",
     "model_id": "Qwen/Qwen3.5-2B",
     "adapter": "qwen35",
-    "revision": null,
+    "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
     "dtype": "bfloat16",
     "quantization": "none",
     "trust_remote_code": false,
@@ -22,10 +22,10 @@
       "checkpoint_size_bytes": null,
       "source_url": null
     },
-    "revision_source": "registry"
+    "revision_source": "lock"
   },
-  "registry_revision": null,
-  "revision_is_immutable": false,
+  "registry_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
+  "revision_is_immutable": true,
   "generation_config": {
     "temperature": 0.0,
     "top_p": 1.0,
@@ -49,7 +49,7 @@
     "n_families_smoked": 1
   },
   "device": "cuda:3",
-  "code_commit": "025b794582c61c462f01ada0e560dd2731e7bded",
+  "code_commit": "64f96ca5ce51f7ca2de224b2455061f10bc8697a",
   "gpu_smoke": [
     {
       "variant": "cross_modal",
@@ -177,8 +177,11 @@
     "revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
     "processor_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
     "dependency_lock": {
-      "pip_freeze_sha256": "a5cdb2750d468bbbbf938554f346b74aef10b9024cb462af92224ab373bcafc3",
-      "n_packages": 102,
+      "pip_freeze_sha256": "dd9b04c7eee47c55a79d9112333fe4b701f9994893e3476ee05bd077aa89695a",
+      "n_packages": 101,
+      "excluded_self_distributions": [
+        "causal_mllm"
+      ],
       "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
       "python_version": "3.10.20",
       "executable": "/scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python"
@@ -189,7 +192,7 @@
   "processor_revision": "15852e8c16360a2fea060d615a32b45270f8a8fc",
   "size_metadata": {
     "model_id": "Qwen/Qwen3.5-2B",
-    "revision_requested": null,
+    "revision_requested": "15852e8c16360a2fea060d615a32b45270f8a8fc",
     "revision_used": "15852e8c16360a2fea060d615a32b45270f8a8fc",
     "snapshot_path": "/scratch/wutiantong/.cache/huggingface/hub/models--Qwen--Qwen3.5-2B/snapshots/15852e8c16360a2fea060d615a32b45270f8a8fc",
     "n_shards": 1,
@@ -211,5 +214,5 @@
   },
   "problems": [],
   "status": "PASS",
-  "timestamp": "2026-09-04T04:23:43+00:00"
+  "timestamp": "2026-09-05T06:27:59+00:00"
 }
