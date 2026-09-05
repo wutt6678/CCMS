@@ -7,8 +7,7 @@ before their modules land (11.3 / 11.4).
 
 from __future__ import annotations
 
-from causal_mllm.replay.adapters.base import (
-    HFAdapterBase, TargetModelAdapter)
+from causal_mllm.replay.adapters.base import HFAdapterBase, TargetModelAdapter
 from causal_mllm.replay.adapters.qwen35 import Qwen35Adapter
 from causal_mllm.replay.errors import ReplayError
 from causal_mllm.replay.registry import ResolvedModel
@@ -28,8 +27,7 @@ def build_adapter(model_spec: ResolvedModel, config,
         from causal_mllm.replay.adapters.ministral3 import Ministral3Adapter
         return Ministral3Adapter(config, model_spec, device=device)
     if kind == "phi4_multimodal":
-        from causal_mllm.replay.adapters.phi4_multimodal import (
-            Phi4MultimodalAdapter)
+        from causal_mllm.replay.adapters.phi4_multimodal import Phi4MultimodalAdapter
         return Phi4MultimodalAdapter(config, model_spec, device=device)
     if kind == "gemma3":
         from causal_mllm.replay.adapters.gemma3 import Gemma3Adapter

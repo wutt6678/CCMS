@@ -37,6 +37,7 @@ import datetime
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
 from causal_mllm.data.io import read_jsonl, write_jsonl
@@ -45,7 +46,7 @@ from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.replay.backend import HFLocalBackend, ReplayBackend
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.errors import ReplayError, ReplayMediaError, classify_error
-from causal_mllm.replay.registry import dependency_lock_sha256
+from causal_mllm.replay.registry import ResolvedModel, dependency_lock_sha256
 from causal_mllm.seeds import get_git_commit, is_git_dirty, sha256_text
 from causal_mllm.validation.relations import _file_sha256
 

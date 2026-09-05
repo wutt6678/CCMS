@@ -38,8 +38,7 @@ from causal_mllm.replay import (
     resolved_fingerprint,
     run_replay_stage,
 )
-from causal_mllm.replay.adapters.base import (
-    ordered_image_hashes, semantic_prompt_hash)
+from causal_mllm.replay.adapters.base import ordered_image_hashes, semantic_prompt_hash
 from causal_mllm.replay.registry import DEFAULT_LOCK
 from causal_mllm.seeds import sha256_text
 from tests.unit.test_grounding import CLEAN_Q, _built_family
