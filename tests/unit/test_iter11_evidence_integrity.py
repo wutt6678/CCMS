@@ -2055,10 +2055,11 @@ class TestCommittedPreflightArtifacts:
             == environment["frozen_reference_versions"]
 
     @pytest.mark.parametrize("model_key", MODEL_KEYS)
-    def test_the_environment_name_deviation_is_declared(self, model_key):
-        # The frozen protocol names reference_env=midp-qwen35. The dedicated
-        # clone is a deliberate, recorded deviation — and the frozen file
-        # must not have been edited to hide it.
+    def test_an_environment_name_deviation_is_declared(self, model_key):
+        # The frozen protocol names reference_env=midp-qwen35. The invariant
+        # is not "the name must differ" but "any difference must be declared,
+        # and the frozen file must not have been edited to hide it" - so this
+        # stays true if a future environment happens to match.
         path = PREFLIGHT_ROOT / model_key / "preflight.json"
         if not path.exists() or not PROTOCOL.exists():
             pytest.skip(f"{path} not present")
@@ -2069,9 +2070,15 @@ class TestCommittedPreflightArtifacts:
         frozen_env = json.loads(PROTOCOL.read_text(
             encoding="utf-8"))["dependency_lock"]["reference_env"]
         assert environment["frozen_reference_env"] == frozen_env
-        assert environment["reference_env_matches_frozen"] is False
+        if environment["reference_env_matches_frozen"]:
+            assert "reference_env_deviation" not in environment
+            return
         deviation = environment["reference_env_deviation"]
         assert frozen_env in deviation["claim"]
         assert environment["conda_env"] in deviation["observation"]
         assert deviation["frozen_protocol_modified"] is False
         assert deviation["rationale"]
+        # Whatever the environment is called, the versions are what matter
+        # and they are checked rather than assumed.
+        assert environment["observed_versions"] \
+            == environment["frozen_reference_versions"]
