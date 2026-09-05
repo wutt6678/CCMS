@@ -35,13 +35,10 @@ sys.path.insert(0, str(REPO_ROOT / "src"))
 
 from causal_mllm.data.io import read_jsonl  # noqa: E402
 from causal_mllm.data.schemas import CausalFamily  # noqa: E402
-from causal_mllm.replay.checkpoint_size import (  # noqa: E402
-    checkpoint_size_metadata)
+from causal_mllm.replay.checkpoint_size import checkpoint_size_metadata  # noqa: E402
 from causal_mllm.replay.config import ReplayConfig  # noqa: E402
-from causal_mllm.replay.registry import (  # noqa: E402
-    is_immutable_revision, resolve_model)
-from causal_mllm.replay.runner import (  # noqa: E402
-    build_chat_messages, verify_family_media)
+from causal_mllm.replay.registry import is_immutable_revision, resolve_model  # noqa: E402
+from causal_mllm.replay.runner import build_chat_messages, verify_family_media  # noqa: E402
 from causal_mllm.seeds import get_git_commit, sha256_text  # noqa: E402
 
 FROZEN_PANEL = REPO_ROOT / "outputs" / "scale_c" / "families_panel"
@@ -91,7 +88,58 @@ FAMILY_PARITY_NOTES = {
         "warning is cosmetic here and the flag is left unset. The observed "
         "`tokenizer.fix_mistral_regex` value is recorded per generation.",
     ],
-    "phi4_multimodal": [],
+    "phi4_multimodal": [
+        "This is a transformers-4.x remote-code checkpoint loaded on "
+        "transformers 5.14.1 under the frozen protocol's "
+        "`shim_in_shared_env` decision. Every shim actually applied is "
+        "listed verbatim in runtime_metadata.phi4_shims, and the direct "
+        "checkpoint load is verified fail-closed in "
+        "runtime_metadata.phi4_load_report (lm_head tied to the input "
+        "embedding, zero parameters left on the meta device, zero "
+        "unmatched tensors). A silently untied output projection or one "
+        "randomly initialised parameter would emit fluent garbage while "
+        "every superficial check still passed, so both are asserted "
+        "rather than assumed.",
+        "config.json hard-codes flash_attention_2, which is unavailable "
+        "for this model here; sdpa is forced on the config and every "
+        "nested sub-config, which selects the vendor's own "
+        "Phi4MMSdpaAttention. The vendored SigLIP tower has a separate "
+        "_flash_attention_forward hook that never consults the config, so "
+        "it is redirected to sdpa as well.",
+        "The checkpoint ships bundled PEFT vision/speech LoRA adapters, "
+        "and Phi4MMForCausalLM.forward activates them from `input_mode`, "
+        "which the processor derives from the supplied modalities. Every "
+        "generation records input_mode and the LoRA adapters that were "
+        "active, so it stays auditable that the vision arm ran the vision "
+        "adapter and the text-only arm ran none.",
+        "generation_config.json declares eos_token_id [200020, 199999] "
+        "while config.json declares only 199999. 200020 is `<|end|>`, the "
+        "token the chat template uses to close every message, so the "
+        "shipped generation config is loaded explicitly; deriving it from "
+        "config.json would drop the model's real stop token and drive "
+        "every response to the 1536-token cap.",
+        "`num_logits_to_keep=1` is passed explicitly. transformers only "
+        "sets `logits_to_keep` itself when forward advertises that exact "
+        "name and this model names it `num_logits_to_keep`; greedy "
+        "decoding consumes only the last position's logits either way, so "
+        "this matches the other families instead of deviating from them.",
+        "The frozen protocol records `audio_tower_initialized: false`. "
+        "That is inaccurate for this checkpoint: "
+        "Phi4MMImageAudioEmbedding builds the audio tower "
+        "unconditionally, the checkpoint ships its weights, and the VISION "
+        "path itself routes through audio_embed.audio_projection.vision. "
+        "The tower is therefore fully initialised; what is false is that "
+        "any audio INPUT is supplied. This is reported per record in "
+        "runtime_metadata.phi4_audio_tower as an explicit deviation "
+        "rather than being silently contradicted.",
+        "The chat template concatenates `content` as a string, so the "
+        "multimodal part list is flattened: each image becomes one "
+        "`<|image_k|>` placeholder in message order followed by the turn "
+        "text (the vendor's own documented form). The processor "
+        "regex-normalises that to `<|endoftext10|>` and expands it to the "
+        "image's token count, asserting exactly one placeholder per "
+        "supplied image; both counts are recorded per generation.",
+    ],
     "gemma3": [],
 }
 
@@ -130,7 +178,129 @@ def _smoke_generation(adapter, family, config, variant, repeats):
     }
 
 
-def _check_smoke(smoke, size_meta) -> list[str]:
+def _check_input_mode_matches_variant(smoke) -> list[str]:
+    """The modality the model selected must be the one the variant implies.
+
+    Families whose processor reports an ``input_mode`` (Phi-4) get this
+    checked; families that report none are skipped.  A cross-modal prompt
+    that silently degraded to language-only would otherwise look like a
+    legitimate null result.
+    """
+    from causal_mllm.replay.adapters.phi4_multimodal import INPUT_MODE_LANGUAGE, INPUT_MODE_VISION
+
+    expected = {VISION_VARIANT: INPUT_MODE_VISION,
+                TEXT_VARIANT: INPUT_MODE_LANGUAGE}
+    problems = []
+    for entry in smoke:
+        want = expected.get(entry["variant"])
+        if want is None:
+            continue
+        for attempt in entry["attempts"]:
+            diag = attempt.get("adapter_diagnostics") or {}
+            got = diag.get("input_mode")
+            if got is not None and got != want:
+                problems.append(
+                    f"{entry['variant']}: processor selected input_mode "
+                    f"{got} but the variant requires {want}")
+            lora = diag.get("active_lora") or {}
+            if entry["variant"] == VISION_VARIANT and lora.get("available") \
+                    and "vision" not in (lora.get("active_adapters") or []):
+                problems.append(
+                    f"{entry['variant']}: the bundled vision LoRA was not "
+                    f"active (adapters={lora.get('active_adapters')}, "
+                    f"disabled={lora.get('adapters_disabled')}) — the "
+                    f"vision arm would run unadapted weights")
+            # The vendor disables every LoRA for LANGUAGE input, so the
+            # text-only arm runs base weights. Asserting it documents that
+            # the two arms differ by the image AND by the adapter the
+            # vendor intends for it, rather than leaving that implicit.
+            if entry["variant"] == TEXT_VARIANT and lora.get("available") \
+                    and lora.get("adapters_disabled") is not True:
+                problems.append(
+                    f"{entry['variant']}: LoRA adapters were not disabled "
+                    f"for language-only input "
+                    f"(adapters={lora.get('active_adapters')}, "
+                    f"disabled={lora.get('adapters_disabled')})")
+    return problems
+
+
+def _check_load_report(runtime_metadata, size_meta) -> list[str]:
+    """Verify a directly-loaded checkpoint actually received its weights.
+
+    Only families that report a ``phi4_load_report`` (i.e. those loaded
+    outside ``from_pretrained``, where transformers' own safety nets do
+    not apply) are checked.
+    """
+    report = (runtime_metadata or {}).get("phi4_load_report") or {}
+    if not report:
+        return []
+    problems = []
+    if report.get("lm_head_tied_to_embed_tokens") is not True:
+        problems.append(
+            "direct load: lm_head.weight is not tied to the input "
+            "embedding — the output projection would be random")
+    if report.get("parameters_left_on_meta"):
+        problems.append(
+            f"direct load: {report['parameters_left_on_meta']} "
+            f"parameter(s) were never materialised (still on meta)")
+    if report.get("unexpected_keys"):
+        problems.append(
+            f"direct load: {len(report['unexpected_keys'])} checkpoint "
+            f"tensor(s) matched no parameter: {report['unexpected_keys'][:5]}")
+    if report.get("missing_keys") not in ([], ["lm_head.weight"]):
+        problems.append(
+            f"direct load: unexpected missing keys "
+            f"{report['missing_keys'][:5]}")
+    if report.get("attn_implementation") != "sdpa":
+        problems.append(
+            f"direct load: attention implementation is "
+            f"{report.get('attn_implementation')!r}, expected 'sdpa'")
+    histogram = report.get("checkpoint_dtype_histogram") or {}
+    if set(histogram) - {"BF16"}:
+        problems.append(
+            f"direct load: checkpoint is not uniformly bf16: {histogram}")
+    # Independent cross-check: the adapter's header-derived count must
+    # agree with the declared-size machinery's header-derived count.
+    adapter_count = report.get("checkpoint_parameter_count")
+    declared_count = size_meta.get("checkpoint_parameter_count")
+    if adapter_count is not None and declared_count is not None \
+            and adapter_count != declared_count:
+        problems.append(
+            f"direct load counted {adapter_count} checkpoint parameters "
+            f"but the declared-size pass counted {declared_count}")
+    return problems
+
+
+def _check_rope_headroom(smoke, runtime_metadata, max_new_tokens) -> list:
+    """Generation must not cross the longrope switching point.
+
+    Phi-4 uses longrope: once a position passes
+    ``original_max_position_embeddings`` the vendor swaps rope factors AND
+    discards the KV cache mid-generation.  That is a family-specific
+    perturbation the Qwen and Ministral arms do not share, so a prompt
+    plus cap that reached it would not be comparable.  Only checked for
+    families that report the switch point.
+    """
+    report = (runtime_metadata or {}).get("phi4_load_report") or {}
+    switch = report.get("rope_switch_position")
+    if not switch or not max_new_tokens:
+        return []
+    problems = []
+    for entry in smoke:
+        for attempt in entry["attempts"]:
+            prompt_tokens = attempt["input_token_count"]
+            worst = prompt_tokens + max_new_tokens
+            if worst > switch:
+                problems.append(
+                    f"{entry['variant']}: prompt ({prompt_tokens}) + cap "
+                    f"({max_new_tokens}) = {worst} exceeds the longrope "
+                    f"switch point ({switch}); generation would change "
+                    f"rope factors and invalidate the KV cache mid-sequence")
+    return problems
+
+
+def _check_smoke(smoke, size_meta, runtime_metadata=None,
+                 max_new_tokens=None) -> list[str]:
     """Technical eligibility assertions; returns a list of failures."""
     problems: list[str] = []
     vision = next(s for s in smoke if s["variant"] == VISION_VARIANT)
@@ -176,6 +346,35 @@ def _check_smoke(smoke, size_meta) -> list[str]:
                 problems.append(
                     f"{entry['variant']}: the frozen CCMS system prompt is "
                     f"NOT present verbatim in the rendered prompt")
+            # Family-reported serialization invariants. Each is checked
+            # only when the adapter actually reports the key, so the
+            # checker stays shared across families instead of branching
+            # on adapter_name.
+            if diag.get("placeholders_match_supplied_images") is False:
+                problems.append(
+                    f"{entry['variant']}: image placeholders in the "
+                    f"rendered prompt "
+                    f"({diag.get('image_placeholders_in_rendered_text')}) do "
+                    f"not match the images supplied "
+                    f"({diag.get('images_supplied')})")
+            if diag.get("audio_special_token_present") is True:
+                problems.append(
+                    f"{entry['variant']}: an audio placeholder reached the "
+                    f"prompt — the frozen protocol is vision-only")
+            if diag.get("input_mode_is_vision_or_language") is False:
+                problems.append(
+                    f"{entry['variant']}: input_mode "
+                    f"{diag.get('input_mode')!r} is neither VISION nor "
+                    f"LANGUAGE — an out-of-protocol modality was selected")
+            if diag.get("end_token_present") is False:
+                problems.append(
+                    f"{entry['variant']}: the chat template's <|end|> "
+                    f"message terminator is absent from the rendered "
+                    f"prompt — the template did not render as documented")
+    problems.extend(_check_input_mode_matches_variant(smoke))
+    problems.extend(_check_load_report(runtime_metadata, size_meta))
+    problems.extend(_check_rope_headroom(smoke, runtime_metadata,
+                                         max_new_tokens))
     if size_meta.get("unclassified_parameters"):
         problems.append(
             f"{size_meta['unclassified_parameters']} checkpoint parameters "
@@ -291,8 +490,9 @@ def main() -> int:
             _smoke_generation(adapter, families[0], config, variant,
                               args.repeats)
             for variant in (VISION_VARIANT, TEXT_VARIANT)]
-        report["problems"].extend(
-            _check_smoke(report["gpu_smoke"], report["size_metadata"] or {}))
+        report["problems"].extend(_check_smoke(
+            report["gpu_smoke"], report["size_metadata"] or {},
+            report["runtime_metadata"], config.max_new_tokens))
         report["determinism"] = {
             "torch_deterministic_algorithms_enabled": bool(
                 report["runtime_metadata"].get("deterministic_algorithms")),
@@ -324,8 +524,7 @@ def main() -> int:
         datetime.timezone.utc).isoformat(timespec="seconds")
 
     if args.update_lock:
-        from causal_mllm.replay.registry import (
-            dependency_lock_snapshot, update_lock)
+        from causal_mllm.replay.registry import dependency_lock_snapshot, update_lock
         if not is_immutable_revision(report["resolved_revision"]):
             report["problems"].append(
                 "--update-lock needs a GPU smoke that resolved an immutable "

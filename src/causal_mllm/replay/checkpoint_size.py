@@ -22,11 +22,20 @@ from causal_mllm.replay.errors import ReplayError
 
 # Ordered: a key is assigned to the FIRST matching component. Auxiliary
 # heads (e.g. Qwen3.5 multi-token-prediction) are matched first so they
-# are never silently folded into the language backbone.
-AUXILIARY_MARKERS = ("mtp", "multi_token_prediction")
+# are never silently folded into the language backbone. Modality towers
+# that the frozen protocol never exercises (Phi-4's bundled audio encoder,
+# which is dead weight under a vision-only run) are auxiliary for the same
+# reason. Vision precedes language because composite key paths can contain
+# both: Phi-4 stores its image tower under
+# `model.embed_tokens_extend.image_embed.*`, which the `embed_tokens`
+# language marker would otherwise swallow whole.
+AUXILIARY_MARKERS = (
+    "mtp", "multi_token_prediction", "audio_embed", "audio_projection",
+)
 VISION_MARKERS = (
     "visual", "vision_model", "vision_tower", "vision_encoder",
     "image_model", "image_newline", "vit", "multi_modal_projector",
+    "image_embed", "img_processor", "img_projection",
 )
 LANGUAGE_MARKERS = (
     "language_model", "lm_head", "embed_tokens", "model.layers",

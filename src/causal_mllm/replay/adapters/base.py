@@ -168,6 +168,22 @@ class HFAdapterBase(TargetModelAdapter):
         """Extra apply_chat_template kwargs (Qwen: enable_thinking)."""
         return {}
 
+    def template_messages(self, chat_messages: list[dict]) -> list[dict]:
+        """Messages in the shape this family's chat template expects.
+
+        Defaults to the identity so the Qwen/Ministral rendering is
+        byte-identical to the frozen ``HFLocalBackend``.  Families whose
+        template only accepts string ``content`` (Phi-4) override this to
+        flatten the semantic parts; the images and the hashes are still
+        taken from the ORIGINAL messages, so the semantic contract is
+        unchanged.
+        """
+        return chat_messages
+
+    def extra_generation_kwargs(self) -> dict:
+        """Family-specific ``generate()`` kwargs (default: none)."""
+        return {}
+
     def select_model_class(self):
         from transformers import AutoModelForImageTextToText
         return AutoModelForImageTextToText
@@ -309,8 +325,8 @@ class HFAdapterBase(TargetModelAdapter):
                         images.append(
                             Image.open(part["image"]).convert("RGB"))
         text = self.processor.apply_chat_template(
-            chat_messages, tokenize=False, add_generation_prompt=True,
-            **self.chat_template_kwargs())
+            self.template_messages(chat_messages), tokenize=False,
+            add_generation_prompt=True, **self.chat_template_kwargs())
         inputs = self.processor(
             text=[text], images=images or None, padding=True,
             return_tensors="pt",
@@ -362,6 +378,7 @@ class HFAdapterBase(TargetModelAdapter):
         if config.do_sample:
             gen_kwargs["temperature"] = config.temperature
             gen_kwargs["top_p"] = config.top_p
+        gen_kwargs.update(self.extra_generation_kwargs())
 
         with torch.no_grad():
             output_ids = self.model.generate(**inputs, **gen_kwargs)

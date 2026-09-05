@@ -580,12 +580,143 @@ and carries a hashed `pip freeze` dependency lock which
 `iteration11_run_fingerprint` now binds, as the frozen protocol requires.
 `update_lock` refuses to lock a floating revision and refuses to move an
 already-pinned revision without an explicit `--force-lock`, preserving the
-superseded value; with the lock present, all three targets now resolve in
+superseded value; with the lock present, all four targets now resolve in
 confirmatory mode.
 
-Iterations 11.4–11.8 (the Phi-4-multimodal adapter, 12-family eligibility
-preflight, full 2,400-output generation, frozen judging, and cross-model
-analysis) remain roadmap-only.
+The dependency lock deliberately **excludes this project's own editable
+install**. `pip freeze` reports it either as
+`-e git+<url>@<live HEAD>#egg=causal_mllm` or as `causal-mllm==0.1.0`
+depending on how the process was invoked — both forms were observed in the
+same working tree, and the first embeds the repository's live HEAD — so
+hashing it made `dependency_lock_sha256` differ between invocations and move
+on every commit. Because `iteration11_run_fingerprint` binds that hash and
+gates resume on it, an unstable value would have rejected legitimate resumes
+during the 11.7 generation run. Nothing is lost: code identity is already
+bound separately and more precisely via `code_commit` / `git_dirty`, and the
+exclusion is reported by distribution *name* (recording the raw line would
+put the live HEAD back inside the hashed block). Third-party editable
+installs such as the MIDP prior-art package are kept, since a change there is
+a real dependency change. All four targets were re-preflighted after the fix
+and reproduce their committed smoke responses byte-for-byte (identical
+`response_sha256` for every variant and repeat); the only other metadata
+movement is `revision_requested` becoming the pinned SHA in the two Qwen
+artifacts, which were generated before the lock existed.
+
+**11.4 (Phi-4-multimodal) is complete.** `microsoft/Phi-4-multimodal-instruct`
+passes the same GPU technical preflight on `cuda:3`, resolved to revision
+`93f923e1a7727d1c4f446756212d9d3e8fcc5d81` with 5,574,460,384 measured
+parameters (language 4,666,493,952 / vision 441,550,016 / auxiliary
+466,416,416, all BF16, 0 unclassified). Unlike the other three targets this
+is a **transformers-4.x remote-code checkpoint** — vendored
+`modeling_phi4mm.py`, bundled PEFT vision/speech LoRA adapters, and
+`flash_attention_2` hard-coded in `config.json` — so it is loaded under the
+frozen protocol's `phi4_load_strategy: shim_in_shared_env` decision. Beyond
+the direct-load strategy itself, five repairs were needed: the protocol
+pre-declared three of them (`sdpa`, `prepare_inputs_for_generation`, and the
+custom SigLIP tower / gradient checkpointing) and two were found only by
+running the load (`_tied_weights_keys` and `Cache.get_usable_length`). Every
+patch actually applied is recorded verbatim per run in
+`runtime_metadata.phi4_shims` rather than being implied by the code:
+
+- `config._attn_implementation` is forced to `sdpa` on the config and every
+  nested sub-config, selecting the vendor's own `Phi4MMSdpaAttention`. The
+  vendored SigLIP tower has a separate `_flash_attention_forward` hook that
+  never consults the config, so it is redirected to sdpa too.
+- The checkpoint is constructed directly and its bf16 safetensors loaded
+  explicitly, because transformers 5.x always meta-initialises (ignoring
+  `low_cpu_mem_usage`) and the bundled speech-conformer encoder calls
+  `.item()` on a meta tensor during `__init__`.
+- `peft` reads `base_model.prepare_inputs_for_generation` off the *inner*
+  `Phi4MMModel`, which lost it when transformers 5.x split `GenerationMixin`
+  out of `PreTrainedModel`. The `PeftModel` that peft builds is discarded by
+  the vendor `__init__`, so the binding only has to exist.
+- The vendor ships the 4.x list form `_tied_weights_keys = ["lm_head.weight"]`;
+  5.x requires a `{target: source}` dict, so it is normalised to
+  `{"lm_head.weight": "model.embed_tokens.weight"}`.
+- transformers 5.x removed `Cache.get_usable_length`, which the vendored
+  attention calls on every decode step. It is restored with its exact 4.x
+  semantics (additive only — nothing is overridden). The legacy-tuple
+  converters were removed too but sit behind `return_legacy_cache`, which
+  `generate` never sets, so they are deliberately left unpatched.
+
+Because the weights arrive outside `from_pretrained`, none of transformers'
+safety nets apply, and two failures here would have produced **fluent,
+plausible garbage** while every superficial check still passed. Both are
+therefore asserted, fail-closed, in `runtime_metadata.phi4_load_report`:
+
+- `lm_head.weight` is absent from the checkpoint (`tie_word_embeddings:
+  true`), so it must be tied to `model.embed_tokens.weight` — verified by
+  `data_ptr` identity. Note that `named_parameters()` *dedups by tensor
+  identity*, so a successfully tied head disappears from that mapping; an
+  earlier version of this check read the dedup as "not tied". A regression
+  test pins the trap from both sides.
+- `generation_config.json` declares `eos_token_id [200020, 199999]` while
+  `config.json` declares only `199999`. **200020 is `<|end|>`**, the token
+  the chat template uses to close every message. Deriving the generation
+  config from the model config would drop the model's real terminator and
+  drive *every* response to the 1536-token cap — a truncation artifact
+  indistinguishable from a verbose model. The shipped generation config is
+  loaded explicitly, and both smoke arms now finish on `eos` (92 and 67
+  tokens, `hit_max_new_tokens: false`).
+
+The load is verified to have received every weight: `missing_keys` is
+exactly `["lm_head.weight"]`, `unexpected_keys` is empty, **0 parameters
+remain on the meta device**, and the checkpoint is uniformly BF16. The two
+parameter totals are reconciled exactly rather than left to differ by a
+mystery constant — the 160-parameter delta is the conformer encoder's
+`global_mean`/`global_invstd`, which the checkpoint stores as tensors and
+the model registers as buffers, and both are named in the artifact.
+`num_logits_to_keep=1` is passed explicitly: transformers only sets
+`logits_to_keep` itself when `forward` advertises that exact name and this
+model names it `num_logits_to_keep` (whose vendor default of `None` would
+reach a `-None` slice). Greedy decoding consumes only the last position's
+logits either way, so this *matches* the other families instead of deviating
+from them.
+
+The template concatenates `content` as a string, so the multimodal part list
+is flattened by a new (default-identity) `template_messages` hook: each image
+becomes one `<|image_k|>` placeholder in message order followed by the turn
+text — the vendor's own documented form. The processor regex-normalises that
+to `<|endoftext10|>` and expands it to the image's token count, asserting
+exactly one placeholder per supplied image; both counts are recorded per
+generation. Vision-path engagement is verified rather than assumed: the
+cross-modal arm reports `input_mode: 1` (VISION) with the bundled **vision
+LoRA active**, and the text-only arm `input_mode: 0` (LANGUAGE) with
+adapters disabled, exactly as the vendor's `forward` intends. The preflight
+fails closed if the modality selected does not match the variant, if an
+audio placeholder reaches the prompt, or if prompt + cap would cross the
+longrope switch point at 4096 (where the vendor swaps rope factors *and*
+discards the KV cache mid-sequence) — the smoked family peaks at 709 + 1536.
+
+**One frozen-protocol inaccuracy was found and is recorded, not silently
+corrected.** The protocol states `audio_tower_initialized: false`, but
+`Phi4MMImageAudioEmbedding` builds the audio tower unconditionally, the
+checkpoint ships its 887 audio tensors, and the *vision* path itself routes
+through `audio_embed.audio_projection.vision`. The tower is therefore fully
+initialised; what is false is that any audio **input** is supplied. The
+frozen artifact is left byte-identical and every Phi-4 record carries
+`runtime_metadata.phi4_audio_tower` stating the frozen claim, the
+observation, and the rationale side by side. Those audio tensors are also
+why the checkpoint now reports a non-zero `auxiliary` bucket.
+
+Fixing Phi-4's size attribution exposed a real classifier bug: its image
+tower lives at `model.embed_tokens_extend.image_embed.*`, which the
+`embed_tokens` **language** marker swallowed whole, reporting `vision: 0`
+and correctly tripping the "not a multimodal model" eligibility gate.
+`image_embed`/`img_processor`/`img_projection` are now vision markers (and
+`audio_embed`/`audio_projection` auxiliary), with vision matched before
+language. This was regression-checked against the committed artifacts: the
+Qwen3.5-2B, Qwen3.5-4B and Ministral-3 splits are **bit-identical** on all
+five fields, so only Phi-4's attribution changed.
+
+Smoke results on `cuda:3` (greedy, cap 1536, bf16, 2 repeats each, both
+repeat-stable): `cross_modal` in=709 / image=545 / out=92 / `eos`,
+`text_only` in=178 / image=0 / out=67 / `eos`. The two arms produce
+different answers to the same terminal question, so the contrast is real
+rather than a degraded language-only run.
+
+Iterations 11.5–11.8 (12-family eligibility preflight, full 2,400-output
+generation, frozen judging, and cross-model analysis) remain roadmap-only.
 
 ## Schema Reports
 

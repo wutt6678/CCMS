@@ -1,0 +1,369 @@
+{
+  "iteration": "11",
+  "stage": "model_preflight",
+  "model_key": "phi4_mm",
+  "model_spec": {
+    "model_key": "phi4_mm",
+    "model_id": "microsoft/Phi-4-multimodal-instruct",
+    "adapter": "phi4_multimodal",
+    "revision": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+    "dtype": "bfloat16",
+    "quantization": "none",
+    "trust_remote_code": true,
+    "thinking_mode": false,
+    "role": "Independent family B",
+    "license": "MIT",
+    "size_metadata": {
+      "marketed_label": "Phi-4-multimodal",
+      "architectural_parameters": 5600000000,
+      "note": "~6B checkpoint total (spec)",
+      "language_parameters": null,
+      "vision_parameters": null,
+      "published_total_parameters": null,
+      "checkpoint_parameter_count": null,
+      "checkpoint_size_bytes": null,
+      "source_url": null
+    },
+    "revision_source": "lock"
+  },
+  "registry_revision": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+  "revision_is_immutable": true,
+  "generation_config": {
+    "temperature": 0.0,
+    "top_p": 1.0,
+    "do_sample": false,
+    "max_new_tokens": 1536,
+    "seed": 42
+  },
+  "effective_decoding": {
+    "do_sample": false,
+    "temperature": null,
+    "top_p": null,
+    "top_k": null,
+    "num_beams": 1,
+    "max_new_tokens": 1536
+  },
+  "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+  "prompt_template_revision": "v1",
+  "dataset": {
+    "input_dir": "/scratch/wutiantong/CCMS/outputs/scale_c/families_panel",
+    "validated_families_sha256": "0d77226b2d5f4c030bede5e351a8ee41df1c689b47b9253a758bc389ec34e1db",
+    "n_families_smoked": 1
+  },
+  "device": "cuda:3",
+  "code_commit": "64f96ca5ce51f7ca2de224b2455061f10bc8697a",
+  "gpu_smoke": [
+    {
+      "variant": "cross_modal",
+      "repeats": 2,
+      "attempts": [
+        {
+          "response_sha256": "1fc9b35e25d018d5adc389b914d690eaf623c389aff54f1ee22f2ead64add333",
+          "response_chars": 473,
+          "response_head": "The rigid surface, such as the countertop, would likely show scorch marks or early heat effects first due to its inability to absorb heat, causing the heat to be transferred directly to the material, ",
+          "input_token_count": 709,
+          "image_token_count": 545,
+          "output_token_count": 92,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "18a824a723fb27302079fd270460374b2cb321da76bad3cd5ed1d3bcb710c02f",
+          "semantic_prompt_hash": "885f9c07dd2fdd2b3bb0b4a585b16b3df78fda879a217dfa807ba2851a3312f6",
+          "ordered_image_hashes": [
+            "e4db233645d865d23dd2d73978db82b5f1c6f80b3389a309f2a9274b1bcc3786"
+          ],
+          "adapter_diagnostics": {
+            "image_special_token_id": 200010,
+            "image_placeholders_in_rendered_text": 1,
+            "images_supplied": 1,
+            "placeholders_match_supplied_images": true,
+            "image_token_count_after_expansion": 545,
+            "audio_special_token_present": false,
+            "input_mode": 1,
+            "input_mode_is_vision_or_language": true,
+            "end_token_present": true,
+            "frozen_system_prompt_present_verbatim": true,
+            "active_lora": {
+              "available": true,
+              "active_adapters": [
+                "vision"
+              ],
+              "adapters_disabled": false
+            }
+          }
+        },
+        {
+          "response_sha256": "1fc9b35e25d018d5adc389b914d690eaf623c389aff54f1ee22f2ead64add333",
+          "response_chars": 473,
+          "response_head": "The rigid surface, such as the countertop, would likely show scorch marks or early heat effects first due to its inability to absorb heat, causing the heat to be transferred directly to the material, ",
+          "input_token_count": 709,
+          "image_token_count": 545,
+          "output_token_count": 92,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "18a824a723fb27302079fd270460374b2cb321da76bad3cd5ed1d3bcb710c02f",
+          "semantic_prompt_hash": "885f9c07dd2fdd2b3bb0b4a585b16b3df78fda879a217dfa807ba2851a3312f6",
+          "ordered_image_hashes": [
+            "e4db233645d865d23dd2d73978db82b5f1c6f80b3389a309f2a9274b1bcc3786"
+          ],
+          "adapter_diagnostics": {
+            "image_special_token_id": 200010,
+            "image_placeholders_in_rendered_text": 1,
+            "images_supplied": 1,
+            "placeholders_match_supplied_images": true,
+            "image_token_count_after_expansion": 545,
+            "audio_special_token_present": false,
+            "input_mode": 1,
+            "input_mode_is_vision_or_language": true,
+            "end_token_present": true,
+            "frozen_system_prompt_present_verbatim": true,
+            "active_lora": {
+              "available": true,
+              "active_adapters": [
+                "vision"
+              ],
+              "adapters_disabled": false
+            }
+          }
+        }
+      ],
+      "deterministic": true,
+      "n_distinct_responses": 1
+    },
+    {
+      "variant": "text_only",
+      "repeats": 2,
+      "attempts": [
+        {
+          "response_sha256": "ee0efc901ca461357af3cbb83bf5ee6f85b6d0671e453fd253d2d432fb23c951",
+          "response_chars": 333,
+          "response_head": "Rigid, nonporous surfaces like countertops are less likely to show scorch marks or early heat effects compared to absorbent fibrous coverings. Fibrous materials can absorb heat, which may cause them t",
+          "input_token_count": 178,
+          "image_token_count": 0,
+          "output_token_count": 67,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "47e91a8a0a79e526692aa34de7417462373b2aaa765b370a55f9c6fab7801560",
+          "semantic_prompt_hash": "c54a04770d97ed2cd0a948feebe92ff80e34e629c39519824cc6af72af2a1875",
+          "ordered_image_hashes": [],
+          "adapter_diagnostics": {
+            "image_special_token_id": 200010,
+            "image_placeholders_in_rendered_text": 0,
+            "images_supplied": 0,
+            "placeholders_match_supplied_images": true,
+            "image_token_count_after_expansion": 0,
+            "audio_special_token_present": false,
+            "input_mode": 0,
+            "input_mode_is_vision_or_language": true,
+            "end_token_present": true,
+            "frozen_system_prompt_present_verbatim": true,
+            "active_lora": {
+              "available": true,
+              "active_adapters": [
+                "vision"
+              ],
+              "adapters_disabled": true
+            }
+          }
+        },
+        {
+          "response_sha256": "ee0efc901ca461357af3cbb83bf5ee6f85b6d0671e453fd253d2d432fb23c951",
+          "response_chars": 333,
+          "response_head": "Rigid, nonporous surfaces like countertops are less likely to show scorch marks or early heat effects compared to absorbent fibrous coverings. Fibrous materials can absorb heat, which may cause them t",
+          "input_token_count": 178,
+          "image_token_count": 0,
+          "output_token_count": 67,
+          "finish_reason": "eos",
+          "hit_max_new_tokens": false,
+          "serialized_prompt_hash": "47e91a8a0a79e526692aa34de7417462373b2aaa765b370a55f9c6fab7801560",
+          "semantic_prompt_hash": "c54a04770d97ed2cd0a948feebe92ff80e34e629c39519824cc6af72af2a1875",
+          "ordered_image_hashes": [],
+          "adapter_diagnostics": {
+            "image_special_token_id": 200010,
+            "image_placeholders_in_rendered_text": 0,
+            "images_supplied": 0,
+            "placeholders_match_supplied_images": true,
+            "image_token_count_after_expansion": 0,
+            "audio_special_token_present": false,
+            "input_mode": 0,
+            "input_mode_is_vision_or_language": true,
+            "end_token_present": true,
+            "frozen_system_prompt_present_verbatim": true,
+            "active_lora": {
+              "available": true,
+              "active_adapters": [
+                "vision"
+              ],
+              "adapters_disabled": true
+            }
+          }
+        }
+      ],
+      "deterministic": true,
+      "n_distinct_responses": 1
+    }
+  ],
+  "runtime_metadata": {
+    "adapter_name": "phi4_multimodal",
+    "adapter_version": "1.0.0",
+    "model_key": "phi4_mm",
+    "model_id": "microsoft/Phi-4-multimodal-instruct",
+    "dtype": "bfloat16",
+    "quantization": "none",
+    "trust_remote_code": true,
+    "thinking_mode": false,
+    "device": "cuda:3",
+    "transformers_version": "5.14.1",
+    "torch_version": "2.8.0+cu128",
+    "cuda_version": "12.8",
+    "requested_seed": 42,
+    "effective_seed": 42,
+    "deterministic_algorithms": false,
+    "hardware": {
+      "device_index": 3,
+      "requested_device": "cuda:3",
+      "gpu_name": "NVIDIA RTX 6000 Ada Generation",
+      "total_memory_mb": 48508,
+      "compute_capability": "8.9"
+    },
+    "thinking_switch_available": false,
+    "load_strategy": "shim_in_shared_env",
+    "phi4_shims": [
+      "Phi4MMConfig: flash_attention_2 -> sdpa",
+      "_tied_weights_keys ['lm_head.weight'] -> {'lm_head.weight': 'model.embed_tokens.weight'}",
+      "bound GenerationMixin.prepare_inputs_for_generation onto Phi4MMModel (peft 0.20 compatibility; the peft wrapper the vendor builds is discarded)",
+      "restored Cache.get_usable_length (removed in transformers 5.x) with its 4.x semantics — cached length for the layer, clipped to get_max_length() when the cache declares one",
+      "vision tower _flash_attention_forward -> sdpa (1 class(es))"
+    ],
+    "phi4_load_report": {
+      "shards": [
+        "model-00001-of-00003.safetensors",
+        "model-00002-of-00003.safetensors",
+        "model-00003-of-00003.safetensors"
+      ],
+      "checkpoint_tensors": 2047,
+      "checkpoint_dtype_histogram": {
+        "BF16": 2047
+      },
+      "checkpoint_parameter_count": 5574460384,
+      "constructed_parameter_count": 5574460224,
+      "buffer_count": 35,
+      "buffer_numel": 1697,
+      "checkpoint_tensors_registered_as_buffers": [
+        "model.embed_tokens_extend.audio_embed.encoder.encoder_embedding.global_invstd",
+        "model.embed_tokens_extend.audio_embed.encoder.encoder_embedding.global_mean"
+      ],
+      "registered_as_buffer_numel": 160,
+      "lm_head_tied_to_embed_tokens": true,
+      "tied_weight_names": [
+        "lm_head.weight",
+        "model.embed_tokens.weight"
+      ],
+      "tied_weight_shape": [
+        200064,
+        3072
+      ],
+      "tied_weight_numel": 614596608,
+      "missing_keys": [
+        "lm_head.weight"
+      ],
+      "unexpected_keys": [],
+      "parameters_left_on_meta": 0,
+      "attn_implementation": "sdpa",
+      "rope_scaling_type": "longrope",
+      "rope_switch_position": 4096,
+      "max_position_embeddings": 131072,
+      "audio_tower_present": true,
+      "audio_tensor_count": 887,
+      "generation_config_eos_token_id": [
+        200020,
+        199999
+      ],
+      "generation_config_source": "generation_config.json",
+      "device": "cuda:3",
+      "dtype": "torch.bfloat16",
+      "vision_attention_classes_patched": 1,
+      "gradient_checkpointing_modules_disabled": 1,
+      "attention_classes_instantiated": [
+        "MultiHeadedAttention",
+        "MultiheadAttention",
+        "Phi4MMSdpaAttention",
+        "SiglipAttention",
+        "SiglipMultiheadAttentionPoolingHead",
+        "T5RelativeAttentionLogitBias"
+      ]
+    },
+    "phi4_audio_tower": {
+      "frozen_protocol_claim": "audio_tower_initialized: false",
+      "observed": true,
+      "audio_input_supplied": false,
+      "explanation": "Phi4MMImageAudioEmbedding builds the audio tower unconditionally and the checkpoint ships its weights; the vision path itself routes through audio_embed.audio_projection.vision. The tower is therefore initialised. No audio input is supplied (input_mode is VISION or LANGUAGE only)."
+    },
+    "registry_declared_parameters": 5600000000
+  },
+  "determinism": {
+    "torch_deterministic_algorithms_enabled": false,
+    "greedy_decoding": true,
+    "batch_size": 1,
+    "requested_seed": 42,
+    "repeats_per_variant": 2,
+    "empirical_repeat_stability": {
+      "cross_modal": true,
+      "text_only": true
+    },
+    "all_variants_repeat_stable": true,
+    "note": "The global torch determinism flag is reported as-is and is intentionally left disabled for parity with the frozen Iteration 10 9B reference; empirical repeat-stability is the operative evidence."
+  },
+  "parity_notes": [
+    "transformers 5.14.1 warns that `torch_dtype` is deprecated in favour of `dtype`; `torch_dtype` is retained deliberately so the load path matches the frozen HFLocalBackend that produced the 9B reference panel.",
+    "torch.use_deterministic_algorithms(True) is NOT enabled: the frozen Iteration 10 configuration never enabled it, and enabling it could perturb parity with the 9B reference. Repeat-stability is therefore established EMPIRICALLY per model (greedy decoding, batch size 1, fixed seed) and reported separately from the global flag.",
+    "This is a transformers-4.x remote-code checkpoint loaded on transformers 5.14.1 under the frozen protocol's `shim_in_shared_env` decision. Every shim actually applied is listed verbatim in runtime_metadata.phi4_shims, and the direct checkpoint load is verified fail-closed in runtime_metadata.phi4_load_report (lm_head tied to the input embedding, zero parameters left on the meta device, zero unmatched tensors). A silently untied output projection or one randomly initialised parameter would emit fluent garbage while every superficial check still passed, so both are asserted rather than assumed.",
+    "config.json hard-codes flash_attention_2, which is unavailable for this model here; sdpa is forced on the config and every nested sub-config, which selects the vendor's own Phi4MMSdpaAttention. The vendored SigLIP tower has a separate _flash_attention_forward hook that never consults the config, so it is redirected to sdpa as well.",
+    "The checkpoint ships bundled PEFT vision/speech LoRA adapters, and Phi4MMForCausalLM.forward activates them from `input_mode`, which the processor derives from the supplied modalities. Every generation records input_mode and the LoRA adapters that were active, so it stays auditable that the vision arm ran the vision adapter and the text-only arm ran none.",
+    "generation_config.json declares eos_token_id [200020, 199999] while config.json declares only 199999. 200020 is `<|end|>`, the token the chat template uses to close every message, so the shipped generation config is loaded explicitly; deriving it from config.json would drop the model's real stop token and drive every response to the 1536-token cap.",
+    "`num_logits_to_keep=1` is passed explicitly. transformers only sets `logits_to_keep` itself when forward advertises that exact name and this model names it `num_logits_to_keep`; greedy decoding consumes only the last position's logits either way, so this matches the other families instead of deviating from them.",
+    "The frozen protocol records `audio_tower_initialized: false`. That is inaccurate for this checkpoint: Phi4MMImageAudioEmbedding builds the audio tower unconditionally, the checkpoint ships its weights, and the VISION path itself routes through audio_embed.audio_projection.vision. The tower is therefore fully initialised; what is false is that any audio INPUT is supplied. This is reported per record in runtime_metadata.phi4_audio_tower as an explicit deviation rather than being silently contradicted.",
+    "The chat template concatenates `content` as a string, so the multimodal part list is flattened: each image becomes one `<|image_k|>` placeholder in message order followed by the turn text (the vendor's own documented form). The processor regex-normalises that to `<|endoftext10|>` and expands it to the image's token count, asserting exactly one placeholder per supplied image; both counts are recorded per generation."
+  ],
+  "lock": {
+    "path": "/scratch/wutiantong/CCMS/outputs/iteration_11/preflight/resolved_models.lock.yaml",
+    "revision": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+    "processor_revision": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+    "dependency_lock": {
+      "pip_freeze_sha256": "dd9b04c7eee47c55a79d9112333fe4b701f9994893e3476ee05bd077aa89695a",
+      "n_packages": 101,
+      "excluded_self_distributions": [
+        "causal_mllm"
+      ],
+      "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
+      "python_version": "3.10.20",
+      "executable": "/scratch/wutiantong/miniconda3/envs/midp-qwen35/bin/python"
+    },
+    "forced": false
+  },
+  "resolved_revision": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+  "processor_revision": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+  "size_metadata": {
+    "model_id": "microsoft/Phi-4-multimodal-instruct",
+    "revision_requested": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+    "revision_used": "93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+    "snapshot_path": "/scratch/wutiantong/.cache/huggingface/hub/models--microsoft--Phi-4-multimodal-instruct/snapshots/93f923e1a7727d1c4f446756212d9d3e8fcc5d81",
+    "n_shards": 3,
+    "shard_bytes": 11149227208,
+    "index_total_size_bytes": 11148920768,
+    "n_tensors": 2047,
+    "checkpoint_parameter_count": 5574460384,
+    "language_parameters": 4666493952,
+    "vision_parameters": 441550016,
+    "auxiliary_parameters": 466416416,
+    "unclassified_parameters": 0,
+    "unclassified_prefixes": {},
+    "stored_dtype_histogram": {
+      "BF16": 2047
+    },
+    "size_source": "safetensors_header_shapes",
+    "inferred_from_response": false
+  },
+  "problems": [],
+  "status": "PASS",
+  "timestamp": "2026-09-05T06:31:49+00:00"
+}
