@@ -344,8 +344,20 @@ def build_report(*, spec, config, run_report, run_dir, gate, environment,
         # tracked-only one: a report claiming a clean tree while an
         # untracked module changed what executed is the defect the
         # confirmatory gate now refuses.
+        #
+        # Both answers are recorded because they answer different questions.
+        # The gate already established a whole-tree clean state at LAUNCH, so
+        # by the time this report is written the process has imported its code
+        # and code_commit pins it — a file appearing under outputs/ cannot
+        # retroactively change what was generated, while a file appearing under
+        # src/ can, because Python imports lazily and the determinism pass runs
+        # after the generations. git_dirty_code_paths is the subset that can
+        # still invalidate this run, and it is what the report is failed on;
+        # the whole-tree answer stays recorded so the non-fatal changes are
+        # visible rather than silently forgiven.
         "git_dirty": tree["dirty"],
         "git_dirty_paths": tree["dirty_paths"],
+        "git_dirty_code_paths": tree["code_dirty_paths"],
         "git_untracked_paths": tree["untracked_paths"],
         "git_dirty_excluded_own_outputs": [
             p for p in tree["excluded_own_outputs"]],

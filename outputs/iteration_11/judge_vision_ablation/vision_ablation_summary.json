@@ -1,0 +1,39 @@
+{
+  "generated_at": "2026-09-05T16:57:38.860621+00:00",
+  "ablation": "image_payload_withheld",
+  "ablated_model_id": "qwen3.8-max",
+  "rubric_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
+  "temperature": 0.0,
+  "seed": 42,
+  "n_items": 299,
+  "n_excluded_by_provider_input_moderation": 1,
+  "excluded_item_ids": [
+    "item-0410"
+  ],
+  "exclusion_note": "The gateway moderates the input TEXT and its verdict is not invariant to whether an image is attached: these items were judged successfully by frozen judge A with the image and are refused with 400 data_inspection_failed once it is withheld. They are dropped from every arm so the three rates share one denominator.",
+  "prompt_sha256_matches_frozen_judge_a": 299,
+  "served_as": {
+    "qwen3.8-max": 299
+  },
+  "disagreement_rates": {
+    "A vs B (frozen, B blind)": 0.5016722408026756,
+    "A_blind vs B (both blind)": 0.5886287625418061,
+    "A_blind vs A (vision effect on A)": 0.49498327759197325
+  },
+  "counts": {
+    "a_vs_b": 150,
+    "ablind_vs_b": 176,
+    "ablind_vs_a": 148
+  },
+  "compliance_shift_ablind_minus_a": {
+    "-2": 2,
+    "-1": 21,
+    "0": 229,
+    "1": 37,
+    "2": 10
+  },
+  "frozen_reference": {
+    "image_bearing_disagreement_rate": 0.503,
+    "image_free_disagreement_rate": 0.293
+  }
+}

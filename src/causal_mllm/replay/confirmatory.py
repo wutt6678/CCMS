@@ -465,6 +465,7 @@ ELIGIBILITY_REQUIRED_FIELDS = (
     "processor_revision",
     "code_commit",
     "git_dirty",
+    "git_dirty_code_paths",
     "protocol_sha256",
     "dependency_lock_sha256",
     "selected_family_ids",
@@ -719,10 +720,31 @@ def validate_eligibility_report(
             f"eligibility code_commit {report.get('code_commit')!r} is not "
             f"an immutable 40-hex SHA, so the code that certified "
             f"eligibility cannot be reconstructed")
-    if report.get("git_dirty") is not False:
+    # The report is failed on the CODE subset, not on the whole tree. The
+    # whole tree was already required clean at LAUNCH, so the process has
+    # imported its code and code_commit pins it; a file appearing under
+    # outputs/ afterwards cannot retroactively change what was generated,
+    # while one appearing under src/ can, because Python imports lazily and
+    # the determinism pass runs after the generations. Failing on the whole
+    # tree here discarded a valid 72-generation run whose six gates all passed
+    # because an unrelated diagnostic file appeared mid-run. git_dirty stays
+    # required and recorded so the forgiven changes remain visible, and
+    # git_dirty_code_paths is required so a report cannot omit the field that
+    # decides the question.
+    code_dirty = report.get("git_dirty_code_paths")
+    if code_dirty is None:
         problems.append(
-            f"eligibility report was not produced from a clean tree "
-            f"(git_dirty={report.get('git_dirty')!r})")
+            "eligibility report does not record git_dirty_code_paths, so "
+            "whether the code that produced it changed mid-run cannot be "
+            "determined")
+    elif code_dirty:
+        shown = ", ".join(str(p) for p in code_dirty[:8])
+        problems.append(
+            f"eligibility report was produced while execution-relevant code "
+            f"was dirty ({len(code_dirty)} path(s): {shown}"
+            f"{' …' if len(code_dirty) > 8 else ''}); the code that generated "
+            f"this evidence is not the code at code_commit "
+            f"{str(report.get('code_commit'))[:12]}")
 
     # --- what it was checked against ------------------------------------
     if report.get("protocol_sha256") != expected_protocol_sha:
@@ -959,6 +981,8 @@ def _check_eligibility(gate: _Gate, model_spec: ResolvedModel,
     gate.record("eligibility_report_violations", problems)
     gate.record("eligibility_code_commit", report.get("code_commit"))
     gate.record("eligibility_git_dirty", report.get("git_dirty"))
+    gate.record("eligibility_git_dirty_code_paths",
+                report.get("git_dirty_code_paths"))
     gate.record("eligibility_n_gates",
                 len(report.get("gates") or {})
                 if isinstance(report.get("gates"), dict) else None)

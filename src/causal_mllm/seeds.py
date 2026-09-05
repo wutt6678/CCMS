@@ -194,6 +194,82 @@ def is_cache_path(path: str) -> bool:
     return path.endswith(CACHE_SUFFIXES)
 
 
+#: Repo-root-relative prefixes whose contents can change what a run computes.
+CODE_PATH_PREFIXES = ("src/", "scripts/", "configs/", "tests/", ".github/")
+
+#: Frozen INPUTS that live under ``outputs/``. They are not code, but a run
+#: reads them: the 11.5 selection is derived from the frozen Iteration-10
+#: panel, reference run and adjudicated labels, and the gate reads the frozen
+#: protocol and the resolved-model lock. A mid-run change to one of these
+#: changes what the run computes just as surely as a change under ``src/``.
+RUNTIME_INPUT_PREFIXES = (
+    "outputs/iteration_11/protocol/",
+    "outputs/iteration_11/preflight/",
+    "outputs/scale_c/",
+)
+
+#: Generated evidence, media and prose: cannot change what a run computes.
+#: Deliberately a short, explicit list — see the fail-closed default below.
+NON_EXECUTION_PREFIXES = ("outputs/", "docs/", "data/media/", "figures/",
+                          "reports/")
+NON_EXECUTION_SUFFIXES = (".md", ".txt", ".rst", ".png", ".jpg", ".jpeg",
+                          ".pdf", ".svg", ".jsonl", ".log", ".csv")
+NON_EXECUTION_NAMES = frozenset({
+    "README.md", "LICENSE", "CHANGELOG.md", ".gitignore", ".gitattributes",
+})
+
+#: Root-level or specially-named files that can change what a run computes
+#: wherever they appear: packaging metadata, tool configuration, and the files
+#: Python's import machinery picks up implicitly.
+CODE_PATH_NAMES = frozenset({
+    "pyproject.toml", "setup.py", "setup.cfg", "MANIFEST.in", "tox.ini",
+    "ruff.toml", ".flake8", "Makefile", "conftest.py", "sitecustomize.py",
+    "usercustomize.py",
+})
+
+
+def is_execution_relevant_path(path: str) -> bool:
+    """Could a change at ``path`` alter what a run computes?
+
+    Used to tell apart two kinds of dirty tree at the END of a run. The tree
+    is checked whole at LAUNCH, so by the time a report is written the process
+    has already imported its code and ``code_commit`` pins it: a file appearing
+    among the generated evidence cannot retroactively change what was produced.
+    A file appearing under ``src/`` can, because Python imports lazily and a
+    later stage of the same run may import something it has not imported yet —
+    and so can a change to a frozen input the run still has to read.
+
+    FAIL-CLOSED: relevance is the default and only the declared evidence,
+    media and prose shapes are forgiven. A directory nobody anticipated is
+    therefore treated as able to change the result rather than as harmless, so
+    this scoping cannot become a way for an unrecognised file to excuse itself.
+
+    Args:
+        path: a repo-root-relative path from :func:`git_working_tree_paths`.
+
+    Returns:
+        True unless the path is recognisably generated evidence, media or
+        documentation.
+    """
+    if any(path.startswith(prefix) for prefix in RUNTIME_INPUT_PREFIXES):
+        return True
+    if any(path.startswith(prefix) for prefix in CODE_PATH_PREFIXES):
+        return True
+    name = path.rsplit("/", 1)[-1]
+    if name in CODE_PATH_NAMES:
+        return True
+    # A stray top-level module can shadow an installed package or be picked up
+    # by site/conftest machinery, which is the case code_tree_status already
+    # treats as dangerous.
+    if "/" not in path and name.endswith(".py"):
+        return True
+    if any(path.startswith(prefix) for prefix in NON_EXECUTION_PREFIXES):
+        return False
+    if name in NON_EXECUTION_NAMES or name.endswith(NON_EXECUTION_SUFFIXES):
+        return False
+    return True
+
+
 def code_tree_status(exclude_prefixes=()) -> dict:
     """Could ``code_commit`` reconstruct the code that is about to run?
 
@@ -217,12 +293,17 @@ def code_tree_status(exclude_prefixes=()) -> dict:
 
     Returns:
         ``{"dirty": bool | None, "dirty_paths": [...], "untracked_paths":
-        [...], "excluded_own_outputs": [...], "excluded_cache_paths":
-        [...]}``. ``dirty`` is None when git status is unavailable.
+        [...], "code_dirty_paths": [...], "excluded_own_outputs": [...],
+        "excluded_cache_paths": [...]}``. ``dirty`` is None when git status is
+        unavailable. ``code_dirty_paths`` is the subset of ``dirty_paths`` that
+        :func:`is_execution_relevant_path` considers able to change what a run
+        computes; a stage that has already imported its code gates on that
+        subset at the END of a run while still recording the whole tree.
     """
     paths = git_working_tree_paths()
     if paths is None:
         return {"dirty": None, "dirty_paths": [], "untracked_paths": [],
+                "code_dirty_paths": [],
                 "excluded_own_outputs": [], "excluded_cache_paths": []}
     prefixes = tuple(exclude_prefixes)
     all_paths = list(paths["modified"]) + list(paths["untracked"])
@@ -239,6 +320,8 @@ def code_tree_status(exclude_prefixes=()) -> dict:
         "dirty": bool(dirty),
         "dirty_paths": sorted(dirty),
         "untracked_paths": sorted(untracked_dirty),
+        "code_dirty_paths": sorted(p for p in dirty
+                                   if is_execution_relevant_path(p)),
         "excluded_own_outputs": sorted(own_outputs),
         "excluded_cache_paths": sorted(caches),
     }

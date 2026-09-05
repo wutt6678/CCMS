@@ -139,10 +139,18 @@ run_eligibility = _load_script("iter11_run_eligibility")
 
 
 def _tree(dirty, dirty_paths=(), untracked_paths=(), own_outputs=(),
-          caches=()) -> dict:
-    """A ``causal_mllm.seeds.code_tree_status`` result."""
-    return {"dirty": dirty, "dirty_paths": list(dirty_paths),
+          caches=(), code_dirty_paths=None) -> dict:
+    """A ``causal_mllm.seeds.code_tree_status`` result.
+
+    ``code_dirty_paths`` defaults to every dirty path, which is the
+    conservative reading: unless a test says otherwise, a dirty tree is dirty
+    in the execution-relevant sense too.
+    """
+    dirty_paths = list(dirty_paths)
+    return {"dirty": dirty, "dirty_paths": dirty_paths,
             "untracked_paths": list(untracked_paths),
+            "code_dirty_paths": (dirty_paths if code_dirty_paths is None
+                                 else list(code_dirty_paths)),
             "excluded_own_outputs": list(own_outputs),
             "excluded_cache_paths": list(caches)}
 
@@ -747,6 +755,7 @@ def _write_eligibility(root: Path, model_key: str, protocol_path: Path, *,
                        status="PASS", eligible=True, revision=REVISION,
                        processor_revision=PROCESSOR_REVISION,
                        code_commit=COMMIT, git_dirty=False,
+                       git_dirty_code_paths=(),
                        family_ids=None, overrides=None) -> Path:
     """A schema-conformant 11.5 report; perturb it with ``overrides``.
 
@@ -763,6 +772,7 @@ def _write_eligibility(root: Path, model_key: str, protocol_path: Path, *,
         "processor_revision": processor_revision,
         "code_commit": code_commit,
         "git_dirty": git_dirty,
+        "git_dirty_code_paths": list(git_dirty_code_paths),
         "protocol_sha256": protocol_sha256(protocol_path),
         "dependency_lock_sha256": lock_sha,
         "selected_family_ids": ids,
@@ -1185,11 +1195,131 @@ class TestConfirmatoryGate:
         assert any("not the current frozen protocol" in line
                    for line in lines)
 
-    def test_eligibility_from_a_dirty_tree_is_rejected(self, world):
-        _eligibility(world, git_dirty=True)
+    def test_eligibility_from_dirty_code_is_rejected(self, world):
+        _eligibility(world, git_dirty=True,
+                     git_dirty_code_paths=["src/causal_mllm/replay/runner.py"])
         lines = _violations(world)
-        assert any("not produced from a clean tree" in line
-                   for line in lines)
+        assert any("execution-relevant code" in line for line in lines), lines
+        # The offending path and the commit it contradicts are both named, so
+        # the violation is actionable rather than merely a refusal.
+        assert any("runner.py" in line for line in lines), lines
+
+    def test_a_report_omitting_the_code_paths_is_rejected(self, world):
+        """The field that decides the question cannot be left out.
+
+        Omitting it trips the required-field refusal before the code-scoped
+        check runs, which is the stronger outcome: a report cannot be silent
+        about whether its code changed mid-run and still be trusted.
+        """
+        assert "git_dirty_code_paths" in ELIGIBILITY_REQUIRED_FIELDS
+        _eligibility(world, overrides={"git_dirty_code_paths": None})
+        lines = _violations(world)
+        assert any("missing required field" in line for line in lines), lines
+        assert any("git_dirty_code_paths" in line for line in lines), lines
+
+    def test_non_code_changes_mid_run_do_not_invalidate_the_evidence(self,
+                                                                    world):
+        """The whole tree is still RECORDED, but only code is fatal.
+
+        The tree is required clean at launch, so the process has imported its
+        code and ``code_commit`` pins it. A diagnostic file appearing under
+        ``outputs/`` afterwards cannot retroactively change what was
+        generated; failing on it discarded a valid 72-generation run whose six
+        gates all passed.
+        """
+        _eligibility(world, git_dirty=True, git_dirty_code_paths=[],
+                     overrides={
+                         "git_dirty_paths": [
+                             "outputs/iteration_11/judge_vision_ablation/"
+                             "ablated_labels.jsonl"]})
+        # The gate now PASSES, so there are no violations to collect.
+        result = _gate(world)
+        assert result["passed"] is True, result["violations"]
+        # Recorded, not forgiven: the report still says the tree was dirty.
+        path = (world["eligibility_root"] / world["spec"].model_key
+                / "preflight_report.json")
+        doc = json.loads(path.read_text(encoding="utf-8"))
+        assert doc["git_dirty"] is True
+        assert doc["git_dirty_code_paths"] == []
+
+    @pytest.mark.parametrize("path", [
+        "src/causal_mllm/replay/runner.py",
+        "scripts/iter11_run_eligibility.py",
+        "configs/experiments/iteration_11_protocol.json",
+        "tests/unit/test_iter11_evidence_integrity.py",
+        ".github/workflows/ci.yml",
+        "pyproject.toml",
+        "conftest.py",
+        "sitecustomize.py",
+        "helper.py",
+    ])
+    def test_execution_relevant_paths_are_recognised(self, path):
+        assert seeds.is_execution_relevant_path(path), path
+
+    @pytest.mark.parametrize("path", [
+        # Frozen inputs are read at runtime even though they live under
+        # outputs/: the 11.5 selection is DERIVED from the Iteration-10 panel,
+        # reference run and adjudicated labels, and the gate reads the frozen
+        # protocol and the resolved-model lock.
+        "outputs/iteration_11/protocol/iteration_11_protocol.json",
+        "outputs/iteration_11/preflight/resolved_models.lock.yaml",
+        "outputs/scale_c/families_panel/validated_families.jsonl",
+        "outputs/scale_c/llm_judge_artifacts/llm_labels_adjudicated.json",
+    ])
+    def test_frozen_inputs_under_outputs_are_execution_relevant(self, path):
+        assert seeds.is_execution_relevant_path(path), path
+
+    @pytest.mark.parametrize("path", [
+        "outputs/iteration_11/judge_vision_ablation/ablated_labels.jsonl",
+        "outputs/iteration_11/eligibility/qwen35_2b/preflight_report.json",
+        "outputs/iteration_11/analysis/summary.json",
+        "outputs/iteration_11/generations/qwen35_2b/run/replay_outputs.jsonl",
+        "README.md",
+        "docs/design.md",
+        "data/media/source/mtmcs_0_main.png",
+        "figures/panel.pdf",
+        "notes.txt",
+    ])
+    def test_generated_evidence_is_not_execution_relevant(self, path):
+        assert not seeds.is_execution_relevant_path(path), path
+
+    def test_the_classifier_is_fail_closed_for_a_new_directory(self):
+        """A path nobody anticipated counts as relevant, not as evidence.
+
+        The scoping must not become a way for an unrecognised file to excuse
+        itself: relevance is the default and only the declared evidence, media
+        and prose shapes are forgiven.
+        """
+        assert seeds.is_execution_relevant_path("brand_new_tool/runner.py")
+        assert seeds.is_execution_relevant_path("brand_new_tool/notes")
+        assert seeds.is_execution_relevant_path("vendor/thing.bin")
+        # A new OUTPUT directory is still evidence, because the forgiveness is
+        # by shape (generated tree) rather than by an enumerated allowlist of
+        # known iteration directories.
+        assert not seeds.is_execution_relevant_path(
+            "outputs/iteration_12/something_new.json")
+
+    def test_code_tree_status_reports_the_code_subset(self, monkeypatch):
+        monkeypatch.setattr(
+            seeds, "git_working_tree_paths",
+            lambda: _git_paths(
+                modified=["README.md"],
+                untracked=["src/causal_mllm/replay/new_module.py",
+                           "outputs/iteration_11/eligibility/x.json"]))
+        tree = seeds.code_tree_status()
+        assert tree["dirty"] is True
+        assert tree["dirty_paths"] == [
+            "README.md", "outputs/iteration_11/eligibility/x.json",
+            "src/causal_mllm/replay/new_module.py"]
+        assert tree["code_dirty_paths"] == [
+            "src/causal_mllm/replay/new_module.py"]
+
+    def test_code_tree_status_without_git_reports_an_empty_code_subset(self,
+                                                                       monkeypatch):
+        monkeypatch.setattr(seeds, "git_working_tree_paths", lambda: None)
+        tree = seeds.code_tree_status()
+        assert tree["dirty"] is None
+        assert tree["code_dirty_paths"] == []
 
     # --- scope and overwrite ------------------------------------------
     def test_overwrite_is_rejected(self, world):
