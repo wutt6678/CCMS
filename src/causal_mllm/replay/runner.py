@@ -46,13 +46,24 @@ from causal_mllm.data.logging import get_logger
 from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.replay.backend import HFLocalBackend, ReplayBackend
 from causal_mllm.replay.config import ReplayConfig
+
+# OWN_OUTPUT_PREFIXES is defined by the confirmatory gate so that the
+# fingerprint and the gate scope "this stage's own outputs" identically;
+# importing it keeps one definition of the output layout rather than two
+# constants that must be kept in agreement by hand.
+from causal_mllm.replay.confirmatory import OWN_OUTPUT_PREFIXES
 from causal_mllm.replay.errors import ReplayError, ReplayMediaError, classify_error
 from causal_mllm.replay.registry import (
     ResolvedModel,
     dependency_lock_sha256,
     verify_active_dependency_lock,
 )
-from causal_mllm.seeds import get_git_commit, is_git_dirty, sha256_text
+from causal_mllm.seeds import (
+    code_tree_status,
+    get_git_commit,
+    is_git_dirty,
+    sha256_text,
+)
 from causal_mllm.validation.relations import _file_sha256
 
 log = get_logger(__name__)
@@ -175,11 +186,20 @@ def iteration11_run_fingerprint(
         # dirty tree executes whatever is on disk, not what the commit
         # contains, and two runs from the same commit with different
         # uncommitted edits would otherwise share a fingerprint (and so
-        # would be allowed to resume into each other). ``is_git_dirty()``
-        # ignores untracked files, so normal run side effects do not move
-        # it. None (not a git repo) is bound as-is: unknown provenance
-        # must not collide with a known-clean run.
+        # would be allowed to resume into each other). None (not a git
+        # repo) is bound as-is: unknown provenance must not collide with a
+        # known-clean run.
         "git_dirty": is_git_dirty(),
+        # ``git_dirty`` counts only TRACKED modifications, so it stayed
+        # False while an untracked module, an untracked sitecustomize.py or
+        # a top-level file shadowing an installed package changed what
+        # executed — and the fingerprint would then have certified a run its
+        # own ``code_commit`` could not reconstruct. This binds the
+        # reconstruction-relevant answer: modified OR untracked, minus cache
+        # paths and this stage's own output tree, because a run's own
+        # outputs are its product rather than its code.
+        "code_tree_dirty": code_tree_status(
+            exclude_prefixes=OWN_OUTPUT_PREFIXES)["dirty"],
         "hardware": fingerprint_hardware(hardware),
         # The frozen protocol requires the pip-freeze dependency lock hash
         # to be bound into every resolved run fingerprint.
@@ -577,11 +597,19 @@ def run_replay_stage(
             # job, and a run must not be lost because `pip freeze` could
             # not be executed. The reason stays in the evidence.
             dependency_check = {"verified": False, "reason": str(exc)}
+        # Recorded alongside ``git_dirty``, which counts only tracked
+        # modifications: a report claiming a clean tree while an untracked
+        # module or sitecustomize.py changed what executed is the same
+        # defect the confirmatory gate now refuses.
+        code_tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
         run_prov = {
             "model_key": model_spec.model_key,
             "adapter": model_spec.adapter,
             "code_commit": get_git_commit(),
             "git_dirty": is_git_dirty(),
+            "code_tree_dirty": code_tree["dirty"],
+            "code_dirty_paths": code_tree["dirty_paths"],
+            "code_untracked_paths": code_tree["untracked_paths"],
             "dataset_manifest_hash": _file_sha256(source_path),
             "resolved_run_fingerprint": iteration11_run_fingerprint(
                 backend, config, input_dir, model_spec, hardware,

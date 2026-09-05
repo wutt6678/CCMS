@@ -41,7 +41,7 @@ import yaml
 from causal_mllm import seeds
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
 from causal_mllm.data.io import read_jsonl, write_jsonl
-from causal_mllm.replay import confirmatory, registry
+from causal_mllm.replay import confirmatory, registry, runner
 from causal_mllm.replay.config import ReplayConfig
 from causal_mllm.replay.confirmatory import (
     ELIGIBILITY_N_ATTEMPTS,
@@ -120,6 +120,20 @@ def _tree(dirty, dirty_paths=(), untracked_paths=(), own_outputs=(),
 def _git_paths(modified=(), untracked=()):
     """A ``causal_mllm.seeds.git_working_tree_paths`` result."""
     return {"modified": list(modified), "untracked": list(untracked)}
+
+
+def _patch_tree(monkeypatch, dirty=False, dirty_paths=(),
+                untracked_paths=()) -> None:
+    """Make the RUNNER's code-tree determination hermetic.
+
+    Without this the fingerprint would shell out to the real repository, so
+    a test's result would depend on whether the developer happened to have
+    uncommitted work.
+    """
+    monkeypatch.setattr(
+        "causal_mllm.replay.runner.code_tree_status",
+        lambda exclude_prefixes=(): _tree(dirty, dirty_paths,
+                                          untracked_paths))
 
 
 # ---------------------------------------------------------------------
@@ -492,6 +506,7 @@ class TestCommittedArtifactProvenance:
         stub = _StubAdapter(spec)
         config = ReplayConfig(max_new_tokens=1536)
         hw = stub.runtime_metadata()["hardware"]
+        _patch_tree(monkeypatch)
         monkeypatch.setattr(
             "causal_mllm.replay.runner.is_git_dirty", lambda: False)
         clean = iteration11_run_fingerprint(
@@ -509,6 +524,7 @@ class TestCommittedArtifactProvenance:
         stub = _StubAdapter(spec)
         config = ReplayConfig(max_new_tokens=1536)
         hw = stub.runtime_metadata()["hardware"]
+        _patch_tree(monkeypatch)
         digests = set()
         for value in (False, True, None):
             monkeypatch.setattr(
@@ -516,6 +532,102 @@ class TestCommittedArtifactProvenance:
             digests.add(iteration11_run_fingerprint(
                 stub, config, tmp_path, spec, hw))
         assert len(digests) == 3
+
+    def test_untracked_source_moves_the_fingerprint(self, tmp_path,
+                                                    monkeypatch):
+        # The recording-layer half of the same defect. ``is_git_dirty()``
+        # counts only tracked modifications, so an untracked module left
+        # git_dirty False and two runs whose code differed shared a
+        # fingerprint — and could therefore resume into each other.
+        _families(tmp_path, 1)
+        spec = _spec()
+        stub = _StubAdapter(spec)
+        config = ReplayConfig(max_new_tokens=1536)
+        hw = stub.runtime_metadata()["hardware"]
+        monkeypatch.setattr(
+            "causal_mllm.replay.runner.is_git_dirty", lambda: False)
+        _patch_tree(monkeypatch)
+        clean = iteration11_run_fingerprint(stub, config, tmp_path, spec, hw)
+        # Tracked tree still clean; only an untracked file appeared.
+        _patch_tree(monkeypatch, dirty=True,
+                    dirty_paths=["src/causal_mllm/replay/injected.py"],
+                    untracked_paths=["src/causal_mllm/replay/injected.py"])
+        injected = iteration11_run_fingerprint(
+            stub, config, tmp_path, spec, hw)
+        assert clean != injected, (
+            "an untracked module changed the code that would execute "
+            "without moving the fingerprint")
+
+    def test_the_fingerprint_scopes_out_the_runs_own_outputs(
+            self, tmp_path, monkeypatch):
+        # A run's own outputs are its product, not its code: they must not
+        # move the fingerprint, or a resume would invalidate itself.
+        seen = {}
+
+        def fake(exclude_prefixes=()):
+            seen["prefixes"] = tuple(exclude_prefixes)
+            return _tree(False, own_outputs=[
+                "outputs/iteration_11/generations/qwen35_4b/r/"
+                "replay_outputs.jsonl"])
+
+        _families(tmp_path, 1)
+        spec = _spec()
+        stub = _StubAdapter(spec)
+        config = ReplayConfig(max_new_tokens=1536)
+        hw = stub.runtime_metadata()["hardware"]
+        monkeypatch.setattr(
+            "causal_mllm.replay.runner.is_git_dirty", lambda: False)
+        monkeypatch.setattr(
+            "causal_mllm.replay.runner.code_tree_status", fake)
+        with_own_outputs = iteration11_run_fingerprint(
+            stub, config, tmp_path, spec, hw)
+        _patch_tree(monkeypatch)
+        pristine = iteration11_run_fingerprint(
+            stub, config, tmp_path, spec, hw)
+        assert with_own_outputs == pristine
+        assert seen["prefixes"] == confirmatory.OWN_OUTPUT_PREFIXES
+
+    def test_the_run_report_records_the_untracked_paths(self, tmp_path,
+                                                        monkeypatch):
+        # So a report can never claim a clean tree while untracked source
+        # was present, even on a path the gate does not cover.
+        _families(tmp_path, 3)
+        spec = _spec()
+        stub = _StubAdapter(spec)
+        config = ReplayConfig(max_new_tokens=1536)
+        monkeypatch.setattr(
+            "causal_mllm.replay.runner.is_git_dirty", lambda: False)
+        _patch_tree(monkeypatch, dirty=True,
+                    dirty_paths=["sitecustomize.py"],
+                    untracked_paths=["sitecustomize.py"])
+        report = runner.run_replay_stage(
+            tmp_path, tmp_path / "out", config=config, backend=stub,
+            run_id="iter11-untracked", model_spec=spec)
+        # Iteration 11 provenance is merged into the report's provenance
+        # block, so the two dirtiness answers sit side by side.
+        provenance = report["provenance"]
+        assert provenance["git_dirty"] is False
+        assert provenance["code_tree_dirty"] is True
+        assert provenance["code_untracked_paths"] == ["sitecustomize.py"]
+        assert provenance["code_dirty_paths"] == ["sitecustomize.py"]
+
+    def test_the_legacy_report_schema_is_untouched(self, tmp_path,
+                                                   monkeypatch):
+        # The frozen single-model path must not gain Iteration 11 fields.
+        _families(tmp_path, 2)
+        config = ReplayConfig(max_new_tokens=64)
+        stub = _StubAdapter(_spec())
+        monkeypatch.setattr(
+            "causal_mllm.replay.runner.is_git_dirty", lambda: False)
+        _patch_tree(monkeypatch)
+        # No model_spec: the legacy path, whose report schema is frozen.
+        report = runner.run_replay_stage(
+            tmp_path, tmp_path / "legacy", config=config, backend=stub,
+            run_id="legacy-run")
+        assert "code_tree_dirty" not in report["provenance"]
+        assert "code_untracked_paths" not in report["provenance"]
+        assert "model_key" not in report["provenance"]
+        assert report["provenance"]["git_dirty"] is False
 
 
 # ---------------------------------------------------------------------

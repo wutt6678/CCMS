@@ -847,6 +847,21 @@ own output prefix — each recorded separately in the artifact as
 `excluded_cache_paths` and `excluded_own_outputs`, so neither exclusion is
 silent and neither is a blanket ignore of `outputs/`.
 
+The same hole existed one layer down, in the *recording* of provenance rather
+than in its enforcement: `iteration11_run_fingerprint` bound
+`git_dirty: is_git_dirty()`, whose own comment asserted that ignoring
+untracked files was safe because they are "normal run side effects". That is
+true of a run's outputs and false of an untracked module, so two runs whose
+code genuinely differed could share a fingerprint — and a resume key that
+collides is a resume key that lets one run continue another's evidence. The
+fingerprint now also binds `code_tree_dirty`, the reconstruction-relevant
+answer (modified **or** untracked, minus cache paths and this stage's own
+output tree, so a run's own outputs still do not invalidate its own resume).
+`git_dirty` is kept alongside it with its original tracked-only meaning, and
+the Iteration 11 run report records `code_tree_dirty`, `code_dirty_paths` and
+`code_untracked_paths`. The frozen legacy single-model report schema is
+unchanged and gains none of these fields.
+
 The gate now also validates the **content** of the 11.5 report it depends on,
 via `validate_eligibility_report`. It previously recorded `code_commit`
 without requiring it, so a report carrying `code_commit: null`, or one written
