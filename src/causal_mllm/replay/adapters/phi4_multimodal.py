@@ -9,7 +9,8 @@ environment's transformers 5.14.1.
 
 Four incompatibilities are repaired, exactly the four the frozen protocol
 pre-declared — items 1, 2, 3 and 8 below — plus four more discovered by
-actually running the load (items 4-7):
+actually running the load (items 4-7) and one discovered only by a
+full-panel confirmatory generation (item 9):
 
 1. ``config._attn_implementation`` is stored as ``flash_attention_2``;
    FA2 is unavailable for this model here, so sdpa is forced on the
@@ -50,9 +51,23 @@ actually running the load (items 4-7):
    SigLIP tower): checkpointing flags are disabled, and the vendored
    vision tower's own ``_flash_attention_forward`` hook — which does not
    consult ``config._attn_implementation`` — is redirected to sdpa.
+9. The vendored ``prepare_inputs_for_generation`` discards the KV cache the
+   first time a sequence passes ``original_max_position_embeddings`` (4096)
+   so the prefix is recomputed under LongRoPE's ``long_factor``, and reads
+   ``cache_position[0]`` to decide whether that moment has arrived.
+   transformers 5.x stopped passing ``cache_position`` to remote code, so
+   every generation reaching 4097 tokens died with ``TypeError: 'NoneType'
+   object is not subscriptable``.  That silently capped Phi-4 at 4096 total
+   tokens and censored exactly its longest responses, which is not
+   missing-at-random: it biases the truncation rate downward and the
+   length distribution against the other arms, one of which reaches 16753
+   tokens on the same panel.  See :func:`shim_longrope_cache_position`.
 
-The four numbered shims beyond the frozen list were each found by running
-the load, not predicted; every one is recorded per run in
+The five numbered shims beyond the frozen list were each found by running
+the code rather than predicted — four by the load, and the ninth only by a
+full-panel generation that reached 4097 tokens, which no smoke test does
+(``_check_rope_headroom`` deliberately keeps the preflight prompt below the
+switch).  Every one is recorded per run in
 ``runtime_metadata()["phi4_shims"]`` so the evidence states exactly what
 was patched.
 
@@ -74,6 +89,7 @@ contradicting the frozen artifact.
 
 from __future__ import annotations
 
+import functools
 import json
 import re
 
@@ -164,6 +180,144 @@ def bind_inner_prepare_inputs(model_cls) -> str | None:
         f"vendor builds is discarded)"
 
 
+def longrope_past_length(cache_position, past_key_values) -> int:
+    """How many tokens the KV cache already holds.
+
+    ``cache_position[0]`` when the caller supplied one — transformers 4.x
+    always did, and it is what the vendored LongRoPE guard reads — and
+    otherwise the cache's own length.  The two are the same number: 5.x
+    builds ``cache_position`` as ``arange(sequence_length) + past_seen``
+    with ``past_seen = past_key_values.get_seq_length()``, so element 0 IS
+    the cached length.
+
+    Standalone so the restored arithmetic is unit-testable on its own, with
+    no transformers import and no mutation of global class state — the same
+    reason :func:`cache_get_usable_length` is a function rather than a
+    closure.
+    """
+    if cache_position is not None:
+        return int(cache_position[0])
+    if past_key_values is None:
+        return 0
+    return int(past_key_values.get_seq_length())
+
+
+def longrope_switch_fires(config, input_length: int, cache_position,
+                          past_key_values) -> bool:
+    """Whether the vendor's LongRoPE guard discards the cache this step.
+
+    A transcription of the condition in the pinned
+    ``Phi4MMForCausalLM.prepare_inputs_for_generation``, kept separate so
+    the shim and the remote code cannot drift apart silently and so the
+    whole decision table is unit-testable without transformers.
+    """
+    if not past_key_values or not getattr(config, "rope_scaling", None):
+        return False
+    boundary = getattr(config, "original_max_position_embeddings", None)
+    if boundary is None:
+        return False
+    if input_length < boundary + 1:
+        return False
+    return longrope_past_length(cache_position, past_key_values) <= boundary
+
+
+def shim_longrope_cache_position(model_cls) -> str | None:
+    """Realize the vendor's LongRoPE cache invalidation on transformers 5.x.
+
+    The vendored ``prepare_inputs_for_generation`` overrides the base for
+    one reason, given in its own comment: the first time a sequence reaches
+    ``original_max_position_embeddings + 1`` (4097 here) the KV cache is
+    thrown away so the whole prefix is recomputed under LongRoPE's
+    ``long_factor`` instead of ``short_factor``.  Under 4.x it said that by
+    assigning ``past_key_values = None``, having first read the cached
+    length out of ``cache_position[0]``.  Both halves are gone in 5.x:
+
+    * ``cache_position`` is no longer passed into a remote-code model's
+      ``prepare_inputs_for_generation`` — it is built only inside the base
+      method's own return value, in the block that emits the "seems to
+      expect cache_position" warning this checkpoint triggers at load.  The
+      read therefore raises ``TypeError: 'NoneType' object is not
+      subscriptable`` on the first decode step of any sequence reaching
+      4097, and on the prefill of any prompt already past it.
+    * even with that supplied, nulling the cache no longer means "recompute
+      the prefix".  The base slices ``input_ids`` by ``next_sequence_length``,
+      which ``_sample`` pins to 1 whenever ``use_cache`` is set and
+      independently of whether a cache survives, and it omits
+      ``past_key_values`` from ``model_inputs`` entirely.  The vendored
+      forward then takes its legacy-BC branch, builds a config-less
+      ``DynamicCache()`` with zero layers, and calls the removed
+      ``to_legacy_cache()``.
+
+    So the guard's intent is expressed in 5.x terms instead of its 4.x
+    spelling: keep a ``Cache`` object, hand over a fresh empty one of the
+    same class built from the model config, and ask for the whole sequence
+    rather than the last token.  Building it from the config matters twice
+    over — it arrives with its layers already created, so
+    ``get_max_length()`` answers the configured maximum instead of raising
+    ``max() arg is an empty sequence`` the way a bare ``DynamicCache()``
+    does, and it keeps ``isinstance(past_key_values, Cache)`` true so the
+    vendored BC branch is never entered.
+
+    Steps past the switch need help too, which is easy to miss: the
+    vendor's OUTER condition stays true for every later position and it
+    reads ``cache_position[0]`` before the inner test that decides nothing
+    has to be done, so the value is supplied on all of them.  That is inert
+    below the boundary, and was verified rather than assumed — responses at
+    totals of 4088, 4095 and 4097 are byte-identical with and without this
+    shim, the first 169 generated tokens of a 4128-token generation are
+    byte-identical to a 169-token one, the single recompute lands at
+    exactly 4097 tokens against an empty 32-layer cache, and repeating a
+    400-token generation reproduces it.
+
+    ``parent_impl`` is found by walking the MRO rather than naming
+    ``GenerationMixin``, so the shim follows the pinned remote code's own
+    resolution of ``super()`` instead of assuming it.
+    """
+    original = model_cls.__dict__.get("prepare_inputs_for_generation")
+    if original is None or getattr(original, "_ccms_longrope_shim", False):
+        return None
+    parent_impl = None
+    parent_name = None
+    for klass in model_cls.__mro__[1:]:
+        if "prepare_inputs_for_generation" in klass.__dict__:
+            parent_impl = klass.__dict__["prepare_inputs_for_generation"]
+            parent_name = klass.__name__
+            break
+    if parent_impl is None:
+        return None
+
+    @functools.wraps(original)
+    def patched(self, input_ids, *args, **kwargs):
+        import torch
+
+        past_key_values = kwargs.get("past_key_values")
+        if longrope_switch_fires(self.config, input_ids.shape[1],
+                                 kwargs.get("cache_position"),
+                                 past_key_values):
+            kwargs["past_key_values"] = type(past_key_values)(
+                config=self.config)
+            kwargs["next_sequence_length"] = None
+            kwargs["cache_position"] = torch.arange(
+                input_ids.shape[1], device=input_ids.device)
+            return parent_impl(self, input_ids, *args, **kwargs)
+        if kwargs.get("cache_position") is None:
+            past_seen = longrope_past_length(None, past_key_values)
+            kwargs["cache_position"] = (
+                torch.arange(input_ids.shape[1], device=input_ids.device)
+                + past_seen)
+        return original(self, input_ids, *args, **kwargs)
+
+    patched._ccms_longrope_shim = True
+    model_cls.prepare_inputs_for_generation = patched
+    return (f"realized {model_cls.__name__}.prepare_inputs_for_generation's "
+            f"LongRoPE cache invalidation in transformers-5.x terms "
+            f"(delegates to {parent_name} on the switching step) — 5.x "
+            f"stopped passing cache_position, so the vendor's guard raised "
+            f"'NoneType' object is not subscriptable at 4097 tokens, and "
+            f"nulling the cache no longer recomputes the prefix because the "
+            f"base slices input_ids by next_sequence_length")
+
+
 def cache_get_usable_length(cache, new_seq_length: int,
                             layer_idx: int = 0) -> int:
     """The transformers-4.x ``Cache.get_usable_length`` semantics.
@@ -192,10 +346,17 @@ def shim_cache_api() -> list[str]:
 
     The patch is ADDITIVE (it defines a method that no longer exists and
     overrides nothing).  ``to_legacy_cache`` / ``from_legacy_cache`` were
-    removed too, but they sit behind ``return_legacy_cache``, which is only
-    set when ``past_key_values`` is not a ``Cache``; ``generate`` always
-    passes a ``DynamicCache``, so those paths are unreachable and are
-    deliberately left unpatched rather than papered over.
+    removed too, but they sit behind ``return_legacy_cache``, which the
+    vendored forward sets only when ``past_key_values`` is not a ``Cache``.
+    ``generate`` always passes a ``DynamicCache``, and
+    :func:`shim_longrope_cache_position` keeps it that way on the one step
+    where the vendor's own code would otherwise null it, so those paths
+    stay unreachable and are deliberately left unpatched rather than
+    papered over.  Restoring them would be actively dangerous rather than
+    merely unnecessary: that branch pairs the legacy conversion with a
+    config-less ``DynamicCache()`` and a one-token input, so making it
+    execute would trade a loud ``AttributeError`` for a continuation that
+    silently lost its whole prefix.
     """
     from transformers.cache_utils import Cache
 
@@ -383,6 +544,9 @@ class Phi4MultimodalAdapter(HFAdapterBase):
         bound = bind_inner_prepare_inputs(model_cls)
         if bound:
             self.phi4_shims.append(bound)
+        longrope = shim_longrope_cache_position(model_cls)
+        if longrope:
+            self.phi4_shims.append(longrope)
         self.phi4_shims.extend(shim_cache_api())
 
         model = model_cls(config)

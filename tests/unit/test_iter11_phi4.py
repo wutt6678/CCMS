@@ -32,7 +32,10 @@ from causal_mllm.replay.adapters.phi4_multimodal import (
     TIED_WEIGHTS_KEYS,
     Phi4MultimodalAdapter,
     cache_get_usable_length,
+    longrope_past_length,
+    longrope_switch_fires,
     normalize_tied_weights_keys,
+    shim_longrope_cache_position,
 )
 from causal_mllm.replay.registry import (
     DEFAULT_LOCK,
@@ -376,6 +379,259 @@ class TestCacheShimSemantics:
     def test_exactly_at_the_maximum_is_not_clipped(self):
         cache = _FakeCache(previous=80, max_length=100)
         assert cache_get_usable_length(cache, 20) == 80
+
+
+class _FakeRopeConfig:
+    """The two attributes the vendored LongRoPE guard actually reads."""
+
+    def __init__(self, boundary=ROPE_SWITCH, rope_scaling="present"):
+        self.original_max_position_embeddings = boundary
+        self.rope_scaling = rope_scaling
+
+
+class _ConstructibleCache:
+    """A cache whose CLASS can be re-instantiated from a config.
+
+    ``DynamicCache(config=...)`` can be, which is what the shim relies on
+    when it replaces the cache the vendor would have nulled.  ``__bool__``
+    is pinned to True even at length 0 because that is what
+    ``DynamicCache`` does, and it is load-bearing: the vendor's guard
+    starts with ``if past_key_values``, so an empty-but-truthy cache is why
+    the guard also fires on a prefill that is already past the switch.
+    """
+
+    built_from = []
+
+    def __init__(self, length=0, config=None):
+        self.length = length
+        self.config = config
+        if config is not None:
+            _ConstructibleCache.built_from.append(config)
+
+    def get_seq_length(self, layer_idx=0):
+        return self.length
+
+    def __bool__(self):
+        return True
+
+
+class _FakePositionRange:
+    """A stand-in for the position tensor ``torch.arange`` would return.
+
+    Named apart from the file's existing ``_FakeTensor``, which fakes a
+    parameter for the load-verification tests and takes ``ptr``/``numel``.
+    """
+
+    def __init__(self, values, device="cpu"):
+        self.values = list(values)
+        self.shape = (1, len(self.values))
+        self.device = device
+
+    def __add__(self, other):
+        return _FakePositionRange([v + other for v in self.values], self.device)
+
+    def __getitem__(self, index):
+        return self.values[index]
+
+
+class _FakeTorch:
+    @staticmethod
+    def arange(stop, device=None):
+        return _FakePositionRange(range(stop), device=device)
+
+
+class TestLongRopePastLength:
+    def test_cache_position_element_zero_wins_when_supplied(self):
+        # That element is what the vendored guard reads under 4.x.
+        assert longrope_past_length(_FakePositionRange(range(4090, 4099)),
+                                    _ConstructibleCache(length=7)) == 4090
+
+    def test_falls_back_to_the_cache_when_no_position_is_supplied(self):
+        assert longrope_past_length(None, _ConstructibleCache(4096)) == 4096
+
+    def test_no_position_and_no_cache_is_zero(self):
+        assert longrope_past_length(None, None) == 0
+
+
+class TestLongRopeSwitchDecision:
+    """The decision table, transcribed from the pinned remote code.
+
+    These are the cases that decide whether a generation is merely slower
+    at one token or silently capped at 4096, so the whole table is pinned
+    rather than the interesting row.
+    """
+
+    def test_at_the_boundary_has_not_switched_yet(self):
+        # The vendor's test is >= boundary + 1, so 4096 itself is short.
+        assert longrope_switch_fires(
+            _FakeRopeConfig(), ROPE_SWITCH, None,
+            _ConstructibleCache(length=ROPE_SWITCH - 1)) is False
+
+    def test_one_past_the_boundary_on_the_decode_step_fires(self):
+        # The exact state the 11.6 run reached: prompt 3928, 169 tokens
+        # generated, so the sequence is 4097 and the cache holds 4096.
+        assert longrope_switch_fires(
+            _FakeRopeConfig(), ROPE_SWITCH + 1, None,
+            _ConstructibleCache(length=ROPE_SWITCH)) is True
+
+    def test_a_prefill_already_past_the_boundary_fires(self):
+        # Nothing is cached yet, and an empty DynamicCache is still truthy,
+        # so the guard fires on the very first forward.
+        assert longrope_switch_fires(
+            _FakeRopeConfig(), 6328, None,
+            _ConstructibleCache(length=0)) is True
+
+    def test_it_does_not_fire_again_on_every_later_step(self):
+        # Once the cache holds more than the boundary the switch has
+        # happened; firing every step would mean never retaining a cache.
+        assert longrope_switch_fires(
+            _FakeRopeConfig(), ROPE_SWITCH + 2, None,
+            _ConstructibleCache(length=ROPE_SWITCH + 1)) is False
+
+    def test_a_supplied_cache_position_is_believed_over_the_cache(self):
+        assert longrope_switch_fires(
+            _FakeRopeConfig(), ROPE_SWITCH + 1,
+            _FakePositionRange(range(ROPE_SWITCH + 1, ROPE_SWITCH + 2)),
+            _ConstructibleCache(length=0)) is False
+
+    def test_no_rope_scaling_means_no_switch_point(self):
+        assert longrope_switch_fires(
+            _FakeRopeConfig(rope_scaling=None), ROPE_SWITCH + 1, None,
+            _ConstructibleCache(length=ROPE_SWITCH)) is False
+
+    def test_a_config_without_the_boundary_does_not_guess_one(self):
+        config = _FakeRopeConfig()
+        del config.original_max_position_embeddings
+        assert longrope_switch_fires(
+            config, ROPE_SWITCH + 1, None,
+            _ConstructibleCache(length=ROPE_SWITCH)) is False
+
+    def test_no_cache_at_all_is_not_a_switch(self):
+        assert longrope_switch_fires(
+            _FakeRopeConfig(), ROPE_SWITCH + 1, None, None) is False
+
+
+def _vendor_and_parent():
+    """A two-level class shaped like the remote code's.
+
+    ``Vendor`` overrides the method and calls ``super()``, exactly as
+    ``Phi4MMForCausalLM`` does; the shim has to find ``Parent``'s
+    implementation by walking the MRO, and these record which one ran.
+    """
+    calls = []
+
+    class Parent:
+        def prepare_inputs_for_generation(self, input_ids, *args, **kwargs):
+            calls.append(("parent", kwargs))
+            return {"from": "parent", **kwargs}
+
+    class Vendor(Parent):
+        def prepare_inputs_for_generation(self, input_ids, *args, **kwargs):
+            calls.append(("vendor", kwargs))
+            return {"from": "vendor", **kwargs}
+
+    return Vendor, calls
+
+
+class TestLongRopeShimInstallation:
+    def test_a_class_without_the_override_is_left_alone(self):
+        class Bare:
+            pass
+
+        assert shim_longrope_cache_position(Bare) is None
+        assert not hasattr(Bare, "prepare_inputs_for_generation")
+
+    def test_no_ancestor_implementation_means_no_shim(self):
+        # Delegating nowhere would be worse than not patching: the shim's
+        # whole mechanism is handing the switching step to super().
+        class Orphan:
+            def prepare_inputs_for_generation(self, *args, **kwargs):
+                return None
+
+        assert shim_longrope_cache_position(Orphan) is None
+
+    def test_applying_it_twice_does_not_double_wrap(self):
+        Vendor, _ = _vendor_and_parent()
+        assert shim_longrope_cache_position(Vendor) is not None
+        assert shim_longrope_cache_position(Vendor) is None
+
+    def test_the_note_names_the_ancestor_it_delegates_to(self):
+        Vendor, _ = _vendor_and_parent()
+        note = shim_longrope_cache_position(Vendor)
+        assert "Parent" in note and "LongRoPE" in note
+
+
+class TestLongRopeShimDelegation:
+    """Which implementation runs, and with what.
+
+    ``torch`` is faked rather than imported so the file stays CI-safe; only
+    ``arange`` is used, and only to build the position range.
+    """
+
+    def _model(self, monkeypatch, length, cached):
+        monkeypatch.setitem(sys.modules, "torch", _FakeTorch)
+        Vendor, calls = _vendor_and_parent()
+        shim_longrope_cache_position(Vendor)
+        model = Vendor()
+        model.config = _FakeRopeConfig()
+        _ConstructibleCache.built_from.clear()
+        ids = _FakePositionRange(range(length))
+        out = model.prepare_inputs_for_generation(
+            ids, next_sequence_length=1,
+            past_key_values=_ConstructibleCache(length=cached))
+        return calls, out, model
+
+    def test_below_the_boundary_the_vendor_still_runs_unchanged(
+            self, monkeypatch):
+        calls, out, _model = self._model(
+            monkeypatch, ROPE_SWITCH, ROPE_SWITCH - 1)
+        assert [c[0] for c in calls] == ["vendor"]
+        assert out["from"] == "vendor"
+        assert out["next_sequence_length"] == 1
+
+    def test_below_the_boundary_a_cache_position_is_supplied(
+            self, monkeypatch):
+        # The vendor reads cache_position[0] on every step past the switch,
+        # and 5.x never passes it; supplying the value 5.x computes for
+        # itself is what keeps those steps alive.
+        _calls, out, _model = self._model(monkeypatch, ROPE_SWITCH, 12)
+        assert out["cache_position"][0] == 12
+
+    def test_on_the_switching_step_the_parent_runs_instead(self, monkeypatch):
+        calls, out, _model = self._model(
+            monkeypatch, ROPE_SWITCH + 1, ROPE_SWITCH)
+        assert [c[0] for c in calls] == ["parent"]
+        assert out["from"] == "parent"
+
+    def test_the_switching_step_asks_for_the_whole_sequence(self,
+                                                           monkeypatch):
+        # next_sequence_length=1 is what silently drops the prefix: the base
+        # slices input_ids by it regardless of whether a cache survives.
+        _calls, out, _model = self._model(
+            monkeypatch, ROPE_SWITCH + 1, ROPE_SWITCH)
+        assert out["next_sequence_length"] is None
+
+    def test_the_switching_step_keeps_a_cache_built_from_the_config(
+            self, monkeypatch):
+        # Nulling it is what sends the vendored forward down its legacy
+        # branch; a config-built cache keeps isinstance(..., Cache) true and
+        # arrives with its layers already created.
+        _calls, out, model = self._model(
+            monkeypatch, ROPE_SWITCH + 1, ROPE_SWITCH)
+        replacement = out["past_key_values"]
+        assert isinstance(replacement, _ConstructibleCache)
+        assert replacement.get_seq_length() == 0
+        # Built from THIS model's config, not a fresh default one: the
+        # layers and the declared maximum come from it.
+        assert _ConstructibleCache.built_from == [model.config]
+        assert replacement.config is model.config
+
+    def test_the_switching_step_covers_every_position(self, monkeypatch):
+        _calls, out, _model = self._model(
+            monkeypatch, ROPE_SWITCH + 1, ROPE_SWITCH)
+        positions = out["cache_position"]
+        assert positions.shape[1] == ROPE_SWITCH + 1
+        assert positions[0] == 0
 
 
 class TestTiedWeightsNormalization:

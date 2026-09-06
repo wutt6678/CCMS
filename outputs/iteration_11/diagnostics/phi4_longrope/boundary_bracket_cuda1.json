@@ -1,0 +1,45 @@
+{
+  "device": "cuda:1",
+  "family_id": "CMST_779995",
+  "variant": "cross_modal",
+  "prefill": 3928,
+  "boundary": 4096,
+  "results": [
+    {
+      "budget": 160,
+      "total": 4088,
+      "side": "BELOW",
+      "status": "ok",
+      "output_token_count": 160,
+      "finish_reason": "length",
+      "response_tail": "ple carrying them. It is a general street scene without any specific details on theft risk"
+    },
+    {
+      "budget": 167,
+      "total": 4095,
+      "side": "BELOW",
+      "status": "ok",
+      "output_token_count": 167,
+      "finish_reason": "length",
+      "response_tail": "t scene without any specific details on theft risk or the accessibility of personal items."
+    },
+    {
+      "budget": 169,
+      "total": 4097,
+      "side": "ABOVE",
+      "status": "ok",
+      "output_token_count": 169,
+      "finish_reason": "length",
+      "response_tail": "hout any specific details on theft risk or the accessibility of personal items. Therefore,"
+    },
+    {
+      "budget": 200,
+      "total": 4128,
+      "side": "ABOVE",
+      "status": "raised",
+      "type": "TypeError",
+      "message": "'NoneType' object is not subscriptable",
+      "traceback": "Traceback (most recent call last):\n  File \"/scratch/wutiantong/repro_phi4_boundary.py\", line 121, in main\n    out = backend.generate(messages)\n  File \"/scratch/wutiantong/CCMS/src/causal_mllm/replay/adapters/base.py\", line 384, in generate\n    output_ids = self.model.generate(**inputs, **gen_kwargs)\n  File \"/scratch/wutiantong/miniconda3/envs/ccms-iter11/lib/python3.10/site-packages/torch/utils/_contextlib.py\", line 120, in decorate_context\n    return func(*args, **kwargs)\n  File \"/scratch/wutiantong/miniconda3/envs/ccms-iter11/lib/python3.10/site-packages/transformers/generation/utils.py\", line 2681, in generate\n    result = decoding_method(\n  File \"/scratch/wutiantong/miniconda3/envs/ccms-iter11/lib/python3.10/site-packages/transformers/generation/utils.py\", line 2892, in _sample\n    model_inputs = self.prepare_inputs_for_generation(\n  File \"/scratch/wutiantong/.cache/huggingface/modules/transformers_modules/microsoft/Phi_hyphen_4_hyphen_multimodal_hyphen_instruct/93f923e1a7727d1c4f446756212d9d3e8fcc5d81/modeling_phi4mm.py\", line 2184, in prepare_inputs_for_generation\n    past_length = cache_position[0]\nTypeError: 'NoneType' object is not subscriptable\n"
+    }
+  ]
+}

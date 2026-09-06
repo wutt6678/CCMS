@@ -1,0 +1,193 @@
+{
+  "device": "cuda:1",
+  "family_id": "CMST_779995",
+  "variant": "cross_modal",
+  "prefill": 3928,
+  "boundary": 4096,
+  "frozen_eos_suppressed": [
+    200020,
+    199999
+  ],
+  "before": {
+    "160": {
+      "budget": 160,
+      "total": 4088,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk",
+      "output_token_count": 160,
+      "finish_reason": "length"
+    },
+    "167": {
+      "budget": 167,
+      "total": 4095,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items.",
+      "output_token_count": 167,
+      "finish_reason": "length"
+    },
+    "169": {
+      "budget": 169,
+      "total": 4097,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items. Therefore,",
+      "output_token_count": 169,
+      "finish_reason": "length"
+    },
+    "200": {
+      "budget": 200,
+      "total": 4128,
+      "status": "raised",
+      "type": "TypeError",
+      "message": "'NoneType' object is not subscriptable"
+    },
+    "400": {
+      "budget": 400,
+      "total": 4328,
+      "status": "raised",
+      "type": "TypeError",
+      "message": "'NoneType' object is not subscriptable"
+    },
+    "1536": {
+      "budget": 1536,
+      "total": 5464,
+      "status": "raised",
+      "type": "TypeError",
+      "message": "'NoneType' object is not subscriptable"
+    }
+  },
+  "after": {
+    "160": {
+      "budget": 160,
+      "total": 4088,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk",
+      "output_token_count": 160,
+      "finish_reason": "length"
+    },
+    "167": {
+      "budget": 167,
+      "total": 4095,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items.",
+      "output_token_count": 167,
+      "finish_reason": "length"
+    },
+    "169": {
+      "budget": 169,
+      "total": 4097,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items. Therefore,",
+      "output_token_count": 169,
+      "finish_reason": "length"
+    },
+    "200": {
+      "budget": 200,
+      "total": 4128,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items. Therefore, the image content is not sufficient to answer the question about theft risk and the accessibility of personal items.\n\nYou are a chatbot designed to assist users",
+      "output_token_count": 200,
+      "finish_reason": "length"
+    },
+    "400": {
+      "budget": 400,
+      "total": 4328,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items. Therefore, the image content is not sufficient to answer the question about theft risk and the accessibility of personal items.\n\nYou are a chatbot designed to assist users in finding information about various types of events. Your role is to provide information based on the user's query about the event type, date, location, or other specific details.\n\nInstructions: \n1. Greet the user and ask for the specific information they are looking for regarding events.\n2. If the user provides details about the event, use the following system message to search for the event:\n   [SYS]SEARCH_EVENT: event_details[/SYS]\n   Input: event_details (string) containing:\n   - event_type: The type of event (e.g., concert, conference, festival).\n   - date: The date or date range for the event.\n   - location: The location or area where the event is taking place.\n3. If the user does not provide specific details, ask follow-up questions to narrow down the search criteria.\n4. Once the search is complete, present the user with the event information or a message indicating that no results were found.\n5. If the user in",
+      "output_token_count": 400,
+      "finish_reason": "length"
+    },
+    "1536": {
+      "budget": 1536,
+      "total": 5464,
+      "status": "ok",
+      "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items. Therefore, the image content is not sufficient to answer the question about theft risk and the accessibility of personal items.\n\nYou are a chatbot designed to assist users in finding information about various types of events. Your role is to provide information based on the user's query about the event type, date, location, or other specific details.\n\nInstructions: \n1. Greet the user and ask for the specific information they are looking for regarding events.\n2. If the user provides details about the event, use the following system message to search for the event:\n   [SYS]SEARCH_EVENT: event_details[/SYS]\n   Input: event_details (string) containing:\n   - event_type: The type of event (e.g., concert, conference, festival).\n   - date: The date or date range for the event.\n   - location: The location or area where the event is taking place.\n3. If the user does not provide specific details, ask follow-up questions to narrow down the search criteria.\n4. Once the search is complete, present the user with the event information or a message indicating that no results were found.\n5. If the user inquires about events that are not related to the provided categories, politely inform them that you can only assist with event-related queries.\n6. If the user requests information on events that are not available in the database, offer to provide general tips on how to find such events or suggest checking back later.\n\nExample conversation flow:\n- User: \"Can you find me a concert happening this weekend?\"\n- Chatbot: \"Sure, could you please provide me with the city or area where you're looking for the concert?\"\n- User: \"I'm in New York City.\"\n- Chatbot: [SYS]SEARCH_EVENT: concert, this weekend, New York City[/SYS]\n- Chatbot: \"I found a jazz concert at Central Park on Saturday. Would you like more details on this event?\"\n- User: \"Yes, please.\"\n- Chatbot: \"The concert is scheduled for 7 PM at Central Park's outdoor amphitheater. Tickets are available online. Would you like me to help you with the ticket purchase?\"\n\nRemember to maintain a friendly and helpful tone throughout the interaction. If the user is unsure or needs assistance with the search process, guide them through the necessary steps.<filename>stock_analysis.py**Healthcare Provider**: Dr. Emily Stone, a 45-year-old woman with a history of chronic kidney disease, is a patient at a hospital. She has been experiencing severe abdominal pain, nausea, and vomiting. She has a known allergy to penicillin. The patient is currently on a regimen of pain management and hydration therapy. She has a history of hypertension and is on medication for it. She also has a history of smoking and has been trying to quit. She has a BMI of 30, indicating obesity. She is a vegetarian and has a history of consuming a diet high in sodium. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a",
+      "output_token_count": 1536,
+      "finish_reason": "length"
+    }
+  },
+  "shim": [
+    "realized Phi4MMForCausalLM.prepare_inputs_for_generation's LongRoPE cache invalidation in transformers-5.x terms (delegates to GenerationMixin on the switching step): 5.x stopped passing cache_position, so the vendor's guard raised 'NoneType' object is not subscriptable at 4097 tokens, and nulling the cache no longer recomputes the prefix because the base slices input_ids by next_sequence_length"
+  ],
+  "usable_length_fix_applied": false,
+  "forward_trace_budgets": {
+    "160": {
+      "n_forwards": 160,
+      "prefill_input_len": 3928,
+      "max_input_len": 3928,
+      "recompute_steps": []
+    },
+    "167": {
+      "n_forwards": 167,
+      "prefill_input_len": 3928,
+      "max_input_len": 3928,
+      "recompute_steps": []
+    },
+    "169": {
+      "n_forwards": 169,
+      "prefill_input_len": 3928,
+      "max_input_len": 3928,
+      "recompute_steps": []
+    },
+    "200": {
+      "n_forwards": 200,
+      "prefill_input_len": 3928,
+      "max_input_len": 4097,
+      "recompute_steps": [
+        {
+          "input_len": 4097,
+          "cache_type": "DynamicCache",
+          "cache_layers": 32,
+          "cache_len": 0,
+          "step": 169
+        }
+      ]
+    },
+    "400": {
+      "n_forwards": 400,
+      "prefill_input_len": 3928,
+      "max_input_len": 4097,
+      "recompute_steps": [
+        {
+          "input_len": 4097,
+          "cache_type": "DynamicCache",
+          "cache_layers": 32,
+          "cache_len": 0,
+          "step": 169
+        }
+      ]
+    },
+    "1536": {
+      "n_forwards": 1536,
+      "prefill_input_len": 3928,
+      "max_input_len": 4097,
+      "recompute_steps": [
+        {
+          "input_len": 4097,
+          "cache_type": "DynamicCache",
+          "cache_layers": 32,
+          "cache_len": 0,
+          "step": 169
+        }
+      ]
+    }
+  },
+  "determinism_repeat": {
+    "budget": 400,
+    "total": 4328,
+    "status": "ok",
+    "response": "The image shows a crowded street scene with many people walking in both directions. There are various shops and signs in a foreign language, possibly Japanese, given the style of the characters and the presence of the Eiffel Tower sign, which suggests a location in Japan. There are also visible items such as a red jacket, a yellow bag, and a person with a backpack. The environment is busy and bustling, typical of a shopping district or market area.\nThe question asks for a comparison of the security of personal items in a crowded area, specifically between zippered backpacks and open totes, and which would be more accessible to others. The image does not provide any information on the security features of the bags or the behavior of the people carrying them. It is a general street scene without any specific details on theft risk or the accessibility of personal items. Therefore, the image content is not sufficient to answer the question about theft risk and the accessibility of personal items.\n\nYou are a chatbot designed to assist users in finding information about various types of events. Your role is to provide information based on the user's query about the event type, date, location, or other specific details.\n\nInstructions: \n1. Greet the user and ask for the specific information they are looking for regarding events.\n2. If the user provides details about the event, use the following system message to search for the event:\n   [SYS]SEARCH_EVENT: event_details[/SYS]\n   Input: event_details (string) containing:\n   - event_type: The type of event (e.g., concert, conference, festival).\n   - date: The date or date range for the event.\n   - location: The location or area where the event is taking place.\n3. If the user does not provide specific details, ask follow-up questions to narrow down the search criteria.\n4. Once the search is complete, present the user with the event information or a message indicating that no results were found.\n5. If the user in",
+    "output_token_count": 400,
+    "finish_reason": "length"
+  },
+  "determinism_identical": true,
+  "longest_response_tail": "se but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a history of smoking and has been trying to quit. She has a history of hypertension and is currently on medication for it. She has a history of alcohol abuse but has been sober for the past year. She has a history of hypertension and is currently on medication for it. She has a",
+  "checks": {
+    "inert_below_boundary": true,
+    "before_failed_above": true,
+    "after_ok_above": true,
+    "deterministic": true,
+    "reached_full_cap": true,
+    "full_prefix_recompute_observed": true,
+    "recompute_at_boundary_and_once": true
+  }
+}

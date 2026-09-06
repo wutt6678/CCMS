@@ -1,0 +1,24 @@
+{
+  "device": "cuda:1",
+  "prefill_input_token_count": 6328,
+  "prefill_exceeds_boundary": true,
+  "output_token_count": 64,
+  "n_forwards": 64,
+  "forwards_over_4096_with_empty_cache": [
+    {
+      "input_len": 6328,
+      "cache_type": "DynamicCache",
+      "cache_layers": 32,
+      "cache_len": 0,
+      "step": 0
+    }
+  ],
+  "spurious_recompute_after_prefill": [],
+  "checks": {
+    "prefill_actually_over_4096": true,
+    "no_exception": true,
+    "no_spurious_recompute": true,
+    "prefill_is_the_only_long_empty_forward": true
+  },
+  "response_head": "Sorry, I cannot answer this question. The image shows a crowded street with many people and various shops, but it does not provide specific information about the security of personal items or the beha"
+}
