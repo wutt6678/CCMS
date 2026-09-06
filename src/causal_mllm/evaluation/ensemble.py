@@ -32,6 +32,8 @@ from causal_mllm.evaluation.adjudication import (
 )
 from causal_mllm.evaluation.agreement import compute_pairwise_agreement
 from causal_mllm.evaluation.config import EvalConfig
+from causal_mllm.evaluation.errors import EvaluationError
+from causal_mllm.evaluation.estimands import incomplete_families
 from causal_mllm.evaluation.human_template import save_llm_ensemble_labels
 from causal_mllm.evaluation.judge import LLMEnsembleLabelJudge
 from causal_mllm.evaluation.runner import run_evaluation_stage
@@ -414,6 +416,17 @@ def finalize_ensemble(
 
     field_counts = _disagreement_field_counts(adjudicated)
 
+    # Cells no judge could label, because a provider refused the request
+    # rather than because the replay failed to produce one. Derived once here
+    # and used three times: written into the labels artifact so the file states
+    # its own shortfall, passed to the evaluation stage so it restricts the
+    # panel instead of failing on the first absent label, and cross-checked
+    # against the sensitivity restriction below.
+    excluded_cells = [
+        (cell["family_id"], cell["variant"])
+        for cell in (judge_coverage or {}).get("excluded_cells", [])
+    ]
+
     # 3. Labels keyed by family/variant
     adjudicated_labels = {}
     for rec in adjudicated:
@@ -453,9 +466,15 @@ def finalize_ensemble(
         ensemble_provenance=ensemble_provenance,
         rubric_version=rubric_version,
         rubric_sha256=rubric_sha256,
+        excluded_cells=excluded_cells,
     )
 
     # 4. Causal evaluation (response-SHA gate is fail-closed inside)
+    #
+    # The replay panel is complete and the labels are not. The evaluation stage
+    # iterates the panel and looks up a label per cell, so it has to be told
+    # which cells have none -- otherwise it fails on the first of them with an
+    # error that reads like a corrupt label file rather than like a refusal.
     judge = LLMEnsembleLabelJudge(labels_path)
     report = run_evaluation_stage(
         run_dir=Path(run_dir),
@@ -463,19 +482,50 @@ def finalize_ensemble(
         config=eval_config,
         output_root=output_dir / "evaluation_results",
         validated_families_path=Path(validated_families_path),
+        excluded_cells=excluded_cells,
     )
 
     # 5. Per-judge causal sensitivity
+    #
+    # The excluded cells are already absent from every arm, but a family that
+    # lost one cannot contribute ANY estimand, so the rest of it goes too --
+    # compute_family_estimands requires all six variants and raises otherwise.
+    # Restricted across all three arms together: they are compared with each
+    # other, and restricting one differently would compare different families.
+    dropped_families = incomplete_families(adjudicated)
+    evaluation_restriction = report.get("panel_restriction") or {}
+    if evaluation_restriction and dropped_families:
+        # Two independent derivations of the same set -- one from the panel and
+        # the coverage report, one from the adjudicated labels. If they disagree
+        # then the labels and the coverage evidence describe different panels,
+        # and every number downstream would be quietly incomparable.
+        from_evaluation = evaluation_restriction[
+            "families_dropped_incomplete"]
+        if sorted(from_evaluation) != dropped_families:
+            raise EvaluationError(
+                f"the evaluation dropped families {from_evaluation} but the "
+                f"adjudicated labels are incomplete for {dropped_families}; "
+                f"judge_coverage and the labels disagree about the panel")
+
+    sens_inputs = {
+        "judge_A": judgments_a,
+        "judge_B": judgments_b,
+        "ensemble": adjudicated,
+    }
+    if dropped_families:
+        gone = set(dropped_families)
+        sens_inputs = {
+            judge_id: [rec for rec in recs
+                       if rec["family_id"] not in gone]
+            for judge_id, recs in sens_inputs.items()
+        }
+
     judge_meta = build_judge_arm_meta(
         primary_model_ids, adjudicator_model_id, adjudication_method,
         judge_vision, adjudicator_present=adjudicator is not None)
 
     sensitivity = judge_model_sensitivity(
-        {
-            "judge_A": judgments_a,
-            "judge_B": judgments_b,
-            "ensemble": adjudicated,
-        },
+        sens_inputs,
         theta=eval_config.theta,
         judge_meta=judge_meta,
         primary_judge_ids=("judge_A", "judge_B"),
@@ -483,6 +533,31 @@ def finalize_ensemble(
         ci_level=eval_config.ci_level,
         seed=eval_config.seed,
     )
+    if dropped_families:
+        sensitivity["panel_restriction"] = {
+            "families_dropped_incomplete": dropped_families,
+            "excluded_cells": sorted(
+                f"{fid}/{var}" for fid, var in excluded_cells),
+            # judge_model_sensitivity reports n_families PER JUDGE, not at the
+            # top level, and the arms must agree or the comparison is between
+            # different family sets.
+            "n_families_analysed": {
+                judge_id: entry.get("n_families")
+                for judge_id, entry in sorted(sensitivity["judges"].items())
+            },
+            "rule": (
+                "a family that lost any cell to a provider refusal is dropped "
+                "from every arm, because the frozen estimator needs all six "
+                "variants to produce any of its five estimands"),
+        }
+        distinct_n = {entry.get("n_families")
+                      for entry in sensitivity["judges"].values()}
+        if len(distinct_n) != 1:
+            raise EvaluationError(
+                f"the arms do not cover the same families after the "
+                f"restriction: n_families is {sorted(sensitivity['judges'])} "
+                f"-> {sorted(map(str, distinct_n))}, so their estimands are not "
+                f"comparable with each other")
     with (output_dir / SENSITIVITY_ARTIFACT).open(
             "w", encoding="utf-8") as f:
         json.dump(sensitivity, f, indent=2, ensure_ascii=False)

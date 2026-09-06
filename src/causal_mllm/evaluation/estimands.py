@@ -17,6 +17,19 @@ from __future__ import annotations
 
 from causal_mllm.evaluation.errors import EvaluationError
 
+#: The six variants a family must carry to contribute ANY estimand. Exposed
+#: because the panel restriction in :mod:`causal_mllm.evaluation.runner` has to
+#: ask the same question -- which families are still complete -- and a second
+#: copy of this set would let the two disagree. ``compute_family_estimands`` is
+#: all-or-nothing per family on purpose: the bootstrap resamples FAMILIES and
+#: evaluates all five estimands on the same resample, so a family contributing
+#: to Delta_T but not Delta_TV would give the estimands different sample sizes
+#: inside one resample.
+REQUIRED_VARIANTS = frozenset({
+    "neutral", "text_only", "vision_only",
+    "cross_modal", "shuffle", "history_reset",
+})
+
 
 def _get_score(record: dict, outcome: str) -> float:
     """Extract the outcome score from a judged record."""
@@ -26,6 +39,33 @@ def _get_score(record: dict, outcome: str) -> float:
             f"record {record.get('family_id')}/{record.get('variant')} "
             f"missing outcome '{outcome}'")
     return float(score)
+
+
+def incomplete_families(judged_records: list[dict]) -> list[str]:
+    """Family ids that cannot contribute an estimand, sorted.
+
+    A family missing any of :data:`REQUIRED_VARIANTS` is dropped WHOLE, not
+    per-estimand. It could still supply the estimands that do not need the
+    missing variant -- a family without ``shuffle`` has a well-defined
+    ``Delta_T`` -- but the bootstrap resamples families and evaluates all five
+    estimands on the same resample, so per-estimand sample sizes would differ
+    inside one resample and the resulting intervals would not describe a
+    common population.
+
+    Kept separate from :func:`compute_family_estimands` because that function's
+    strictness is what makes a silently truncated panel impossible: this one
+    answers "which families are usable?" so a caller that has ALREADY lost
+    cells can restrict deliberately and record it, instead of crashing.
+    """
+    by_family: dict[str, set] = {}
+    for rec in judged_records:
+        fid = rec.get("family_id")
+        variant = rec.get("variant")
+        if fid is None or variant is None:
+            continue
+        by_family.setdefault(fid, set()).add(variant)
+    return sorted(fid for fid, variants in by_family.items()
+                  if REQUIRED_VARIANTS - variants)
 
 
 def compute_family_estimands(
@@ -61,14 +101,12 @@ def compute_family_estimands(
 
     family_estimands: dict[str, dict] = {}
     for fid, variants in sorted(by_family.items()):
-        required = {"neutral", "text_only", "vision_only",
-                    "cross_modal", "shuffle", "history_reset"}
-        missing = required - set(variants.keys())
+        missing = REQUIRED_VARIANTS - set(variants.keys())
         if missing:
             raise EvaluationError(
-                f"{fid}: missing variants {missing}")
+                f"{fid}: missing variants {sorted(missing)}")
 
-        Y = {v: _get_score(variants[v], outcome) for v in required}
+        Y = {v: _get_score(variants[v], outcome) for v in REQUIRED_VARIANTS}
 
         family_estimands[fid] = {
             "Y_neutral": Y["neutral"],

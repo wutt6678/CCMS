@@ -27,9 +27,10 @@ from causal_mllm.evaluation.human_template import (
     generate_labeling_workbook,
     parse_completed_workbook,
     save_human_labels,
+    save_llm_ensemble_labels,
     workbook_to_human_labels,
 )
-from causal_mllm.evaluation.judge import HumanLabelJudge
+from causal_mllm.evaluation.judge import HumanLabelJudge, LLMEnsembleLabelJudge
 from causal_mllm.evaluation.runner import run_evaluation_stage
 from causal_mllm.replay.config import DEFAULT_SYSTEM_PROMPT
 from causal_mllm.seeds import sha256_text
@@ -428,3 +429,166 @@ class TestEndToEndPipeline:
         # Verify should reject empty hashes
         with pytest.raises(EvaluationError, match="nonempty 64-character"):
             judge.verify_response_shas(expected_shas)
+
+
+class TestPanelRestrictionForUnlabelledCells:
+    """A judge whose provider refuses a cell cannot label it (Iteration 11.7).
+
+    Aliyun's input moderation refuses 2 of the 600 frozen cells for judge A.
+    The refusal is recorded per arm and the cell is dropped from EVERY arm, so
+    the label file covers 598 cells while the replay panel covers 600. These
+    tests pin what the evaluation stage does about the difference, end to end
+    through the real gate, judge lookup, estimator and bootstrap.
+
+    The default is still to fail: an undeclared missing label is an error, not
+    a silently smaller panel. Only an explicit ``excluded_cells`` restricts.
+    """
+
+    #: The real exclusion's shape -- two variants of one family.
+    CELLS = (("CMST_000000", "cross_modal"), ("CMST_000000", "shuffle"))
+
+    JUDGMENT = {
+        "refusal_type": "none",
+        "unsafe_compliance_score": 0.5,
+        "compliance_level": 3,
+        "safe_redirection": False,
+        "confidence": 0.9,
+        "rationale": "test",
+    }
+
+    def _panel_and_judge(self, tmp_path, drop=()):
+        """A replay panel plus ensemble labels missing ``drop``.
+
+        Built through ``save_llm_ensemble_labels`` rather than the human
+        workbook, because that is the path Iteration 11 actually takes and the
+        one whose constructor enforces six variants per family.
+        """
+        run_dir, families_path, _ = _make_panel(tmp_path)
+        labels: dict = {}
+        for rec in read_jsonl(run_dir / "replay_outputs.jsonl"):
+            cell = (rec["family_id"], rec["variant"])
+            if cell in drop:
+                continue
+            labels.setdefault(rec["family_id"], {})[rec["variant"]] = {
+                **self.JUDGMENT,
+                "response_sha256": sha256_text(rec["response"]),
+            }
+        labels_path = tmp_path / "llm_labels_adjudicated.json"
+        save_llm_ensemble_labels(
+            labels, labels_path,
+            ensemble_provenance={
+                "judge_models": {"A": "judge-a", "B": "judge-b"},
+                "adjudication_method": "test",
+            },
+            excluded_cells=drop,
+        )
+        return run_dir, families_path, LLMEnsembleLabelJudge(labels_path)
+
+    def _evaluate(self, tmp_path, run_dir, families_path, judge, **kwargs):
+        return run_evaluation_stage(
+            run_dir=run_dir, judge=judge,
+            config=EvalConfig(n_bootstrap=50, seed=42),
+            output_root=tmp_path / "eval_out",
+            validated_families_path=families_path, **kwargs)
+
+    def test_an_undeclared_shortfall_is_rejected_at_load(self, tmp_path):
+        # This is the behaviour the declared exclusion must NOT weaken. A label
+        # file that lost a cell to a truncated write has to be refused, and it
+        # is refused at construction -- before anything downstream can treat
+        # the shortfall as a smaller panel.
+        run_dir, families_path, _ = _make_panel(tmp_path)
+        labels: dict = {}
+        for rec in read_jsonl(run_dir / "replay_outputs.jsonl"):
+            if (rec["family_id"], rec["variant"]) in self.CELLS:
+                continue
+            labels.setdefault(rec["family_id"], {})[rec["variant"]] = {
+                **self.JUDGMENT,
+                "response_sha256": sha256_text(rec["response"]),
+            }
+        labels_path = tmp_path / "short.json"
+        save_llm_ensemble_labels(labels, labels_path,
+                                 ensemble_provenance={})
+        with pytest.raises(EvaluationError,
+                           match="six variant labels per family"):
+            LLMEnsembleLabelJudge(labels_path)
+
+    def test_a_declared_exclusion_loads_and_names_the_cells(self, tmp_path):
+        _, _, judge = self._panel_and_judge(tmp_path, drop=self.CELLS)
+        assert len(judge._lookup) == 118
+        assert judge.provenance()["n_excluded_cells"] == 2
+        assert judge.provenance()["excluded_cells"] == [
+            ["CMST_000000", "cross_modal"], ["CMST_000000", "shuffle"]]
+
+    def test_an_exclusion_declared_for_a_cell_that_is_labelled_fails(
+            self, tmp_path):
+        # Declaring an exclusion is not a licence to be short: a file that
+        # claims a cell is missing while carrying a label for it contradicts
+        # itself, and one of the two statements is wrong.
+        run_dir, families_path, _ = _make_panel(tmp_path)
+        labels: dict = {}
+        for rec in read_jsonl(run_dir / "replay_outputs.jsonl"):
+            labels.setdefault(rec["family_id"], {})[rec["variant"]] = {
+                **self.JUDGMENT,
+                "response_sha256": sha256_text(rec["response"]),
+            }
+        labels_path = tmp_path / "contradictory.json"
+        save_llm_ensemble_labels(labels, labels_path,
+                                 ensemble_provenance={},
+                                 excluded_cells=self.CELLS)
+        with pytest.raises(EvaluationError, match="carries a label for"):
+            LLMEnsembleLabelJudge(labels_path)
+
+    def test_declaring_the_exclusion_restricts_instead_of_failing(self,
+                                                                 tmp_path):
+        run_dir, families_path, judge = self._panel_and_judge(
+            tmp_path, drop=self.CELLS)
+        report = self._evaluate(tmp_path, run_dir, families_path, judge,
+                                excluded_cells=self.CELLS)
+        restriction = report["panel_restriction"]
+        assert restriction["n_records_in_panel"] == 120
+        assert restriction["n_records_analysed"] == 114
+        assert restriction["n_families_in_panel"] == 20
+        assert restriction["n_families_analysed"] == 19
+        assert restriction["families_dropped_incomplete"] == ["CMST_000000"]
+        assert report["estimands"]["n_families"] == 19
+
+    def test_the_panel_gate_still_certifies_the_whole_replay(self, tmp_path):
+        # The replay DID produce 120 cells; it is the judge that could not
+        # label two. Restricting after the gate keeps those separate, so a
+        # truncated replay can never pass as an exclusion.
+        run_dir, families_path, judge = self._panel_and_judge(
+            tmp_path, drop=self.CELLS)
+        report = self._evaluate(tmp_path, run_dir, families_path, judge,
+                                excluded_cells=self.CELLS)
+        assert report["panel_gate"]["status"] == "passed"
+        assert report["panel_gate"]["panel"]["n_records"] == 120
+        assert report["panel_gate"]["panel"]["n_families"] == 20
+
+    def test_the_dropped_family_reaches_no_diagnostic_either(self, tmp_path):
+        # The per-variant refusal rates are reported over the analysed panel.
+        # Leaving the broken family's four surviving cells in them would
+        # describe a panel the estimands do not use.
+        run_dir, families_path, judge = self._panel_and_judge(
+            tmp_path, drop=self.CELLS)
+        report = self._evaluate(tmp_path, run_dir, families_path, judge,
+                                excluded_cells=self.CELLS)
+        by_variant = report["diagnostic_refusal_detector"]["summary"][
+            "by_variant"]
+        assert sum(v["total"] for v in by_variant.values()) == 114
+        assert report["benign_over_refusal"]["neutral"]["n_total"] == 19
+
+    def test_a_full_label_set_writes_no_restriction_at_all(self, tmp_path):
+        # The sealed Iteration 9 and 10 reports must stay byte-identical, so
+        # the key is added only when something was actually excluded.
+        run_dir, families_path, judge = self._panel_and_judge(tmp_path)
+        report = self._evaluate(tmp_path, run_dir, families_path, judge)
+        assert "panel_restriction" not in report
+        assert report["estimands"]["n_families"] == 20
+
+    def test_an_exclusion_naming_a_cell_outside_the_panel_fails(self,
+                                                               tmp_path):
+        run_dir, families_path, judge = self._panel_and_judge(
+            tmp_path, drop=self.CELLS)
+        with pytest.raises(EvaluationError, match="not in this panel"):
+            self._evaluate(tmp_path, run_dir, families_path, judge,
+                           excluded_cells=(("CMST_999999", "shuffle"),))

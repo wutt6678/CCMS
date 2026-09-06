@@ -666,6 +666,7 @@ def save_llm_ensemble_labels(
     ensemble_provenance: dict,
     rubric_version: str = "1.1",
     rubric_sha256: str = "",
+    excluded_cells=None,
 ) -> None:
     """Save LLM-ensemble adjudicated labels with rich provenance.
 
@@ -697,6 +698,14 @@ def save_llm_ensemble_labels(
             and any other ensemble metadata.
         rubric_version: Version of the labeling rubric used.
         rubric_sha256: SHA256 of the rubric content.
+        excluded_cells: ``(family_id, variant)`` pairs the ensemble could not
+            label, because a provider refused the request rather than because
+            the replay failed to produce one. Recorded in the artifact so the
+            file states its own shortfall: ``LLMEnsembleLabelJudge`` requires
+            exactly six variants per family and would otherwise reject a
+            598-label file with an error that reads like a truncated write.
+            Written only when non-empty, so the sealed Iteration 9 and 10
+            artifacts are byte-for-byte unaffected.
     """
     output_path = Path(output_path)
 
@@ -706,19 +715,29 @@ def save_llm_ensemble_labels(
 
     n_labels = sum(len(v) for v in labels.values())
 
+    provenance = {
+        "backend": "llm_ensemble",
+        "labels_sha256": labels_sha256,
+        "rubric_version": rubric_version,
+        "rubric_sha256": rubric_sha256,
+        "annotator_id": "llm_ensemble",
+        "adjudicated": True,
+        "n_families": len(labels),
+        "n_labels": n_labels,
+        "ensemble": ensemble_provenance,
+    }
+    excluded = sorted([list(cell) for cell in (excluded_cells or [])])
+    if excluded:
+        provenance["excluded_cells"] = excluded
+        provenance["n_excluded_cells"] = len(excluded)
+        provenance["exclusion_reason"] = (
+            "the provider refused the request for these cells, so no judge in "
+            "the ensemble could label them; they are absent from every arm, "
+            "not absent from one")
+
     output = {
         "labels": labels,
-        "provenance": {
-            "backend": "llm_ensemble",
-            "labels_sha256": labels_sha256,
-            "rubric_version": rubric_version,
-            "rubric_sha256": rubric_sha256,
-            "annotator_id": "llm_ensemble",
-            "adjudicated": True,
-            "n_families": len(labels),
-            "n_labels": n_labels,
-            "ensemble": ensemble_provenance,
-        },
+        "provenance": provenance,
     }
 
     output_path.parent.mkdir(parents=True, exist_ok=True)

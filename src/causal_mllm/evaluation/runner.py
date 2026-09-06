@@ -32,6 +32,7 @@ from causal_mllm.evaluation.estimands import (
     aggregate_estimands,
     benign_over_refusal,
     compute_family_estimands,
+    incomplete_families,
 )
 from causal_mllm.evaluation.gate import validate_panel
 from causal_mllm.evaluation.judge import (
@@ -189,12 +190,115 @@ def _reconstruct_conversation_context(
     return system_prompt, history_messages, terminal_query
 
 
+def restrict_panel_to_labels(
+    records: list[dict],
+    excluded_cells,
+) -> tuple[list[dict], dict]:
+    """Drop unjudgeable cells, then every family they left incomplete.
+
+    A judge whose provider refuses a cell cannot label it, and the frozen
+    estimator needs all six variants of a family to produce ANY of its five
+    estimands. So an exclusion costs more than the excluded cell: it costs the
+    whole family. On the Iteration 11 panel, aliyun's input moderation refuses
+    2 of 600 cells -- one family's ``cross_modal`` and ``shuffle`` -- which
+    leaves 594 analysable records over 99 families rather than 600 over 100.
+
+    Both numbers are true, about different stages, and the restriction records
+    all three so no artifact can describe a 99-family estimate as though it
+    covered the 100-family panel it was drawn from:
+
+    * the REPLAY generated 600 cells, and the panel gate still certifies that;
+    * the JUDGE labelled 598 of them;
+    * the ANALYSIS uses 594, over the 99 families that stayed complete.
+
+    The restriction is derived, not chosen. Which cells a provider refuses is a
+    function of the request bytes, so the surviving family set was fixed before
+    any label existed and cannot have been selected by what the cells turned
+    out to say. An exclusion naming a cell that is not in the panel raises
+    instead of being ignored: a mistyped family id would otherwise shrink
+    nothing while the report claimed a restriction.
+
+    Args:
+        records: The replay panel's records, as the panel gate returned them.
+        excluded_cells: ``(family_id, variant)`` pairs with no label.
+
+    Returns:
+        ``(records, restriction)`` -- the surviving records, and the evidence
+        describing exactly what was dropped and why.
+
+    Raises:
+        EvaluationError: On a malformed or unmatched exclusion, or if the
+            restriction would leave no complete family at all.
+    """
+    excluded: set[tuple[str, str]] = set()
+    for cell in excluded_cells:
+        if (not isinstance(cell, (tuple, list)) or len(cell) != 2
+                or not all(isinstance(part, str) and part for part in cell)):
+            raise EvaluationError(
+                f"excluded_cells must be (family_id, variant) pairs, got "
+                f"{cell!r}")
+        excluded.add((cell[0], cell[1]))
+    if not excluded:
+        return records, {}
+
+    present = {(r["family_id"], r["variant"]) for r in records}
+    unmatched = sorted(excluded - present)
+    if unmatched:
+        raise EvaluationError(
+            f"excluded_cells names {len(unmatched)} cell(s) that are not in "
+            f"this panel, so the restriction describes a different one: "
+            f"{[f'{fid}/{var}' for fid, var in unmatched[:6]]}")
+
+    kept = [r for r in records
+            if (r["family_id"], r["variant"]) not in excluded]
+
+    # A family that lost any variant cannot contribute any estimand, so the
+    # rest of its cells go too. Keeping them would let the estimator's own
+    # completeness check raise, and keeping them in the per-variant refusal
+    # diagnostics would report rates over a panel the estimands do not use.
+    dropped = incomplete_families(kept)
+    dropped_families = set(dropped)
+    survivors = [r for r in kept if r["family_id"] not in dropped_families]
+
+    if not survivors:
+        raise EvaluationError(
+            f"restricting the panel to the labelled cells left no complete "
+            f"family: {len(excluded)} cell(s) excluded, "
+            f"{len(dropped)} family/families left incomplete")
+
+    restriction = {
+        "n_records_in_panel": len(records),
+        "n_records_analysed": len(survivors),
+        "n_families_in_panel": len({r["family_id"] for r in records}),
+        "n_families_analysed": len({r["family_id"] for r in survivors}),
+        "excluded_cells": sorted(f"{fid}/{var}" for fid, var in excluded),
+        "n_excluded_cells": len(excluded),
+        "families_dropped_incomplete": dropped,
+        "cells_dropped_with_their_family": len(kept) - len(survivors),
+        "rule": (
+            "a cell no judge could label is dropped, and so is every remaining "
+            "cell of a family that lost one: the frozen estimator needs all "
+            "six variants of a family to produce any of its five estimands"),
+        "outcome_independent": (
+            "which cells a provider refuses is a function of the request bytes, "
+            "so the surviving family set was fixed before any label existed"),
+    }
+    log.warning(
+        "Evaluation: panel restricted to the labelled cells -- %d of %d "
+        "records, %d of %d families (dropped incomplete: %s)",
+        restriction["n_records_analysed"], restriction["n_records_in_panel"],
+        restriction["n_families_analysed"],
+        restriction["n_families_in_panel"], dropped)
+    return survivors, restriction
+
+
 def run_evaluation_stage(
     run_dir: str | Path,
     judge: ResponseJudge | HumanLabelJudge,
     config: EvalConfig | None = None,
     output_root: str | Path | None = None,
     validated_families_path: str | Path | None = None,
+    excluded_cells=None,
 ) -> dict:
     """Run the full evaluation stage.
 
@@ -205,6 +309,12 @@ def run_evaluation_stage(
         output_root: Where to write evaluation outputs (defaults to run_dir).
         validated_families_path: Explicit path to validated_families.jsonl.
             Required — the runner no longer guesses the location.
+        excluded_cells: ``(family_id, variant)`` pairs the judge has no label
+            for, because its provider refused the request rather than because
+            the replay failed to produce one. Optional and empty by default, so
+            the sealed Iteration 9 and 10 reports are unaffected: with no
+            exclusions the restriction is neither applied nor written. See
+            :func:`restrict_panel_to_labels`.
 
     Returns:
         The evaluation report dict.
@@ -239,6 +349,15 @@ def run_evaluation_stage(
         run_dir, expected_n_families=len(families))
     log.info("Evaluation: panel gate passed (%d records, %d families)",
              panel.n_records, panel.n_families)
+
+    # 1b. Restrict to the cells the judge could actually label. AFTER the
+    # panel gate, deliberately: the gate certifies that the REPLAY produced the
+    # whole panel, and it did. What comes next is a statement about the judge,
+    # and blurring the two would let an incomplete replay pass as an exclusion.
+    restriction: dict = {}
+    if excluded_cells:
+        records, restriction = restrict_panel_to_labels(
+            records, excluded_cells)
 
     # 2. Judge: run judge over all panel responses (variant-blind)
     judged_records: list[dict] = []
@@ -338,6 +457,9 @@ def run_evaluation_stage(
             "status": "passed",
             "panel": panel.to_dict(),
         },
+        # Written only when something was actually excluded, so the sealed
+        # Iteration 9 and 10 reports stay byte-identical.
+        **({"panel_restriction": restriction} if restriction else {}),
         "judge_provenance": judge_provenance,
         "validated_families": {
             "path": str(families_path),

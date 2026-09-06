@@ -122,7 +122,9 @@ The exclusion is **outcome-independent**: a refusal is a function of the
 request bytes alone, so the excluded set was fixed before any label existed
 and cannot have been chosen by what those cells turned out to say. It is also
 uniform across arms, so the surviving 598 cells are one identical panel in all
-four, and the cross-model comparison stays like-for-like.
+four, and the cross-model comparison stays like-for-like. That is a statement
+about the LABELS; the analysis panel is smaller again, for a reason given under
+"Consequence for the analysis" below.
 
 ## The verdict is not stable over time
 
@@ -178,19 +180,57 @@ a cross-model comparison over one panel.
 
 ## Consequence for the analysis
 
-`CMST_795308` contributes 4 of its 6 variants, not 6. Per-family counts are
-uneven by design in this panel anyway (100 families x 6 variants, stratified by
-length and risk rather than balanced per family), so the loss is 0.33% of cells
-and not a stratum: the two dropped cells are one `cross_modal` and one
-`shuffle`. Both should still be named in the 11.8 report wherever cell counts
-are quoted, because "598" is not the "600" the frozen protocol specifies, and
-the reason is a provider's moderation policy rather than anything about the
-models under test.
+Losing two cells costs a whole family, and it is worth being exact about why.
+The frozen estimator needs all six variants of a family to produce ANY of its
+five estimands — `Delta_TV = Y_cross_modal - Y_text_only - Y_vision_only +
+Y_neutral` needs four of them, `order_effect` needs `shuffle` — and the paired
+bootstrap resamples FAMILIES while evaluating all five on the same resample. A
+family could therefore not be kept for the estimands it can still support
+without giving the five estimands different sample sizes inside one resample.
+`CMST_795308` lost `cross_modal` and `shuffle`, so it is dropped whole.
+
+Three counts are true at once, about three different stages, and quoting any
+one of them as if it were another misreports the panel:
+
+    the REPLAY generated 600 cells over 100 families, and the 11.6 completion
+      gate still certifies that -- the panel gate runs BEFORE the restriction,
+      so a truncated replay can never pass as an exclusion;
+    the JUDGE labelled 598 of them, and `llm_labels_adjudicated.json` carries
+      all 598 including `CMST_795308`'s surviving four, because those are real
+      judgments from real calls and dropping them would discard evidence;
+    the ANALYSIS uses 594 records over 99 families.
+
+`panel_restriction` in `evaluation_report.json` records the arithmetic, the
+families dropped, and the rule. The labels file declares its own shortfall in
+its provenance (`excluded_cells`, `n_excluded_cells`, `exclusion_reason`),
+because `LLMEnsembleLabelJudge` requires exactly six variant labels per family
+and would otherwise reject a 598-label file with an error that reads like a
+truncated write. An undeclared shortfall still fails closed: a label file that
+lost cells to a bug is refused at load, and only a refusal the run declared is
+survivable.
+
+### What this does to the 11.8 comparison
+
+The frozen reference — Qwen3.5-9B `Delta_TV` mean 0.11507, CI [0.0495, 0.18]
+— is published over **100 families**. The four new arms will be estimated over
+**99**. H1-H4 are sign tests, so a single family is unlikely to turn one, but
+the comparison has to be made over one panel: 11.8 must recompute the reference
+`Delta_TV` over the same 99 families before comparing signs, and report both
+numbers. Comparing a 99-family estimate against the published 100-family
+interval mixes panels, and the bootstrap interval is a function of how many
+families were resampled, so the width moves too.
+
+Nothing here is a stratum. Per-family counts are uneven by design in this panel
+anyway (100 families x 6 variants, stratified by length and risk rather than
+balanced per family), so the loss is one family of 100 and not a category. Both
+dropped cells should still be named wherever counts are quoted, because "99"
+is not the "100" the frozen protocol specifies, and the reason is a provider's
+moderation policy rather than anything about the models under test.
 
 One asymmetry is worth stating rather than leaving to be discovered: the two
 dropped cells are ones where the HISTORY is explicit about the attack. Judge A
 therefore never scores the most overtly unsafe contexts, while judge B and the
-adjudicator do. Nothing in the 598-cell panel is scored by B alone, so no
+adjudicator do. Nothing in the 598-cell label set is scored by B alone, so no
 label is affected — but any claim about judge A's behaviour on overtly unsafe
 histories is unsupported by this run, and the 11.8 sensitivity analysis should
 not be read as covering them.

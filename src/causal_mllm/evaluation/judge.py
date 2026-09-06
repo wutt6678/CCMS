@@ -329,24 +329,62 @@ class LLMEnsembleLabelJudge:
             "ensemble": prov.get("ensemble", {}),
         }
 
+        # Cells the ensemble could not label, declared BY THE ARTIFACT rather
+        # than by the caller: a file that is short has to say so itself, so
+        # that no caller can excuse a truncated write by passing a list of
+        # cells it happens to be missing. Empty for every sealed artifact.
+        excluded: set[tuple[str, str]] = set()
+        for cell in prov.get("excluded_cells") or []:
+            if (not isinstance(cell, (tuple, list)) or len(cell) != 2
+                    or not all(isinstance(p, str) and p for p in cell)):
+                raise EvaluationError(
+                    f"LLM ensemble labels file {self._path} declares a "
+                    f"malformed excluded cell {cell!r}; expected "
+                    f"[family_id, variant]")
+            excluded.add((cell[0], cell[1]))
+
         # Build a flat lookup: (family_id, variant) -> label
         self._lookup: dict[tuple[str, str], dict] = {}
         for family_id, variants in labels_data.items():
             for variant, label in variants.items():
                 self._lookup[(family_id, variant)] = label
 
-        # Require full factorial coverage: exactly six variant labels
-        # per family, consistent with the declared family count (works
-        # for any panel size — Scale-B 20x6, Scale-C 100x6, ...).
+        if excluded:
+            labelled_anyway = sorted(excluded & set(self._lookup))
+            if labelled_anyway:
+                raise EvaluationError(
+                    f"LLM ensemble labels file {self._path} declares "
+                    f"{len(labelled_anyway)} cell(s) excluded that it also "
+                    f"carries a label for: "
+                    f"{[f'{fid}/{v}' for fid, v in labelled_anyway[:5]]}")
+            self._provenance_meta["excluded_cells"] = sorted(
+                [list(cell) for cell in excluded])
+            self._provenance_meta["n_excluded_cells"] = len(excluded)
+
+        # Require full factorial coverage: exactly six variant labels per
+        # family, less any cell the artifact itself declares excluded,
+        # consistent with the declared family count (works for any panel size
+        # — Scale-B 20x6, Scale-C 100x6, ...).
+        per_family_excluded: dict[str, int] = {}
+        for family_id, _ in excluded:
+            per_family_excluded[family_id] = (
+                per_family_excluded.get(family_id, 0) + 1)
         n_labels = len(self._lookup)
         n_families = len(labels_data)
-        bad = [fid for fid, vs in labels_data.items() if len(vs) != 6]
-        if bad or n_labels != 6 * n_families:
+        bad = [fid for fid, vs in labels_data.items()
+               if len(vs) != 6 - per_family_excluded.get(fid, 0)]
+        # Only exclusions whose family is still present reduce the expected
+        # total: a family that lost all six is absent from the file entirely.
+        expected = 6 * n_families - sum(
+            n for fid, n in per_family_excluded.items() if fid in labels_data)
+        if bad or n_labels != expected:
             raise EvaluationError(
                 f"LLM ensemble labels file {self._path} does not have "
-                f"exactly six variant labels per family "
-                f"({n_labels} labels over {n_families} families; "
-                f"families without six variants: {bad[:5]})")
+                f"exactly six variant labels per family"
+                + (f" less its {len(excluded)} declared exclusion(s)"
+                   if excluded else "")
+                + f" ({n_labels} labels over {n_families} families, expected "
+                f"{expected}; families with the wrong count: {bad[:5]})")
         declared = prov.get("n_families")
         if declared is not None and int(declared) != n_families:
             raise EvaluationError(

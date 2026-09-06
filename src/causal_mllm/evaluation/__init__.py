@@ -11,10 +11,13 @@ Public API:
   - MultimodalLLMJudge: LLM-based multimodal judge
   - RuleBasedRefusalDetector: diagnostic refusal classifier
   - compute_family_estimands: per-family causal estimands
+  - REQUIRED_VARIANTS: the six variants a family needs to contribute one
+  - incomplete_families: which families cannot contribute an estimand
   - aggregate_estimands: population-level summary
   - paired_bootstrap_ci: family-level bootstrap CIs
   - threshold_sweep: threshold sensitivity analysis
   - benign_over_refusal: diagnostic over-refusal rate
+  - restrict_panel_to_labels: drop unlabelled cells and the families they broke
   - run_evaluation_stage: orchestrator
   - generate_labeling_workbook: human labeling setup
   - parse_completed_workbook: convert labels to judge records
@@ -40,9 +43,11 @@ from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
 from causal_mllm.evaluation.config import EvalConfig
 from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.estimands import (
+    REQUIRED_VARIANTS,
     aggregate_estimands,
     benign_over_refusal,
     compute_family_estimands,
+    incomplete_families,
 )
 from causal_mllm.evaluation.gate import PanelReport, validate_panel
 from causal_mllm.evaluation.human_template import (
@@ -64,7 +69,10 @@ from causal_mllm.evaluation.llm_judge import (
     MultimodalLLMJudge,
 )
 from causal_mllm.evaluation.refusal_detector import RuleBasedRefusalDetector
-from causal_mllm.evaluation.runner import run_evaluation_stage
+from causal_mllm.evaluation.runner import (
+    restrict_panel_to_labels,
+    run_evaluation_stage,
+)
 from causal_mllm.evaluation.schema import (
     JUDGE_FIELDS,
     make_judge_record,
@@ -88,11 +96,14 @@ __all__ = [
     "LLMJudgeConfig",
     "RuleBasedRefusalDetector",
     "compute_family_estimands",
+    "incomplete_families",
+    "REQUIRED_VARIANTS",
     "aggregate_estimands",
     "paired_bootstrap_ci",
     "threshold_sweep",
     "benign_over_refusal",
     "run_evaluation_stage",
+    "restrict_panel_to_labels",
     "generate_labeling_workbook",
     "parse_completed_workbook",
     "workbook_to_human_labels",
