@@ -251,6 +251,29 @@ def _items(n: int) -> list[dict]:
              "response_sha256": f"{i:064d}"} for i in range(n)]
 
 
+def _complete_arm(out_dir: Path, judge_id: str, items: list[dict],
+                  judged: list[int], fingerprint: str) -> Path:
+    """A finished arm: the judgments file plus the fingerprint that binds it.
+
+    ``judged`` indexes into ``items``; every other cell is one the provider
+    refused. No refusal sidecar and no manifest are written, which is exactly
+    the half-written state a stop between the sequential writes leaves behind
+    and the state ``collect_provider_refusals`` has to repair rather than
+    inherit.
+    """
+    out = out_dir / f"llm_labels_judge_{judge_id}.json"
+    out.write_text(json.dumps([
+        {"item_id": items[i]["item_id"],
+         "family_id": items[i]["family_id"],
+         "variant": items[i]["variant"],
+         "response_sha256": items[i]["response_sha256"],
+         "judgment": _judgment()[0]}
+        for i in judged]), encoding="utf-8")
+    out.with_name(out.name + ".fingerprint").write_text(fingerprint,
+                                                        encoding="utf-8")
+    return out
+
+
 def _judgment() -> tuple[dict, object]:
     from causal_mllm.evaluation.llm_judge import LLMJudgeProvenance
     return ({"refusal_type": "full", "compliance_level": 0,
@@ -418,19 +441,135 @@ class TestCoverage:
     def test_a_sidecar_from_a_different_panel_is_stale_not_honoured(self,
                                                                     tmp_path):
         items = _items(3)
+        _complete_arm(tmp_path, "A", items, judged=[0, 1, 2], fingerprint="fp")
         pipeline._write_refusals(
             tmp_path / "llm_labels_judge_A.refusals.json", "fp",
             [{"item_id": "item-0001", "response_sha256": "not-this-panel",
               "error_code": "data_inspection_failed"}])
-        (tmp_path / "llm_labels_judge_B.refusals.json").write_text(
-            json.dumps({"fingerprint": "fp", "refusals": [
-                {"item_id": "item-0002",
-                 "response_sha256": items[2]["response_sha256"],
-                 "error_code": "data_inspection_failed"}]}))
+        _complete_arm(tmp_path, "B", items, judged=[0, 1], fingerprint="fp")
+        pipeline._write_refusals(
+            tmp_path / "llm_labels_judge_B.refusals.json", "fp",
+            [{"item_id": "item-0002",
+              "response_sha256": items[2]["response_sha256"],
+              "error_code": "data_inspection_failed"}])
         by_judge, stale = pipeline.collect_provider_refusals(tmp_path, items)
+        # A judged every cell, so nothing is excluded -- and the sidecar entry
+        # naming a cell A DID judge is reported rather than honoured.
         assert by_judge["A"] == []
         assert len(stale) == 1 and stale[0]["judge_id"] == "A"
+        assert "DID judge" in stale[0]["reason"]
         assert [r["item_id"] for r in by_judge["B"]] == ["item-0002"]
+
+    def test_a_stale_sidecar_for_the_same_panel_is_not_honoured(self,
+                                                               tmp_path):
+        # THE P1 CASE. response_sha256 is a property of the FROZEN PANEL, not
+        # of the run, so a sidecar left behind by an earlier configuration
+        # agrees with the current panel on every cell and the hash comparison
+        # alone cannot tell it apart. Only the fingerprint can. This is what a
+        # stop between writing the output's fingerprint and rewriting the
+        # refusal sidecar leaves behind.
+        items = _items(3)
+        _complete_arm(tmp_path, "A", items, judged=[0, 1, 2],
+                      fingerprint="current-run")
+        pipeline._write_refusals(
+            tmp_path / "llm_labels_judge_A.refusals.json", "stale-run",
+            [{"item_id": "item-0001",
+              "response_sha256": items[1]["response_sha256"],
+              "error_code": "data_inspection_failed",
+              "model_id": "qwen3.8-max"}])
+        _complete_arm(tmp_path, "B", items, judged=[0, 1, 2],
+                      fingerprint="current-run")
+
+        by_judge, stale = pipeline.collect_provider_refusals(tmp_path, items)
+        assert by_judge["A"] == [], \
+            "a cell this arm judged was excluded on another run's word"
+        assert by_judge["B"] == []
+        assert len(stale) == 1
+        assert "stale-run" in stale[0]["reason"]
+        assert "not honoured" in stale[0]["reason"]
+
+    def test_membership_comes_from_the_judgments_not_the_sidecar(self,
+                                                                tmp_path):
+        items = _items(3)
+        _complete_arm(tmp_path, "A", items, judged=[0, 2], fingerprint="fp")
+        pipeline._write_refusals(
+            tmp_path / "llm_labels_judge_A.refusals.json", "fp",
+            [{"item_id": "item-0001", "family_id": "CMST_000001",
+              "variant": "cross_modal",
+              "response_sha256": items[1]["response_sha256"],
+              "model_id": "qwen3.8-max", "status": 400,
+              "error_code": "data_inspection_failed"}])
+        _complete_arm(tmp_path, "B", items, judged=[0, 1, 2],
+                      fingerprint="fp")
+        by_judge, stale = pipeline.collect_provider_refusals(tmp_path, items)
+        assert stale == []
+        (rec,) = by_judge["A"]
+        assert rec["item_id"] == "item-0001"
+        assert rec["detail_source"] == "refusal_sidecar"
+        assert rec["error_code"] == "data_inspection_failed"
+        assert rec["model_id"] == "qwen3.8-max"
+        assert rec["response_sha256"] == items[1]["response_sha256"]
+
+    def test_an_unjudged_cell_is_excluded_even_with_no_sidecar_at_all(
+            self, tmp_path):
+        # The gap in the completed output is the evidence; the sidecar only
+        # supplies the provider's wording. Losing the wording loses detail, not
+        # the exclusion.
+        items = _items(3)
+        _complete_arm(tmp_path, "A", items, judged=[0, 2], fingerprint="fp")
+        _complete_arm(tmp_path, "B", items, judged=[0, 1, 2],
+                      fingerprint="fp")
+        by_judge, _ = pipeline.collect_provider_refusals(tmp_path, items)
+        (rec,) = by_judge["A"]
+        assert rec["item_id"] == "item-0001"
+        assert rec["detail_source"] == "derived_from_absence"
+        assert rec["error_code"] is None
+        assert rec["family_id"] == "CMST_000001"
+
+    def test_collection_repairs_a_half_written_completion(self, tmp_path):
+        # After collecting, the sidecar and the manifest bind the output, so
+        # the next reader is not looking at the half-written set again.
+        items = _items(3)
+        _complete_arm(tmp_path, "A", items, judged=[0, 2], fingerprint="fp")
+        _complete_arm(tmp_path, "B", items, judged=[0, 1, 2],
+                      fingerprint="fp")
+        pipeline.collect_provider_refusals(tmp_path, items)
+        for judge_id in ("A", "B"):
+            out = tmp_path / f"llm_labels_judge_{judge_id}.json"
+            manifest = tmp_path / (
+                f"llm_labels_judge_{judge_id}.json"
+                + pipeline.MANIFEST_SUFFIX)
+            assert manifest.exists()
+            doc = json.loads(manifest.read_text())
+            assert doc["fingerprint"] == "fp"
+            assert doc["n_panel_items"] == 3
+            assert doc["judgments_sha256"] == pipeline._file_sha256(out)
+            assert doc["refusals_sha256"] == pipeline._file_sha256(
+                out.with_suffix(pipeline.REFUSALS_SUFFIX))
+        manifests = {
+            judge_id: json.loads(
+                (tmp_path / f"llm_labels_judge_{judge_id}.json").with_name(
+                    f"llm_labels_judge_{judge_id}.json"
+                    + pipeline.MANIFEST_SUFFIX).read_text())
+            for judge_id in ("A", "B")}
+        assert manifests["A"]["n_refusals"] == 1
+        assert manifests["B"]["n_refusals"] == 0
+        assert manifests["A"]["n_judgments"] == 2
+        assert manifests["B"]["n_judgments"] == 3
+
+    def test_an_arm_with_no_completed_output_is_an_error_not_an_empty_set(
+            self, tmp_path):
+        # Returning [] would say "this arm refused nothing", which is a claim
+        # about an arm that has not finished.
+        items = _items(3)
+        pipeline._write_refusals(
+            tmp_path / "llm_labels_judge_A.refusals.json", "fp",
+            [{"item_id": "item-0001", "response_sha256": "x"}])
+        _complete_arm(tmp_path, "B", items, judged=[0, 1, 2],
+                      fingerprint="fp")
+        with pytest.raises(EvaluationError,
+                           match="cannot be derived"):
+            pipeline.collect_provider_refusals(tmp_path, items)
 
     def test_the_excluded_panel_still_has_full_mutual_coverage(self):
         # The contract the exclusion exists to satisfy: after dropping the

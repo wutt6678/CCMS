@@ -36,7 +36,10 @@ from causal_mllm.evaluation.ensemble import (
     finalize_ensemble,
     primary_checkpoint_fingerprint,
 )
-from causal_mllm.evaluation.errors import ProviderRejectedRequest
+from causal_mllm.evaluation.errors import (
+    EvaluationError,
+    ProviderRejectedRequest,
+)
 from causal_mllm.evaluation.human_template import (
     _build_anonymization_map,
     _extract_conversation_context,
@@ -67,6 +70,12 @@ _SCALE_PROFILE = _load_scale_profile(SCALE)
 FINAL_PANEL_RUN = Path(_SCALE_PROFILE["replay_run"])
 VALIDATED_FAMILIES_PATH = Path(_SCALE_PROFILE["validated_families"])
 OUTPUT_DIR = Path(_SCALE_PROFILE["output_dir"])
+
+#: Directory whose subdirectories are the arms of ONE cross-model comparison.
+#: The four Iteration 11 profiles declare it; scale_b and scale_c do not, and
+#: a profile that does not is a single arm whose exclusions are its own. See
+#: :func:`load_cross_arm_panel`.
+CROSS_ARM_GROUP = _SCALE_PROFILE.get("cross_arm_group")
 
 # Path to the gitignored credentials file. See the .example template.
 CREDENTIALS_FILE = (
@@ -280,6 +289,106 @@ REFUSALS_SUFFIX = ".refusals.json"
 #: judged, and what it could not.
 COVERAGE_ARTIFACT = "judge_coverage.json"
 
+#: Written by ``scripts/iter11_common_panel.py`` into ``CROSS_ARM_GROUP``:
+#: the union of the cells every arm of one cross-model comparison lost.
+COMMON_PANEL_ARTIFACT = "common_panel.json"
+
+#: Written LAST on completion, binding the judgment file, the refusal sidecar
+#: and the fingerprint they were both produced under. The two sidecars alone
+#: cannot express "this arm finished": they are written in sequence, so a stop
+#: between them leaves a completed output beside a refusal file from an earlier
+#: configuration -- and since ``response_sha256`` is a property of the frozen
+#: panel rather than of the run, nothing about a stale refusal file disagrees
+#: with the current panel. The manifest is the one artifact whose presence
+#: means the whole set was written.
+MANIFEST_SUFFIX = ".manifest.json"
+
+
+def _file_sha256(path: Path) -> str | None:
+    if not path.exists():
+        return None
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _bind_completion(output_path: Path, refusals_path: Path,
+                     blinded_items: list[dict], judgments: list[dict],
+                     fingerprint: str,
+                     sidecar_detail: dict | None = None) -> list[dict]:
+    """Write the refusal sidecar and the manifest that binds it, last.
+
+    Membership is DERIVED: a cell is unjudged iff this arm finished and has no
+    judgment for it. That cannot be stale, because it is read from the very
+    file the fingerprint sidecar binds. ``run_judge`` judges or refuses every
+    item it is given and does nothing else with it, so absence is refusal.
+
+    The provider's own detail -- status, code, message, body -- is carried over
+    from ``sidecar_detail`` only for cells that are genuinely unjudged, and
+    only when the caller established that the sidecar's fingerprint matches.
+    A detail record for a cell this arm DID judge is not carried over: it
+    describes a different run.
+
+    Returns the refusal records, so the caller and the fast path agree on one
+    list rather than each deriving their own.
+    """
+    judged_ids = {j["item_id"] for j in judgments}
+    by_sha = {it["item_id"]: it["response_sha256"] for it in blinded_items}
+    detail = sidecar_detail or {}
+    refusals = []
+    for item in blinded_items:
+        item_id = item["item_id"]
+        if item_id in judged_ids:
+            continue
+        carried = dict(detail.get(item_id) or {})
+        # Defaults first so a derived record still carries the keys the
+        # coverage artifact reads, then everything the run itself recorded,
+        # then the fields this panel is authoritative about.
+        record = {
+            "status": None, "error_code": None, "error_message": None,
+            "body": None,
+            **carried,
+            "item_id": item_id,
+            "family_id": item.get("family_id"),
+            "variant": item.get("variant"),
+            "response_sha256": by_sha[item_id],
+            "detail_source": ("refusal_sidecar" if item_id in detail
+                              else "derived_from_absence"),
+        }
+        refusals.append(record)
+    _write_refusals(refusals_path, fingerprint, refusals)
+    manifest_path = output_path.with_name(output_path.name + MANIFEST_SUFFIX)
+    with manifest_path.open("w", encoding="utf-8") as f:
+        json.dump({
+            "fingerprint": fingerprint,
+            "judgments_file": output_path.name,
+            "judgments_sha256": _file_sha256(output_path),
+            "n_judgments": len(judgments),
+            "refusals_file": refusals_path.name,
+            "refusals_sha256": _file_sha256(refusals_path),
+            "n_refusals": len(refusals),
+            "n_panel_items": len(blinded_items),
+            "rule": ("written last, after the judgment file, its fingerprint "
+                     "sidecar and the refusal sidecar; its presence is what "
+                     "means the set is complete rather than half-written"),
+        }, f, indent=2, ensure_ascii=False)
+    return refusals
+
+
+def _manifest_binds(manifest_path: Path, fingerprint: str,
+                    output_path: Path, refusals_path: Path) -> bool:
+    """Does the manifest bind THESE files, under THIS fingerprint?"""
+    if not manifest_path.exists():
+        return False
+    try:
+        with manifest_path.open(encoding="utf-8") as f:
+            manifest = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return False
+    if not isinstance(manifest, dict):
+        return False
+    return (manifest.get("fingerprint") == fingerprint
+            and manifest.get("judgments_sha256") == _file_sha256(output_path)
+            and manifest.get("refusals_sha256") == _file_sha256(refusals_path))
+
 
 def _read_refusals(refusals_path: Path, fingerprint: str) -> list[dict]:
     """Refusals a previous run recorded under THIS fingerprint, else none.
@@ -313,38 +422,171 @@ def collect_provider_refusals(output_dir: Path,
                               blinded_items: list[dict],
                               judge_ids=("A", "B"),
                               ) -> tuple[dict, list]:
-    """Which cells each primary's provider refused, bound to THIS panel.
+    """Which cells each primary's provider refused, derived from the run itself.
 
-    Returns ``(by_judge, stale)``. A recorded refusal is only honoured when its
-    ``response_sha256`` matches the current blinded item of the same id, so a
-    sidecar left over from a different panel cannot silently shrink this one.
+    Returns ``(by_judge, stale)``.
+
+    MEMBERSHIP is derived, never inherited. A cell is unjudged iff the arm's
+    completed output file -- the one its fingerprint sidecar binds -- carries
+    no judgment for it. Reading it from the sidecar instead would trust a file
+    written in sequence after the output, so a stop between the two leaves a
+    completed arm beside a refusal sidecar from an earlier configuration. The
+    old ``response_sha256`` comparison cannot catch that: the hash is a
+    property of the FROZEN PANEL, so a stale sidecar for the same panel agrees
+    with it on every cell and looks current.
+
+    DETAIL -- the provider's status, code and message -- still comes from the
+    sidecar, but only when the sidecar's stored fingerprint equals the
+    completed output's. Under any other fingerprint the detail describes a
+    different rubric, model or panel, and is reported in ``stale`` rather than
+    used: the cell is still excluded, because this arm has no judgment for it,
+    but the reason recorded is this run's own absence rather than another run's
+    words.
+
+    A sidecar entry for a cell the arm DID judge is stale by construction and
+    is reported as such. Honouring it would exclude a valid cell.
+
+    This is not read-only. Deriving membership rewrites the refusal sidecar
+    under the completed output's own fingerprint and writes the completion
+    manifest, so a half-written set repairs itself here rather than being
+    carried into the coverage artifact. The judgments file is never touched.
     """
-    by_sha = {it["item_id"]: it["response_sha256"] for it in blinded_items}
     by_judge, stale = {}, []
     for judge_id in judge_ids:
-        path = (output_dir / f"llm_labels_judge_{judge_id}.json"
-                ).with_suffix(REFUSALS_SUFFIX)
-        if not path.exists():
-            by_judge[judge_id] = []
-            continue
-        try:
-            with path.open(encoding="utf-8") as f:
-                recorded = json.load(f).get("refusals", [])
-        except (json.JSONDecodeError, OSError):
-            recorded = []
-        current = []
-        for r in recorded:
-            if by_sha.get(r.get("item_id")) == r.get("response_sha256"):
-                current.append(r)
-            else:
-                stale.append({"judge_id": judge_id, **r})
-        by_judge[judge_id] = current
+        output_path = output_dir / f"llm_labels_judge_{judge_id}.json"
+        fingerprint_sidecar = output_path.with_name(
+            output_path.name + ".fingerprint")
+        refusals_path = output_path.with_suffix(REFUSALS_SUFFIX)
+        if not output_path.exists() or not fingerprint_sidecar.exists():
+            raise EvaluationError(
+                f"judge {judge_id} has no completed output bound by a "
+                f"fingerprint sidecar in {output_dir}, so which cells it "
+                f"refused cannot be derived; refusing to guess")
+        fingerprint = fingerprint_sidecar.read_text(
+            encoding="utf-8").strip()
+        with output_path.open(encoding="utf-8") as f:
+            judgments = json.load(f)
+
+        detail, sidecar_fingerprint = {}, None
+        if refusals_path.exists():
+            try:
+                with refusals_path.open(encoding="utf-8") as f:
+                    data = json.load(f)
+            except (json.JSONDecodeError, OSError):
+                data = None
+            if isinstance(data, dict):
+                sidecar_fingerprint = data.get("fingerprint")
+                recorded = data.get("refusals", [])
+                if sidecar_fingerprint == fingerprint:
+                    detail = {r.get("item_id"): r for r in recorded
+                              if isinstance(r, dict)}
+                else:
+                    stale.append({
+                        "judge_id": judge_id,
+                        "reason": (
+                            f"the refusal sidecar records fingerprint "
+                            f"{str(sidecar_fingerprint)[:16]!r} but the "
+                            f"completed judgments were produced under "
+                            f"{fingerprint[:16]!r}, so its contents describe "
+                            f"a different run; its {len(recorded)} refusal(s) "
+                            f"were not honoured"),
+                        "n_refusals": len(recorded),
+                    })
+
+        by_judge[judge_id] = _bind_completion(
+            output_path, refusals_path, blinded_items, judgments, fingerprint,
+            sidecar_detail=detail)
+
+        judged_ids = {j["item_id"] for j in judgments}
+        for item_id in sorted(set(detail) - judged_ids - {
+                r["item_id"] for r in by_judge[judge_id]}):
+            stale.append({
+                "judge_id": judge_id,
+                "reason": "the sidecar records a refusal for a cell this arm "
+                          "has no judgment for and the panel does not contain",
+                **detail[item_id],
+            })
+        for item_id in sorted(judged_ids & set(detail)):
+            stale.append({
+                "judge_id": judge_id,
+                "reason": "the sidecar records a refusal for a cell this arm "
+                          "DID judge, so the refusal belongs to an earlier "
+                          "run; the judgment stands and the cell is kept",
+                **detail[item_id],
+            })
     return by_judge, stale
+
+
+def load_cross_arm_panel(group: str | None, output_dir: Path,
+                         blinded_items: list[dict],
+                         own_cells: set[tuple[str, str]]) -> dict | None:
+    """The cells every arm of this comparison lost, or None for a single arm.
+
+    ``build_judge_coverage`` unions judges A and B for ONE target session,
+    which is the right rule inside a session and the wrong one across
+    sessions. 11.8 places four models side by side, and a provider's
+    moderation verdict is a function of the request bytes and of its policy at
+    the moment of the call: the four arms reach a given cell minutes apart and
+    can lose different ones. Each still reports a Delta_TV, the four are put
+    in one table, and nothing in any of the artifacts says two of the numbers
+    describe different families.
+
+    So a profile that declares ``cross_arm_group`` is one arm of a comparison
+    and is finalized on the union. Missing, pending or stale is an error
+    rather than a warning, because finalizing anyway is exactly what produces
+    four analyses that look comparable and are not -- and re-finalizing later
+    is not free: the adjudicator's binding fingerprint covers the restricted
+    panel, so changing it re-calls the adjudicator on every disagreement.
+    """
+    if not group:
+        return None
+    artifact_path = Path(group) / COMMON_PANEL_ARTIFACT
+    if not artifact_path.exists():
+        raise EvaluationError(
+            f"{output_dir.name} is one arm of the cross-model comparison in "
+            f"{group}, but {artifact_path} does not exist; run "
+            f"scripts/iter11_common_panel.py first so this arm is restricted "
+            f"to the panel every arm shares rather than to its own")
+    try:
+        artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        raise EvaluationError(
+            f"{artifact_path} is unreadable ({exc})") from exc
+    if artifact.get("status") != "derived":
+        raise EvaluationError(
+            f"{artifact_path} has status {artifact.get('status')!r}, not "
+            f"'derived': {artifact.get('pending_reason')}. The union over the "
+            f"arms is not known yet, so this arm cannot be restricted to it")
+    entry = (artifact.get("per_target") or {}).get(output_dir.name)
+    if entry is None:
+        raise EvaluationError(
+            f"{artifact_path} does not list {output_dir.name}, so it was "
+            f"derived over a different set of arms than this profile "
+            f"declares")
+    recorded = {tuple(cell.split("/", 1))
+                for cell in entry.get("excluded_cells", [])}
+    if recorded != own_cells:
+        raise EvaluationError(
+            f"{artifact_path} was derived when {output_dir.name} had lost "
+            f"{sorted('/'.join(c) for c in recorded)}, but its completed "
+            f"outputs now give "
+            f"{sorted('/'.join(c) for c in own_cells)}; re-run "
+            f"scripts/iter11_common_panel.py so the union covers the arms as "
+            f"they actually are")
+    union = {tuple(cell.split("/", 1))
+             for cell in artifact.get("union_excluded_cells", [])}
+    if not union >= own_cells:
+        raise EvaluationError(
+            f"{artifact_path} unions to {sorted(union)}, which does not "
+            f"contain this arm's own exclusions {sorted(own_cells)}")
+    return {"cells": union, "artifact": artifact_path,
+            "artifact_data": artifact}
 
 
 def build_judge_coverage(by_judge: dict, stale: list,
                          blinded_items: list[dict],
-                         primary_model_ids: tuple[str, str]) -> tuple[dict, set]:
+                         primary_model_ids: tuple[str, str],
+                         cross_arm: dict | None = None) -> tuple[dict, set]:
     """The exclusion, and the evidence that states it.
 
     The union over BOTH primaries is dropped from BOTH primaries. Excluding a
@@ -352,17 +594,45 @@ def build_judge_coverage(by_judge: dict, stale: list,
     the cross-model comparison in 11.8 is between arms, so a cell one arm lost
     has to be lost by all of them.
 
+    ``cross_arm`` extends that rule across TARGETS: the same argument one
+    level up. It is the union over every arm of the comparison, derived by
+    ``scripts/iter11_common_panel.py``, and a cell only ANOTHER target lost is
+    dropped here too even though this target's providers both judged it. That
+    is the point, not a defect -- and the judgment is not destroyed: it stays
+    in this arm's completed ``llm_labels_judge_*.json``, which the exclusion
+    filter never touches. Each excluded cell records which of the two it was.
+
     The exclusion is outcome-independent: a provider refusal is a function of
     the request bytes alone, so the excluded set was fixed before any label
     existed and cannot have been chosen by what the cells turned out to say.
     """
-    excluded = sorted({r["item_id"] for rs in by_judge.values()
-                       for r in rs})
     items_by_id = {it["item_id"]: it for it in blinded_items}
+    cell_of_item = {it["item_id"]: (it["family_id"], it["variant"])
+                    for it in blinded_items}
+    item_of_cell = {cell: item_id for item_id, cell in cell_of_item.items()}
+    own_ids = {r["item_id"] for rs in by_judge.values() for r in rs}
+    cross_ids: set = set()
+    if cross_arm is not None:
+        cells_in_panel = set(cell_of_item.values())
+        outside = sorted("/".join(cell) for cell in cross_arm["cells"]
+                         if cell not in cells_in_panel)
+        if outside:
+            raise EvaluationError(
+                f"the common panel excludes {outside}, which is not a cell of "
+                f"this target's {len(cells_in_panel)}-cell panel; the arms are "
+                f"not holding one panel, so they cannot be compared")
+        cross_ids = {item_of_cell[cell] for cell in cross_arm["cells"]}
+    excluded = sorted(own_ids | cross_ids)
+    refused_in: dict = {}
+    if cross_arm is not None:
+        for name, rec in sorted(
+                (cross_arm["artifact_data"].get("per_target") or {}).items()):
+            for cell in rec.get("excluded_cells", []):
+                refused_in.setdefault(cell, []).append(name)
     detail = []
     for item_id in excluded:
         it = items_by_id[item_id]
-        detail.append({
+        entry = {
             "item_id": item_id,
             "family_id": it["family_id"],
             "variant": it["variant"],
@@ -371,7 +641,13 @@ def build_judge_coverage(by_judge: dict, stale: list,
                                  if any(r["item_id"] == item_id for r in rs)),
             "reason": next((r["error_code"] for rs in by_judge.values()
                             for r in rs if r["item_id"] == item_id), None),
-        })
+        }
+        if cross_arm is not None:
+            cell = f"{it['family_id']}/{it['variant']}"
+            entry["exclusion_origin"] = (
+                "this_target" if item_id in own_ids else "another_arm")
+            entry["refused_in_targets"] = sorted(refused_in.get(cell, []))
+        detail.append(entry)
     coverage = {
         "n_panel_items": len(blinded_items),
         "n_excluded": len(excluded),
@@ -392,6 +668,34 @@ def build_judge_coverage(by_judge: dict, stale: list,
             for j, rs in sorted(by_judge.items())},
         "stale_refusals_ignored": stale,
     }
+    if cross_arm is not None:
+        # Added after the literal, and only on this path, so a single-arm
+        # profile's coverage artifact is unchanged key for key.
+        data = cross_arm["artifact_data"]
+        coverage["cross_arm"] = {
+            "artifact": str(cross_arm["artifact"]),
+            "group": data.get("group"),
+            "n_targets": data.get("n_targets"),
+            "targets": data.get("targets"),
+            "excluded_cells_per_target": {
+                name: rec.get("excluded_cells", [])
+                for name, rec in sorted(
+                    (data.get("per_target") or {}).items())},
+            "identical_across_targets": data.get("identical_across_targets"),
+            "union_excluded_cells": sorted("/".join(cell)
+                                           for cell in cross_arm["cells"]),
+            "n_cells_this_target_lost": len(
+                {cell_of_item[i] for i in own_ids}),
+            "n_cells_added_by_the_union": len(cross_ids - own_ids),
+            "rule": (
+                "a cell any arm of this comparison lost is dropped from every "
+                "arm, so the four per-model analyses are computed over one "
+                "identical panel and can be placed side by side"),
+        }
+        coverage["exclusion_rule"] = (
+            "the union of cells any primary of ANY TARGET in this cross-model "
+            "comparison refused is dropped from EVERY arm of every target, so "
+            "all of them judge one identical panel")
     return coverage, set(excluded)
 
 
@@ -433,15 +737,41 @@ def run_judge(
         judge, blinded_items, dataset_sha256=dataset_sha256)
 
     # Fast path: a completed output whose sidecar fingerprint matches
-    # the current run is valid evidence — skip re-judging entirely.
+    # the current run is valid evidence — skip re-judging entirely. The
+    # refusal sidecar and the manifest have to agree with it too, because the
+    # three are written in sequence and a stop between them leaves a complete
+    # arm beside a refusal record from an earlier configuration.
     sidecar = output_path.with_name(output_path.name + ".fingerprint")
+    refusals_path = output_path.with_suffix(REFUSALS_SUFFIX)
+    manifest_path = output_path.with_name(output_path.name + MANIFEST_SUFFIX)
     if output_path.exists() and sidecar.exists():
         if sidecar.read_text(encoding="utf-8").strip() == fingerprint:
             with output_path.open(encoding="utf-8") as f:
                 judgments = json.load(f)
-            print(f"  Judge {judge.judge_id}: complete output matches "
-                  f"the current fingerprint; skipping "
-                  f"({len(judgments)} judgments)")
+            if not _manifest_binds(manifest_path, fingerprint, output_path,
+                                   refusals_path):
+                # The judgments are this run's -- the fingerprint that binds
+                # them matches -- so what is missing is the binding, not the
+                # evidence. Re-derive it from the gap rather than re-judging
+                # 600 cells that are already on disk.
+                print(f"  Judge {judge.judge_id}: complete output matches the "
+                      f"current fingerprint but its refusal sidecar or "
+                      f"manifest does not bind it; re-deriving the refusal "
+                      f"set from the {len(judgments)} judgments present")
+                detail = {}
+                recorded = _read_refusals(refusals_path, fingerprint)
+                if recorded:
+                    detail = {r.get("item_id"): r for r in recorded}
+                refusals = _bind_completion(
+                    output_path, refusals_path, blinded_items, judgments,
+                    fingerprint, sidecar_detail=detail)
+                print(f"    rebound: {len(judgments)} judgments + "
+                      f"{len(refusals)} refused = {len(blinded_items)} "
+                      f"panel items")
+            else:
+                print(f"  Judge {judge.judge_id}: complete output matches "
+                      f"the current fingerprint; skipping "
+                      f"({len(judgments)} judgments)")
             return judgments
         print(f"  Judge {judge.judge_id}: existing output fingerprint "
               f"mismatch; re-judging from scratch")
@@ -450,7 +780,6 @@ def run_judge(
     judgments = []
     start_idx = 0
     checkpoint_path = output_path.with_suffix(".checkpoint.json")
-    refusals_path = output_path.with_suffix(".refusals.json")
     refusals = _read_refusals(refusals_path, fingerprint)
     refusal_ids = {r["item_id"] for r in refusals}
     if checkpoint_path.exists():
@@ -573,11 +902,15 @@ def run_judge(
     print(f"    ✓ Judge {judge.judge_id} complete ({len(judgments)} items"
           f"{f', {len(refusals)} refused by the provider' if refusals else ''})")
 
-    # Save final outputs + fingerprint sidecar (enables the skip path)
+    # Save final outputs, then bind them. Order matters: the manifest is
+    # written LAST, so its presence is what distinguishes a finished arm from
+    # one stopped between the judgment file and its refusal sidecar.
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(judgments, f, indent=2, ensure_ascii=False)
     sidecar.write_text(fingerprint, encoding="utf-8")
-    _write_refusals(refusals_path, fingerprint, refusals)
+    _bind_completion(output_path, refusals_path, blinded_items, judgments,
+                     fingerprint,
+                     sidecar_detail={r["item_id"]: r for r in refusals})
 
     # Remove checkpoint file after successful completion
     if checkpoint_path.exists():
@@ -659,17 +992,31 @@ def main():
     # judge must not become a label from the other primary alone. So a refusal
     # is resolved by dropping that cell from every arm, not by filling it in.
     by_judge, stale = collect_provider_refusals(OUTPUT_DIR, blinded_items)
+    items_by_id = {it["item_id"]: it for it in blinded_items}
+    own_cells = {(items_by_id[r["item_id"]]["family_id"],
+                  items_by_id[r["item_id"]]["variant"])
+                 for rs in by_judge.values() for r in rs}
+    cross_arm = load_cross_arm_panel(
+        CROSS_ARM_GROUP, OUTPUT_DIR, blinded_items, own_cells)
     coverage, excluded_ids = build_judge_coverage(
-        by_judge, stale, blinded_items, (PRIMARY_A_MODEL, PRIMARY_B_MODEL))
+        by_judge, stale, blinded_items, (PRIMARY_A_MODEL, PRIMARY_B_MODEL),
+        cross_arm=cross_arm)
     with (OUTPUT_DIR / COVERAGE_ARTIFACT).open("w", encoding="utf-8") as f:
         json.dump(coverage, f, indent=2, ensure_ascii=False)
     print(f"\nJudge coverage: {coverage['n_judged']}"
           f"/{coverage['n_panel_items']} cells "
           f"({OUTPUT_DIR / COVERAGE_ARTIFACT})")
+    if cross_arm is not None:
+        print(f"  cross-arm group {CROSS_ARM_GROUP}: this target lost "
+              f"{len(own_cells)} cell(s), the union over "
+              f"{cross_arm['artifact_data'].get('n_targets')} arms is "
+              f"{coverage['cross_arm']['union_excluded_cells']}, adding "
+              f"{coverage['cross_arm']['n_cells_added_by_the_union']} "
+              f"({cross_arm['artifact']})")
     if excluded_ids:
         cells = ", ".join(
             f"{c['item_id']} ({c['family_id']}/{c['variant']}, "
-            f"refused by {'+'.join(c['refused_by'])})"
+            f"refused by {'+'.join(c['refused_by']) or 'ANOTHER ARM'})"
             for c in coverage["excluded_cells"])
         print(f"  excluding {len(excluded_ids)} cell(s) the provider "
               f"refused, from EVERY arm: {cells}")

@@ -12,27 +12,31 @@
     "output_dir": "outputs/scale_c/llm_judge_artifacts"
   },
   "iteration_11_qwen35_2b": {
-    "description": "Iteration 11.6 confirmatory replay of the frozen 100-family Scale-C panel by Qwen3.5-2B (600 trajectories). Iteration 11 judges ONE TARGET PER PROFILE, and the four must stay separate sessions: prepare_blinded_items derives item_id from the index into a seed-42 shuffle of that target's own journal, so all four targets produce the same item_id range over the same 600 cells. Pooling them would collide every id four ways and merge distinct models' responses under one label. The panel is shared with scale_c by design -- that is the point of the cross-model arm -- but output_dir is per target so no two sessions write one artifact.",
+    "description": "Iteration 11.6 confirmatory replay of the frozen 100-family Scale-C panel by Qwen3.5-2B (600 trajectories). Iteration 11 judges ONE TARGET PER PROFILE, and the four must stay separate sessions: prepare_blinded_items derives item_id from the index into a seed-42 shuffle of that target's own journal, so all four targets produce the same item_id range over the same 600 cells. Pooling them would collide every id four ways and merge distinct models' responses under one label. The panel is shared with scale_c by design -- that is the point of the cross-model arm -- but output_dir is per target so no two sessions write one artifact. cross_arm_group names the directory whose subdirectories are the arms of ONE cross-model comparison: 11.8 compares these four models with each other, so they have to be analysed over one identical panel, and a cell any arm's provider refused is dropped from all of them. scripts/iter11_common_panel.py derives that union into <cross_arm_group>/common_panel.json before phase 2 and gates the four judge_coverage.json artifacts against it after.",
     "validated_families": "outputs/scale_c/families_panel/validated_families.jsonl",
     "replay_run": "outputs/iteration_11/generations/qwen35_2b/confirmatory-100f-t1536-qwen35_2b",
-    "output_dir": "outputs/iteration_11/judge/qwen35_2b"
+    "output_dir": "outputs/iteration_11/judge/qwen35_2b",
+    "cross_arm_group": "outputs/iteration_11/judge"
   },
   "iteration_11_qwen35_4b": {
     "description": "Iteration 11.6 confirmatory replay by Qwen3.5-4B (600 trajectories). One target per profile; see iteration_11_qwen35_2b for why the four sessions cannot be pooled.",
     "validated_families": "outputs/scale_c/families_panel/validated_families.jsonl",
     "replay_run": "outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b",
-    "output_dir": "outputs/iteration_11/judge/qwen35_4b"
+    "output_dir": "outputs/iteration_11/judge/qwen35_4b",
+    "cross_arm_group": "outputs/iteration_11/judge"
   },
   "iteration_11_ministral3_3b": {
     "description": "Iteration 11.6 confirmatory replay by Ministral-3-3B (600 trajectories). One target per profile; see iteration_11_qwen35_2b for why the four sessions cannot be pooled.",
     "validated_families": "outputs/scale_c/families_panel/validated_families.jsonl",
     "replay_run": "outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b",
-    "output_dir": "outputs/iteration_11/judge/ministral3_3b"
+    "output_dir": "outputs/iteration_11/judge/ministral3_3b",
+    "cross_arm_group": "outputs/iteration_11/judge"
   },
   "iteration_11_phi4_mm": {
     "description": "Iteration 11.6 confirmatory replay by Phi-4-multimodal (600 trajectories). One target per profile; see iteration_11_qwen35_2b for why the four sessions cannot be pooled. Judge only a run whose replay_report.json exists and whose iteration_11_replay_checks.json verdict is PASS: this target's first attempt was stopped at 197 cells by the LongRoPE defect documented under outputs/iteration_11/diagnostics/phi4_longrope/.",
     "validated_families": "outputs/scale_c/families_panel/validated_families.jsonl",
     "replay_run": "outputs/iteration_11/generations/phi4_mm/confirmatory-100f-t1536-phi4_mm",
-    "output_dir": "outputs/iteration_11/judge/phi4_mm"
+    "output_dir": "outputs/iteration_11/judge/phi4_mm",
+    "cross_arm_group": "outputs/iteration_11/judge"
   }
 }

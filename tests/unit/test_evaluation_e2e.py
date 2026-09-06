@@ -585,10 +585,80 @@ class TestPanelRestrictionForUnlabelledCells:
         assert "panel_restriction" not in report
         assert report["estimands"]["n_families"] == 20
 
-    def test_an_exclusion_naming_a_cell_outside_the_panel_fails(self,
-                                                               tmp_path):
+    def test_the_restriction_names_the_labels_as_its_source(self, tmp_path):
         run_dir, families_path, judge = self._panel_and_judge(
             tmp_path, drop=self.CELLS)
+        report = self._evaluate(tmp_path, run_dir, families_path, judge,
+                                excluded_cells=self.CELLS)
+        assert report["panel_restriction"]["exclusion_source"] == \
+            "labels_artifact"
+
+    def test_the_labels_declaration_alone_is_enough(self, tmp_path):
+        # The argument is for the human-label path, which has no declaration.
+        # An ensemble labels file states its own shortfall, so the restriction
+        # has to follow it even when the caller says nothing.
+        run_dir, families_path, judge = self._panel_and_judge(
+            tmp_path, drop=self.CELLS)
+        report = self._evaluate(tmp_path, run_dir, families_path, judge)
+        assert report["panel_restriction"]["n_families_analysed"] == 19
+        assert report["estimands"]["n_families"] == 19
+
+    def test_a_caller_list_that_contradicts_the_labels_fails(self, tmp_path):
+        # THE REPRODUCTION. Two variants of one family are missing from the
+        # labels, and the caller names two DIFFERENT variants of the SAME
+        # family. Dropping the family whole makes the estimates identical
+        # either way, so before this was checked the report carried the wrong
+        # reason for its own numbers and nothing disagreed with it.
+        run_dir, families_path, judge = self._panel_and_judge(
+            tmp_path, drop=self.CELLS)
+        with pytest.raises(EvaluationError,
+                           match="have to be the same set"):
+            self._evaluate(
+                tmp_path, run_dir, families_path, judge,
+                excluded_cells=(("CMST_000000", "neutral"),
+                                ("CMST_000000", "text_only")))
+
+    def test_a_caller_cannot_shrink_a_complete_panel(self, tmp_path):
+        # The same contradiction in the other direction: the labels are
+        # complete, so an empty declaration is authoritative and a caller
+        # asking for an exclusion is asking to drop a family nobody lost.
+        run_dir, families_path, judge = self._panel_and_judge(tmp_path)
+        with pytest.raises(EvaluationError,
+                           match="have to be the same set"):
+            self._evaluate(tmp_path, run_dir, families_path, judge,
+                           excluded_cells=self.CELLS)
+
+    def test_an_explicit_empty_list_is_a_claim_and_contradicts(self,
+                                                               tmp_path):
+        # Omitting the argument is "I make no claim, use the labels". Passing
+        # an empty list is "I claim nothing was excluded", which the labels
+        # contradict. The two have to stay distinguishable, or a caller could
+        # clear a real exclusion by passing [] through a defaulted parameter.
+        run_dir, families_path, judge = self._panel_and_judge(
+            tmp_path, drop=self.CELLS)
+        with pytest.raises(EvaluationError,
+                           match="have to be the same set"):
+            self._evaluate(tmp_path, run_dir, families_path, judge,
+                           excluded_cells=[])
+
+    def test_an_exclusion_naming_a_cell_outside_the_panel_fails(self,
+                                                               tmp_path):
+        # Caller and labels agree, so the contradiction check passes and the
+        # panel check is what catches it: a mistyped family id would otherwise
+        # shrink nothing while the report claimed a restriction.
+        outside = (("CMST_999999", "shuffle"),)
+        run_dir, families_path, _ = _make_panel(tmp_path)
+        labels: dict = {}
+        for rec in read_jsonl(run_dir / "replay_outputs.jsonl"):
+            labels.setdefault(rec["family_id"], {})[rec["variant"]] = {
+                **self.JUDGMENT,
+                "response_sha256": sha256_text(rec["response"]),
+            }
+        labels_path = tmp_path / "outside.json"
+        save_llm_ensemble_labels(labels, labels_path,
+                                 ensemble_provenance={},
+                                 excluded_cells=outside)
+        judge = LLMEnsembleLabelJudge(labels_path)
         with pytest.raises(EvaluationError, match="not in this panel"):
             self._evaluate(tmp_path, run_dir, families_path, judge,
-                           excluded_cells=(("CMST_999999", "shuffle"),))
+                           excluded_cells=outside)

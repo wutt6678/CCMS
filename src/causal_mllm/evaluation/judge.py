@@ -360,6 +360,7 @@ class LLMEnsembleLabelJudge:
             self._provenance_meta["excluded_cells"] = sorted(
                 [list(cell) for cell in excluded])
             self._provenance_meta["n_excluded_cells"] = len(excluded)
+        self._excluded_cells = frozenset(excluded)
 
         # Require full factorial coverage: exactly six variant labels per
         # family, less any cell the artifact itself declares excluded,
@@ -417,6 +418,26 @@ class LLMEnsembleLabelJudge:
             raise EvaluationError(
                 f"response SHA256 verification failed "
                 f"in {self._path}:\n  " + "\n  ".join(errors))
+
+    @property
+    def declared_excluded_cells(self) -> frozenset:
+        """The cells THIS labels file declares absent, empty when complete.
+
+        Always available on an ensemble judge, and authoritative: the exclusion
+        is a fact about the labels, recorded in the artifact that has it, so
+        the evaluation stage derives its panel restriction from here rather
+        than from whatever a caller passed in. Two independent sources for one
+        decision is how a report comes to describe cells the labels never
+        mentioned -- and because a family that loses ANY variant is dropped
+        whole, two different lists naming the same family produce identical
+        estimates while disagreeing about the evidence.
+
+        Deliberately a property and not a provenance key: the sealed Iteration
+        9 and 10 reports carry no ``excluded_cells`` in ``judge_provenance``,
+        and adding an empty one to keep this discoverable would change what a
+        re-run of those iterations writes.
+        """
+        return self._excluded_cells
 
     def judge_for(self, family_id: str, variant: str) -> dict:
         """Look up the LLM label for a (family_id, variant) pair."""

@@ -190,6 +190,63 @@ def _reconstruct_conversation_context(
     return system_prompt, history_messages, terminal_query
 
 
+def _normalize_cells(cells, origin: str) -> set[tuple[str, str]]:
+    """A set of ``(family_id, variant)`` pairs, or an error naming the source."""
+    out: set[tuple[str, str]] = set()
+    for cell in cells or ():
+        if (not isinstance(cell, (tuple, list)) or len(cell) != 2
+                or not all(isinstance(part, str) and part for part in cell)):
+            raise EvaluationError(
+                f"{origin} must supply (family_id, variant) pairs, got "
+                f"{cell!r}")
+        out.add((cell[0], cell[1]))
+    return out
+
+
+def _resolve_excluded_cells(judge, excluded_cells) -> tuple[set, str]:
+    """One decision, one source: the labels artifact when it declares one.
+
+    ``run_evaluation_stage`` used to take the exclusion from its caller while
+    ``LLMEnsembleLabelJudge`` carried the authoritative declaration from the
+    labels file. Two independent sources for one decision produced a report
+    that described cells the labels never mentioned: the labels declared
+    ``cross_modal`` and ``shuffle`` absent, the caller passed ``neutral`` and
+    ``text_only``, and because a family that loses ANY variant is dropped
+    whole, both lists named the same family and so produced IDENTICAL
+    estimates. Nothing downstream disagreed, and the artifact recorded the
+    wrong reason for its own numbers.
+
+    So the declaration wins. An OMITTED argument is not a claim, and the
+    declaration is used outright -- that is what lets ``evaluate_responses``
+    evaluate a restricted labels file without growing a flag whose value could
+    disagree with the file. A SUPPLIED argument is a claim, including an empty
+    one, and is required to be exactly equal to the declaration; equality in
+    both directions is the point, since a caller naming two other variants of
+    the same family is the reproduction above and a caller naming cells the
+    labels do hold is asking to shrink a complete panel. A judge that declares
+    nothing at all (the human-label path) has no authoritative source, so the
+    caller's list is used and the report says which of the two it came from.
+    """
+    declared = getattr(judge, "declared_excluded_cells", None)
+    if declared is None:
+        return _normalize_cells(excluded_cells, "excluded_cells"), "caller"
+    declared = _normalize_cells(
+        declared, "the labels artifact's own excluded_cells declaration")
+    if excluded_cells is None:
+        return declared, "labels_artifact"
+    caller = _normalize_cells(excluded_cells, "excluded_cells")
+    if caller != declared:
+        raise EvaluationError(
+            f"the caller excluded {sorted(f'{f}/{v}' for f, v in caller)} but "
+            f"the labels artifact declares "
+            f"{sorted(f'{f}/{v}' for f, v in declared)}; these have to be the "
+            f"same set, because the labels are the record of what the judge "
+            f"could not label and the restriction is derived from it. Two "
+            f"different lists naming the same family would produce identical "
+            f"estimates while disagreeing about the evidence")
+    return declared, "labels_artifact"
+
+
 def restrict_panel_to_labels(
     records: list[dict],
     excluded_cells,
@@ -311,9 +368,15 @@ def run_evaluation_stage(
             Required — the runner no longer guesses the location.
         excluded_cells: ``(family_id, variant)`` pairs the judge has no label
             for, because its provider refused the request rather than because
-            the replay failed to produce one. Optional and empty by default, so
-            the sealed Iteration 9 and 10 reports are unaffected: with no
-            exclusions the restriction is neither applied nor written. See
+            the replay failed to produce one. Optional, and omitting it is not
+            the same as passing an empty list: a judge that declares its own
+            exclusions -- ``LLMEnsembleLabelJudge`` does, from the labels
+            artifact -- is restricted by that declaration whether or not this
+            argument is supplied, and a SUPPLIED value must name exactly the
+            same set. With no exclusions anywhere the restriction is neither
+            applied nor written, so the sealed Iteration 9 and 10 reports are
+            unaffected.
+            See :func:`_resolve_excluded_cells` and
             :func:`restrict_panel_to_labels`.
 
     Returns:
@@ -355,9 +418,12 @@ def run_evaluation_stage(
     # whole panel, and it did. What comes next is a statement about the judge,
     # and blurring the two would let an incomplete replay pass as an exclusion.
     restriction: dict = {}
-    if excluded_cells:
+    effective_cells, exclusion_source = _resolve_excluded_cells(
+        judge, excluded_cells)
+    if effective_cells:
         records, restriction = restrict_panel_to_labels(
-            records, excluded_cells)
+            records, sorted(effective_cells))
+        restriction["exclusion_source"] = exclusion_source
 
     # 2. Judge: run judge over all panel responses (variant-blind)
     judged_records: list[dict] = []

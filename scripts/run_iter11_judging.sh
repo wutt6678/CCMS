@@ -42,6 +42,19 @@
 #      and it is the slower phase: at the measured 0.398-0.502 disagreement
 #      rate the adjudicator alone takes 955-1205 calls across the panel.
 #
+# Phase 2 also derives the CROSS-ARM common panel before it finalizes anything,
+# and gates the four resulting judge_coverage.json artifacts afterwards
+# (scripts/iter11_common_panel.py). build_judge_coverage unions judges A and B
+# for ONE target session; it does not make the four TARGETS agree. Aliyun's
+# input-moderation verdict depends on the request bytes and on the provider's
+# policy at the moment of the call, and the four arms reach a given cell
+# minutes apart, so one arm can lose a family the other three kept. Each would
+# still print a Delta_TV and 11.8 would put the four in one table. Deriving the
+# union first means the arms land on one panel by construction; deriving it
+# after would mean re-running all four finalizes, and the adjudicator's binding
+# fingerprint covers the restricted panel, so that re-calls it on every
+# disagreement.
+#
 # Phase 2 ENFORCES that rather than assuming it, per target, because the
 # assumption once nearly cost an arm. Phase 1 counts a failed primary in
 # `failed` and then used to run phase 2 anyway; when judge A died on aliyun
@@ -244,6 +257,21 @@ if [[ ",${PHASE}," == *,2,* ]]; then
     echo "no target is ready to finalize" >&2
     exit 1
   fi
+
+  # One panel for all four arms, derived from the eight completed primary
+  # outputs before any finalize spends anything. The producer exits non-zero
+  # while any arm of the comparison is incomplete, which also makes phase 2
+  # all-or-nothing over the group: finalizing three arms and one arm's own
+  # exclusions is not a cross-model comparison.
+  echo "deriving the cross-arm common panel"
+  if ! python scripts/iter11_common_panel.py; then
+    echo "FATAL: the cross-arm common panel could not be derived, so no" >&2
+    echo "       target is finalized. Each would be restricted to its own" >&2
+    echo "       refusals and the four analyses could describe different" >&2
+    echo "       families while looking comparable." >&2
+    exit 1
+  fi
+
   echo "finalizing: ${ready[*]}"
   pids=(); names=()
   for key in "${ready[@]}"; do
@@ -256,6 +284,16 @@ if [[ ",${PHASE}," == *,2,* ]]; then
     if wait "${pids[$i]}"; then echo "  ${names[$i]}: ok"
     else echo "  ${names[$i]}: FAILED"; failed=$((failed + 1)); fi
   done
+
+  # The gate, over the artifacts phase 2 actually wrote rather than over the
+  # union it was handed: identical excluded cells AND identical surviving
+  # families in all four. A divergence here means the analyses have to be
+  # regenerated on the union the gate reports.
+  echo
+  echo "=== cross-arm common-panel gate ==="
+  if ! python scripts/iter11_common_panel.py --verify; then
+    failed=$((failed + 1))
+  fi
 fi
 
 echo
