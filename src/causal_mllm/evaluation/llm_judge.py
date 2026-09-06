@@ -18,6 +18,10 @@ from pathlib import Path
 import requests
 
 from causal_mllm.evaluation.adjudication import validate_llm_judgment_fields
+from causal_mllm.evaluation.errors import (
+    EvaluationError,
+    ProviderRejectedRequest,
+)
 
 # Gateway payload guard: source media can be very large (tens of MB);
 # transmitting them inline drops the TLS connection. Payloads above the
@@ -48,7 +52,34 @@ def _payload_image(img_bytes: bytes) -> tuple[bytes, str | None]:
         return buf.getvalue(), "image/jpeg"
     except Exception:  # noqa: BLE001 - keep judging alive
         return img_bytes, None
-from causal_mllm.evaluation.errors import EvaluationError
+
+
+#: Response-body ceiling kept in an exception message. Long enough to hold a
+#: provider's error object, short enough that 600 of them cannot bury a log.
+_ERROR_BODY_MAX_CHARS = 800
+
+
+def _provider_error_detail(resp) -> dict | None:
+    """What the provider SAID, or None if there was no HTTP response.
+
+    ``requests``' ``HTTPError.__str__`` is only "400 Client Error: Bad Request
+    for url: ...". The provider's own ``error.code`` is what distinguishes a
+    deterministic input-moderation refusal from a rate limit or an
+    unactivated model id, and losing it cost two 600-item judge arms: the
+    retry loop re-sent a payload aliyun had already refused eleven times and
+    then reported nothing but the status line.
+    """
+    if resp is None:
+        return None
+    body = (resp.text or "")[:_ERROR_BODY_MAX_CHARS]
+    code = message = None
+    try:
+        err = (resp.json() or {}).get("error") or {}
+        code, message = err.get("code"), err.get("message")
+    except Exception:  # noqa: BLE001 - a non-JSON body is still evidence
+        pass
+    return {"status": resp.status_code, "code": code,
+            "provider_message": message, "body": body}
 
 
 @dataclass
@@ -360,6 +391,7 @@ cross-field consistency requirements.
         last_error = None
 
         while retries <= self.config.max_retries:
+            resp = None
             try:
                 resp = requests.post(
                     f"{self.config.base_url}/chat/completions",
@@ -396,7 +428,34 @@ cross-field consistency requirements.
                         provider_system_fingerprint)
 
             except Exception as e:
-                last_error = e
+                detail = _provider_error_detail(resp)
+                # Only an HTTP ERROR response is the provider refusing the
+                # request. This try block also parses a successful body, so a
+                # 200 whose JSON is malformed lands here too -- that is the
+                # model's output being wrong, not the request being rejected,
+                # and it stays retryable exactly as before.
+                if detail is not None and detail["status"] >= 400:
+                    rejection = ProviderRejectedRequest(
+                        f"{self.config.model_id} refused the request: HTTP "
+                        f"{detail['status']} code={detail['code']!r} "
+                        f"{detail['provider_message'] or ''}".strip(),
+                        **detail)
+                    if not rejection.is_retryable:
+                        # The payload is fixed, so a client-side rejection is a
+                        # statement about the request rather than about the
+                        # moment it was made. Retrying it cannot succeed; it
+                        # only costs max_retries x retry_delay seconds per cell
+                        # and, for a moderation refusal, re-submits flagged
+                        # input to the provider eleven more times.
+                        raise rejection from e
+                    # 429 and 5xx are about the moment, not the request, so
+                    # they keep the retry budget. The body is attached anyway:
+                    # a persistent 5xx is diagnosable from the evidence.
+                    last_error = rejection
+                else:
+                    # No HTTP error response: a timeout, a dropped TLS
+                    # connection, or a 200 this could not parse. Retryable.
+                    last_error = e
                 retries += 1
                 if retries <= self.config.max_retries:
                     time.sleep(self.config.retry_delay * retries)

@@ -208,6 +208,7 @@ def finalize_ensemble(
     adjudicator_model_id: str = "",
     primary_model_ids: tuple[str, str] = ("", ""),
     eval_config: EvalConfig | None = None,
+    judge_coverage: dict | None = None,
 ) -> dict:
     """Run the complete post-judge ensemble workflow.
 
@@ -224,6 +225,14 @@ def finalize_ensemble(
         adjudicator_model_id: Model ID of the adjudicator (provenance).
         primary_model_ids: Tuple of (primary A, primary B) model IDs.
         eval_config: Evaluation config (defaults to standard Iteration 9).
+        judge_coverage: What the ensemble actually judged, when that is fewer
+            cells than the panel holds. A provider can refuse to moderate an
+            input outright -- aliyun's ``data_inspection_failed`` on judge A
+            for 2 of the frozen 600 cells -- and the caller then drops those
+            cells from BOTH primaries so the arms stay mutually complete and
+            comparable. Recorded in the labels' provenance and in the final
+            report so no artifact describes a 598-cell panel as though it were
+            the 600-cell one it was drawn from.
 
     Returns:
         The final evaluation report dict (with judge_model_sensitivity).
@@ -351,6 +360,7 @@ def finalize_ensemble(
         "disagreement_field_counts": field_counts,
         "adjudicator_artifact": (
             ADJUDICATOR_ARTIFACT if adjudicator is not None else None),
+        "judge_coverage": judge_coverage,
         "note": ("" if adjudicator is not None else
                  "Fallback adjudication; no distinct adjudicator "
                  "model was configured. Results are provisional."),
@@ -405,6 +415,7 @@ def finalize_ensemble(
         json.dump(sensitivity, f, indent=2, ensure_ascii=False)
 
     report["judge_model_sensitivity"] = sensitivity
+    report["judge_coverage"] = judge_coverage
     report["adjudication"] = {
         "method": adjudication_method,
         "n_disagreements": len(disagreement_ids),

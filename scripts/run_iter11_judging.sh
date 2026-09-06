@@ -52,6 +52,15 @@
 #   bash scripts/run_iter11_judging.sh
 #   TARGETS="qwen35_2b" bash scripts/run_iter11_judging.sh
 #   PHASE=1 bash scripts/run_iter11_judging.sh      # primaries only
+#   PHASE=1 JUDGES="A" bash scripts/run_iter11_judging.sh   # one primary only
+#
+# JUDGES selects WHICH primaries phase 1 launches. It exists because a
+# provider-side failure is per-identity, not per-target: aliyun's input
+# moderation refused 2 of the 600 cells for judge A alone, so all four of A's
+# arms stopped at item-0164 while all four of B's completed. Re-running the
+# pair would start a second B process against the checkpoint the first one is
+# still writing. Selecting A lets the failed identity be resumed on its own --
+# the fingerprint-bound checkpoints make that a continuation, not a restart.
 set -uo pipefail
 
 cd /scratch/wutiantong/CCMS
@@ -64,6 +73,7 @@ TARGETS="${TARGETS:-qwen35_2b qwen35_4b ministral3_3b phi4_mm}"
 # target, so four targets is the ceiling that measurement supports.
 MAX_TARGETS="${MAX_TARGETS:-4}"
 PHASE="${PHASE:-1,2}"
+JUDGES="${JUDGES:-A B}"
 LOG_DIR="${LOG_DIR:-/scratch/wutiantong/logs_iter11_7}"
 
 mkdir -p "$LOG_DIR"
@@ -98,6 +108,7 @@ if [ "${#eligible[@]}" -gt "$MAX_TARGETS" ]; then
   exit 2
 fi
 echo "eligible: ${eligible[*]}"
+echo "judges:   ${JUDGES}"
 echo "logs:     ${LOG_DIR}"
 echo
 
@@ -119,10 +130,10 @@ run_profile() {  # key, judges-label, CCMS_JUDGES value ("" = full mode)
 
 failed=0
 if [[ ",${PHASE}," == *,1,* ]]; then
-  echo "=== phase 1: primary judges A and B, one process each ==="
+  echo "=== phase 1: primary judges ${JUDGES}, one process each ==="
   pids=(); names=()
   for key in "${eligible[@]}"; do
-    for judge in A B; do
+    for judge in $JUDGES; do
       run_profile "$key" "judge_${judge}" "$judge" &
       pids+=($!); names+=("${key}/judge_${judge}")
       # Stagger so eight processes do not open eight TLS handshakes and

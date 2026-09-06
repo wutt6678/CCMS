@@ -36,6 +36,7 @@ from causal_mllm.evaluation.ensemble import (
     finalize_ensemble,
     primary_checkpoint_fingerprint,
 )
+from causal_mllm.evaluation.errors import ProviderRejectedRequest
 from causal_mllm.evaluation.human_template import (
     _build_anonymization_map,
     _extract_conversation_context,
@@ -237,6 +238,130 @@ def _write_checkpoint(checkpoint_path: Path, fingerprint: str,
                   f, indent=2, ensure_ascii=False)
 
 
+#: Sidecar holding the cells a provider refused to judge. Kept out of the
+#: labels because a record with no ``judgment`` key would break every consumer
+#: that reads ``rec["judgment"]["refusal_type"]``.
+REFUSALS_SUFFIX = ".refusals.json"
+
+#: Written once both primaries are complete: what the ensemble actually
+#: judged, and what it could not.
+COVERAGE_ARTIFACT = "judge_coverage.json"
+
+
+def _read_refusals(refusals_path: Path, fingerprint: str) -> list[dict]:
+    """Refusals a previous run recorded under THIS fingerprint, else none.
+
+    Fingerprint-bound exactly like the checkpoint: a refusal recorded against a
+    different panel, rubric or model configuration says nothing about this one,
+    and inheriting it would exclude a cell the current identity might judge
+    perfectly happily.
+    """
+    if not refusals_path.exists():
+        return []
+    try:
+        with refusals_path.open(encoding="utf-8") as f:
+            data = json.load(f)
+    except (json.JSONDecodeError, OSError):
+        return []
+    if not isinstance(data, dict) or data.get("fingerprint") != fingerprint:
+        return []
+    return list(data.get("refusals", []))
+
+
+def _write_refusals(refusals_path: Path, fingerprint: str,
+                    refusals: list[dict]) -> None:
+    """Write the fingerprint-bound refusal sidecar."""
+    with refusals_path.open("w", encoding="utf-8") as f:
+        json.dump({"fingerprint": fingerprint, "refusals": refusals},
+                  f, indent=2, ensure_ascii=False)
+
+
+def collect_provider_refusals(output_dir: Path,
+                              blinded_items: list[dict],
+                              judge_ids=("A", "B"),
+                              ) -> tuple[dict, list]:
+    """Which cells each primary's provider refused, bound to THIS panel.
+
+    Returns ``(by_judge, stale)``. A recorded refusal is only honoured when its
+    ``response_sha256`` matches the current blinded item of the same id, so a
+    sidecar left over from a different panel cannot silently shrink this one.
+    """
+    by_sha = {it["item_id"]: it["response_sha256"] for it in blinded_items}
+    by_judge, stale = {}, []
+    for judge_id in judge_ids:
+        path = (output_dir / f"llm_labels_judge_{judge_id}.json"
+                ).with_suffix(REFUSALS_SUFFIX)
+        if not path.exists():
+            by_judge[judge_id] = []
+            continue
+        try:
+            with path.open(encoding="utf-8") as f:
+                recorded = json.load(f).get("refusals", [])
+        except (json.JSONDecodeError, OSError):
+            recorded = []
+        current = []
+        for r in recorded:
+            if by_sha.get(r.get("item_id")) == r.get("response_sha256"):
+                current.append(r)
+            else:
+                stale.append({"judge_id": judge_id, **r})
+        by_judge[judge_id] = current
+    return by_judge, stale
+
+
+def build_judge_coverage(by_judge: dict, stale: list,
+                         blinded_items: list[dict],
+                         primary_model_ids: tuple[str, str]) -> tuple[dict, set]:
+    """The exclusion, and the evidence that states it.
+
+    The union over BOTH primaries is dropped from BOTH primaries. Excluding a
+    cell from one arm only would leave the arms judging different panels, and
+    the cross-model comparison in 11.8 is between arms, so a cell one arm lost
+    has to be lost by all of them.
+
+    The exclusion is outcome-independent: a provider refusal is a function of
+    the request bytes alone, so the excluded set was fixed before any label
+    existed and cannot have been chosen by what the cells turned out to say.
+    """
+    excluded = sorted({r["item_id"] for rs in by_judge.values()
+                       for r in rs})
+    items_by_id = {it["item_id"]: it for it in blinded_items}
+    detail = []
+    for item_id in excluded:
+        it = items_by_id[item_id]
+        detail.append({
+            "item_id": item_id,
+            "family_id": it["family_id"],
+            "variant": it["variant"],
+            "response_sha256": it["response_sha256"],
+            "refused_by": sorted(j for j, rs in by_judge.items()
+                                 if any(r["item_id"] == item_id for r in rs)),
+            "reason": next((r["error_code"] for rs in by_judge.values()
+                            for r in rs if r["item_id"] == item_id), None),
+        })
+    coverage = {
+        "n_panel_items": len(blinded_items),
+        "n_excluded": len(excluded),
+        "n_judged": len(blinded_items) - len(excluded),
+        "excluded_item_ids": excluded,
+        "excluded_cells": detail,
+        "exclusion_rule": (
+            "the union of cells any primary's provider refused is dropped "
+            "from EVERY arm, so all arms judge one identical panel"),
+        "outcome_independent": (
+            "a provider refusal is a function of the request bytes alone, so "
+            "this set was fixed before any label existed"),
+        "per_judge": {
+            j: {"n_refused": len(rs),
+                "model_id": (primary_model_ids[0] if j == "A"
+                             else primary_model_ids[1]),
+                "refusals": rs}
+            for j, rs in sorted(by_judge.items())},
+        "stale_refusals_ignored": stale,
+    }
+    return coverage, set(excluded)
+
+
 def run_judge(
     judge: MultimodalLLMJudge,
     blinded_items: list[dict],
@@ -252,8 +377,24 @@ def run_judge(
     judging restarts from scratch — stale resume state can never
     contaminate evidence.
 
+    A cell the provider REFUSES is recorded and skipped, not raised. Aliyun's
+    input moderation rejects some of this dataset's unsafe conversation
+    histories outright (HTTP 400 ``data_inspection_failed``), and the refusal
+    is a property of the payload and of that model's policy: judge A refused 2
+    of the frozen 600 cells while judge B and the adjudicator both accepted
+    the byte-identical payloads. Letting that propagate aborted three whole
+    600-item arms on one cell each. Refusals go to a
+    ``.refusals.json`` sidecar rather than into the labels, because a record
+    with no ``judgment`` would break every consumer that reads
+    ``rec["judgment"]["refusal_type"]``. Only an input-moderation refusal is
+    tolerated: an unactivated model id or an expired key refuses every cell
+    identically, and recording 600 per-item refusals would bury a
+    misconfiguration that must stop the run.
+
     Returns:
-        List of judgment records with provenance.
+        List of judgment records with provenance. Cells the provider refused
+        are absent here and present in the sidecar; see
+        :func:`collect_provider_refusals`.
     """
     fingerprint = primary_checkpoint_fingerprint(
         judge, blinded_items, dataset_sha256=dataset_sha256)
@@ -276,13 +417,19 @@ def run_judge(
     judgments = []
     start_idx = 0
     checkpoint_path = output_path.with_suffix(".checkpoint.json")
+    refusals_path = output_path.with_suffix(".refusals.json")
+    refusals = _read_refusals(refusals_path, fingerprint)
+    refusal_ids = {r["item_id"] for r in refusals}
     if checkpoint_path.exists():
         with checkpoint_path.open(encoding="utf-8") as f:
             data = json.load(f)
         if (isinstance(data, dict)
                 and data.get("fingerprint") == fingerprint):
             judgments = data.get("judgments", [])
-            completed_ids = {j["item_id"] for j in judgments}
+            # A refused cell is handled, just not judged. Counting only
+            # judgments here would make a resume restart at the first refusal
+            # and re-judge every cell after it.
+            completed_ids = ({j["item_id"] for j in judgments} | refusal_ids)
             # Find where to resume
             for i, item in enumerate(blinded_items):
                 if item["item_id"] not in completed_ids:
@@ -291,7 +438,8 @@ def run_judge(
             else:
                 start_idx = len(blinded_items)
             print(f"  Resuming Judge {judge.judge_id} from item "
-                  f"{start_idx+1} ({len(judgments)} already done)")
+                  f"{start_idx+1} ({len(judgments)} already done"
+                  f"{f', {len(refusals)} refused' if refusals else ''})")
         else:
             print(f"  Stale/mismatched checkpoint for Judge "
                   f"{judge.judge_id} ignored (fingerprint mismatch); "
@@ -301,6 +449,8 @@ def run_judge(
 
     for i in range(start_idx, len(blinded_items)):
         item = blinded_items[i]
+        if item["item_id"] in refusal_ids:
+            continue
         print(f"    [{i+1}/{len(blinded_items)}] {item['item_id']}", end="\r",
               flush=True)
 
@@ -311,6 +461,32 @@ def run_judge(
                 terminal_query=item["terminal_query"],
                 response=item["response"],
             )
+        except ProviderRejectedRequest as e:
+            if not e.is_input_moderation:
+                # Not a fact about this cell, so it is not this loop's to
+                # absorb: every cell would be "refused" identically.
+                print(f"\n    FATAL on {item['item_id']}: {e}")
+                _write_checkpoint(checkpoint_path, fingerprint, judgments)
+                raise
+            print(f"\n    REFUSED {item['item_id']} "
+                  f"({item['family_id']}/{item['variant']}) by "
+                  f"{judge.config.model_id}: HTTP {e.status} code={e.code!r} "
+                  f"{e.provider_message or ''}")
+            refusals.append({
+                "item_id": item["item_id"],
+                "family_id": item["family_id"],
+                "variant": item["variant"],
+                "response_sha256": item["response_sha256"],
+                "judge_id": judge.judge_id,
+                "model_id": judge.config.model_id,
+                "status": e.status,
+                "error_code": e.code,
+                "error_message": e.provider_message,
+                "body": e.body,
+            })
+            refusal_ids.add(item["item_id"])
+            _write_refusals(refusals_path, fingerprint, refusals)
+            continue
         except Exception as e:
             print(f"\n    ERROR on {item['item_id']}: {e}")
             # Save checkpoint before exiting
@@ -361,12 +537,14 @@ def run_judge(
         if (i + 1) % 5 == 0 or i == len(blinded_items) - 1:
             _write_checkpoint(checkpoint_path, fingerprint, judgments)
 
-    print(f"    ✓ Judge {judge.judge_id} complete ({len(judgments)} items)")
+    print(f"    ✓ Judge {judge.judge_id} complete ({len(judgments)} items"
+          f"{f', {len(refusals)} refused by the provider' if refusals else ''})")
 
     # Save final outputs + fingerprint sidecar (enables the skip path)
     with output_path.open("w", encoding="utf-8") as f:
         json.dump(judgments, f, indent=2, ensure_ascii=False)
     sidecar.write_text(fingerprint, encoding="utf-8")
+    _write_refusals(refusals_path, fingerprint, refusals)
 
     # Remove checkpoint file after successful completion
     if checkpoint_path.exists():
@@ -442,6 +620,39 @@ def main():
             with labels_path.open(encoding="utf-8") as f:
                 all_judgments[judge_id] = json.load(f)
 
+    # --- provider refusals: the panel the ensemble can actually judge -------
+    # compute_pairwise_agreement requires FULL mutual coverage and raises
+    # without it, which is the right contract: a cell one primary could not
+    # judge must not become a label from the other primary alone. So a refusal
+    # is resolved by dropping that cell from every arm, not by filling it in.
+    by_judge, stale = collect_provider_refusals(OUTPUT_DIR, blinded_items)
+    coverage, excluded_ids = build_judge_coverage(
+        by_judge, stale, blinded_items, (PRIMARY_A_MODEL, PRIMARY_B_MODEL))
+    with (OUTPUT_DIR / COVERAGE_ARTIFACT).open("w", encoding="utf-8") as f:
+        json.dump(coverage, f, indent=2, ensure_ascii=False)
+    print(f"\nJudge coverage: {coverage['n_judged']}"
+          f"/{coverage['n_panel_items']} cells "
+          f"({OUTPUT_DIR / COVERAGE_ARTIFACT})")
+    if excluded_ids:
+        cells = ", ".join(
+            f"{c['item_id']} ({c['family_id']}/{c['variant']}, "
+            f"refused by {'+'.join(c['refused_by'])})"
+            for c in coverage["excluded_cells"])
+        print(f"  excluding {len(excluded_ids)} cell(s) the provider "
+              f"refused, from EVERY arm: {cells}")
+        if stale:
+            print(f"  ignored {len(stale)} stale refusal(s) whose "
+                  f"response_sha256 is not in this panel")
+        blinded_items = [it for it in blinded_items
+                         if it["item_id"] not in excluded_ids]
+        for judge_id in PRIMARY_JUDGE_CONFIGS:
+            before = len(all_judgments[judge_id])
+            all_judgments[judge_id] = [
+                j for j in all_judgments[judge_id]
+                if j["item_id"] not in excluded_ids]
+            print(f"  judge {judge_id}: {before} -> "
+                  f"{len(all_judgments[judge_id])} judgments")
+
     # Build the distinct adjudicator (or fall back deterministically).
     # The shared finalize_ensemble() drives agreement, adjudication of
     # ALL disagreements, labels, evaluation, and per-judge sensitivity.
@@ -466,6 +677,7 @@ def main():
         adjudicator=adjudicator,
         adjudicator_model_id=ADJUDICATOR_MODEL,
         primary_model_ids=(PRIMARY_A_MODEL, PRIMARY_B_MODEL),
+        judge_coverage=coverage,
     )
 
     # Print summary
@@ -476,6 +688,9 @@ def main():
     print("=" * 60)
     print(f"\nArtifacts saved to: {OUTPUT_DIR}")
     print(f"Backend: {ENSEMBLE_BACKEND}")
+    print(f"Cells judged: {coverage['n_judged']}"
+          f"/{coverage['n_panel_items']} "
+          f"({coverage['n_excluded']} refused by a provider)")
     print(f"Adjudication: {adj['method']}")
     print(f"Disagreements adjudicated: {adj['n_disagreements']} "
           f"(field counts: {adj['disagreement_field_counts']})")
@@ -490,6 +705,8 @@ def main():
     print("  - blinded_items.json: Randomized items (no variant/family metadata)")
     print("  - llm_labels_judge_A.json: Raw primary Judge A outputs")
     print("  - llm_labels_judge_B.json: Raw primary Judge B outputs")
+    print("  - judge_coverage.json: cells judged, and cells a provider "
+          "refused (excluded from every arm)")
     print("  - judge_agreement.json: Cross-model A-B agreement metrics")
     print("  - llm_labels_adjudicator.json: Per-call adjudicator provenance")
     print("  - llm_labels_adjudicated.json: Adjudicated labels")
