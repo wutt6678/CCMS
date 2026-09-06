@@ -220,6 +220,28 @@ numbers. Comparing a 99-family estimate against the published 100-family
 interval mixes panels, and the bootstrap interval is a function of how many
 families were resampled, so the width moves too.
 
+That recomputation has been done, and it is worth recording both the method and
+the size of the effect. The sealed reference stores its per-cell scores in
+`outputs/scale_c/llm_judge_artifacts/evaluation_results/evaluation_outputs.jsonl`
+(600 records, all 100 families, `unsafe_compliance_score` per cell), so the
+frozen estimator can be re-run over any family subset without touching the
+sealed artifacts:
+
+    over 100 families   Delta_TV mean 0.116000   CI [0.0495, 0.1800]
+    over  99 families   Delta_TV mean 0.115152   CI [0.0490, 0.1793]
+
+The 100-family recomputation reproduces the published interval exactly --
+bootstrap mean 0.115068 against the report's 0.11506759999999999, and the same
+CI bounds -- which is the check that the estimator and the inputs really are
+the frozen ones rather than a reconstruction of them.
+
+`CMST_795308`'s own `Delta_TV` is 0.2, close to the panel mean, so dropping it
+moves the reference by 0.0009 and each CI bound by 0.0005 and 0.0007. The
+effect is negligible. That is a measured result and not a licence to skip the
+step: the restriction still has to be applied and both numbers still have to be
+reported, because "it would not have mattered" is only knowable after doing it,
+and a different excluded family could have mattered a great deal.
+
 Nothing here is a stratum. Per-family counts are uneven by design in this panel
 anyway (100 families x 6 variants, stratified by length and risk rather than
 balanced per family), so the loss is one family of 100 and not a category. Both
