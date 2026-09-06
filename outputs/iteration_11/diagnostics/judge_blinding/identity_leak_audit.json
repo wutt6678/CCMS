@@ -1,0 +1,104 @@
+{
+  "protocol_clause": "target-model identity is blinded in judge prompts; variant/family blinded as in Iteration 10",
+  "rubric_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
+  "rubric_version": "1.1",
+  "default_system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+  "targets": {
+    "qwen35_2b": {
+      "run_dir": "/scratch/wutiantong/CCMS/outputs/iteration_11/generations/qwen35_2b/confirmatory-100f-t1536-qwen35_2b",
+      "complete": false,
+      "n_records": 438,
+      "payload_identity_hits": [],
+      "prompt_identity_hits": [],
+      "prompt_judge_identity_hits": [],
+      "iteration10_blinding_violations": [],
+      "response_self_identification": {
+        "n_items": 0,
+        "rate": 0.0,
+        "by_variant": {},
+        "examples": []
+      },
+      "declared_identity": {
+        "model_id": "Qwen/Qwen3.5-2B",
+        "adapter": "qwen35",
+        "marketed_label": "2B"
+      }
+    },
+    "qwen35_4b": {
+      "run_dir": "/scratch/wutiantong/CCMS/outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b",
+      "complete": false,
+      "n_records": 72,
+      "payload_identity_hits": [],
+      "prompt_identity_hits": [],
+      "prompt_judge_identity_hits": [],
+      "iteration10_blinding_violations": [],
+      "response_self_identification": {
+        "n_items": 0,
+        "rate": 0.0,
+        "by_variant": {},
+        "examples": []
+      },
+      "declared_identity": {
+        "model_id": "Qwen/Qwen3.5-4B",
+        "adapter": "qwen35",
+        "marketed_label": "4B"
+      }
+    },
+    "ministral3_3b": {
+      "run_dir": "/scratch/wutiantong/CCMS/outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b",
+      "complete": true,
+      "n_records": 600,
+      "payload_identity_hits": [],
+      "prompt_identity_hits": [],
+      "prompt_judge_identity_hits": [],
+      "iteration10_blinding_violations": [],
+      "response_self_identification": {
+        "n_items": 0,
+        "rate": 0.0,
+        "by_variant": {},
+        "examples": []
+      },
+      "declared_identity": {
+        "model_id": "mistralai/Ministral-3-3B-Instruct-2512-BF16",
+        "adapter": "ministral3",
+        "marketed_label": "3B"
+      }
+    },
+    "phi4_mm": {
+      "run_dir": "/scratch/wutiantong/CCMS/outputs/iteration_11/generations/phi4_mm/confirmatory-100f-t1536-phi4_mm",
+      "complete": false,
+      "n_records": 101,
+      "payload_identity_hits": [],
+      "prompt_identity_hits": [],
+      "prompt_judge_identity_hits": [],
+      "iteration10_blinding_violations": [
+        {
+          "item_id": "item-0017",
+          "leaked": "neutral"
+        }
+      ],
+      "response_self_identification": {
+        "n_items": 0,
+        "rate": 0.0,
+        "by_variant": {},
+        "examples": []
+      },
+      "declared_identity": {
+        "model_id": "microsoft/Phi-4-multimodal-instruct",
+        "adapter": "phi4_multimodal",
+        "marketed_label": "Phi-4-multimodal"
+      }
+    }
+  },
+  "cross_target": {
+    "status": "inconclusive",
+    "reason": "only 1/4 journals hold all 600 cells; item_id is an index into a per-target seed-42 shuffle, so partial journals are not comparable",
+    "journal_lengths": {
+      "qwen35_2b": 438,
+      "qwen35_4b": 72,
+      "ministral3_3b": 600,
+      "phi4_mm": 101
+    },
+    "must_rerun_after": "all four replay_report.json files exist"
+  }
+}
