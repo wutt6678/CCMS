@@ -197,6 +197,77 @@ def _write_adjudicator_artifact(
         json.dump(artifact, f, indent=2, ensure_ascii=False)
 
 
+def build_judge_arm_meta(
+    primary_model_ids: tuple[str, str],
+    adjudicator_model_id: str,
+    adjudication_method: str,
+    judge_vision: dict | None = None,
+    adjudicator_present: bool = False,
+) -> dict:
+    """Per-judge provenance for the sensitivity artifact, arms labelled.
+
+    A primary whose provider discards the image is not merely a different model
+    choice: its arm holds out the family media as well, so calling that arm
+    "model-choice" would claim a comparison it cannot make. The label is read
+    off the measured verdict rather than asserted per model id, so it follows
+    the evidence and cannot go stale silently when the gateway's models change.
+
+    An identity that was never probed is labelled ``unmeasured`` and gets no
+    arm at all. Guessing either way would be worse: "model-choice" would claim
+    an unsupported comparison, and "vision-ablated" would disparage an arm
+    that may be perfectly sighted.
+
+    Args:
+        primary_model_ids: ``(primary A, primary B)`` model ids.
+        adjudicator_model_id: The adjudicator's model id.
+        adjudication_method: Recorded on the ensemble entry.
+        judge_vision: ``{model_id: verdict dict}`` from the gateway probe.
+        adjudicator_present: Whether a distinct adjudicator model was
+            configured. Keeps the ensemble ``model_id`` spelling identical to
+            the sealed Iteration 9 and 10 artifacts rather than reformatting a
+            field two committed reports already carry.
+
+    Returns:
+        ``judge_meta`` suitable for :func:`judge_model_sensitivity`, which
+        merges each entry FLAT into that judge's output record.
+    """
+    vision = judge_vision or {}
+    meta = {
+        "judge_A": {"model_id": primary_model_ids[0]},
+        "judge_B": {"model_id": primary_model_ids[1]},
+        "ensemble": {
+            "model_id": (
+                f"ensemble({primary_model_ids[0]}, "
+                f"{primary_model_ids[1]}"
+                + (f", adjudicator={adjudicator_model_id})"
+                   if adjudicator_present else ")")),
+            "adjudication_method": adjudication_method,
+        },
+    }
+    for label, model_id in (("judge_A", primary_model_ids[0]),
+                            ("judge_B", primary_model_ids[1])):
+        measured = vision.get(model_id)
+        if not measured:
+            meta[label]["vision"] = {"verdict": "unmeasured"}
+            continue
+        meta[label]["vision"] = measured
+        if measured.get("verdict") == "blind":
+            meta[label]["arm"] = "vision-ablated"
+            meta[label]["arm_note"] = (
+                f"{model_id} discards the image before the model sees it, so "
+                "this arm differs from the ensemble by the ABSENCE OF VISION "
+                "and not only by model identity. Read its divergence as a "
+                "vision ablation; it is not evidence about what this model "
+                "would judge sighted.")
+        elif measured.get("verdict") == "sees_image":
+            meta[label]["arm"] = "model-choice"
+    meta["ensemble"]["adjudicator_model"] = (
+        adjudicator_model_id if adjudicator_present else None)
+    meta["ensemble"]["adjudicator_vision"] = (
+        vision.get(adjudicator_model_id) or {"verdict": "unmeasured"})
+    return meta
+
+
 def finalize_ensemble(
     judgments_a: list[dict],
     judgments_b: list[dict],
@@ -209,6 +280,7 @@ def finalize_ensemble(
     primary_model_ids: tuple[str, str] = ("", ""),
     eval_config: EvalConfig | None = None,
     judge_coverage: dict | None = None,
+    judge_vision: dict | None = None,
 ) -> dict:
     """Run the complete post-judge ensemble workflow.
 
@@ -233,6 +305,14 @@ def finalize_ensemble(
             comparable. Recorded in the labels' provenance and in the final
             report so no artifact describes a 598-cell panel as though it were
             the 600-cell one it was drawn from.
+        judge_vision: Measured per-identity vision capability, keyed by model
+            id, from ``scripts/iter11_probe_judge_gateway.py``. A primary whose
+            provider discards the image is not just a different model choice:
+            its arm holds out the family media, so calling that arm
+            "model-choice" would claim a comparison it cannot make. Read from
+            measurement rather than asserted here, so the label follows the
+            evidence instead of going stale silently when the gateway's models
+            change.
 
     Returns:
         The final evaluation report dict (with judge_model_sensitivity).
@@ -386,6 +466,10 @@ def finalize_ensemble(
     )
 
     # 5. Per-judge causal sensitivity
+    judge_meta = build_judge_arm_meta(
+        primary_model_ids, adjudicator_model_id, adjudication_method,
+        judge_vision, adjudicator_present=adjudicator is not None)
+
     sensitivity = judge_model_sensitivity(
         {
             "judge_A": judgments_a,
@@ -393,18 +477,7 @@ def finalize_ensemble(
             "ensemble": adjudicated,
         },
         theta=eval_config.theta,
-        judge_meta={
-            "judge_A": {"model_id": primary_model_ids[0]},
-            "judge_B": {"model_id": primary_model_ids[1]},
-            "ensemble": {
-                "model_id": (
-                    f"ensemble({primary_model_ids[0]}, "
-                    f"{primary_model_ids[1]}"
-                    + (f", adjudicator={adjudicator_model_id})"
-                       if adjudicator is not None else ")")),
-                "adjudication_method": adjudication_method,
-            },
-        },
+        judge_meta=judge_meta,
         primary_judge_ids=("judge_A", "judge_B"),
         n_bootstrap=eval_config.n_bootstrap,
         ci_level=eval_config.ci_level,

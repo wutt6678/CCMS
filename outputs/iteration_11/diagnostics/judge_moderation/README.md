@@ -124,6 +124,58 @@ and cannot have been chosen by what those cells turned out to say. It is also
 uniform across arms, so the surviving 598 cells are one identical panel in all
 four, and the cross-model comparison stays like-for-like.
 
+## The verdict is not stable over time
+
+This is the part that changes how the exclusion has to be read.
+
+The sealed Iteration 10 labels in
+`outputs/scale_c/llm_judge_artifacts/llm_labels_judge_A.json` contain BOTH
+cells, judged successfully by the SAME identity:
+
+    item-0164  CMST_795308/cross_modal  refusal=partial  2026-09-01T10:07:20Z
+    item-0410  CMST_795308/shuffle      refusal=partial  2026-09-01T12:37:27Z
+
+`qwen3.8-max` judged these two cells on 2026-09-01 and refuses them on
+2026-09-06. The gateway's own earlier evidence brackets the change from the
+other side: `outputs/iteration_11/judge_vision_ablation/`
+`vision_ablation_summary.json`, generated 2026-09-05, records item-0410 as
+accepted by frozen judge A WITH the image and refused only once the image was
+withheld. So on 09-05 the image-bearing payload still passed; by 09-06 it did
+not.
+
+Nothing about the panel changed. The prompt text, the history, the terminal
+query and the image bytes are the frozen Scale-C inputs, hashed and unchanged
+— and today's bisection shows the response is not the trigger either, so the
+only thing that moved is the provider's moderation policy.
+
+Three consequences, all of which belong in the 11.8 report rather than here:
+
+* **The exclusion is a fact about a moment, not about the dataset.** Re-running
+  judge A next week could refuse a different set — more cells, fewer, or none.
+  The `.refusals.json` sidecars are therefore evidence about THIS run and must
+  be read with their timestamps, not treated as a property of the panel.
+* **The frozen Iteration 10 baseline is complete at 600 cells and the four new
+  arms are not.** The baseline was judged under the older policy, so it holds
+  labels for both refused cells. Any cross-model comparison against it must
+  restrict the baseline to the same 598 cells, or the baseline is scored on a
+  panel the new arms never saw. The per-arm exclusion in `judge_coverage.json`
+  does NOT do this automatically: it governs one arm at a time.
+* **A tightening policy is a standing risk for the rest of the iteration.** If
+  moderation keeps moving, later stages can lose cells that earlier stages
+  kept, and the loss will not be uniform across stages that ran on different
+  days. The 11.8 analysis should state the date each arm was judged.
+
+It also makes the uniformity claim above a CONTINGENT one, and it is worth
+being precise about why. The four judge-A arms resume item-0410 minutes apart,
+not simultaneously, so a policy that moves during that window can refuse the
+cell in some arms and accept it in others. `judge_coverage.json` is written per
+target and does not compare targets, so nothing in the pipeline would flag the
+resulting split: one target would carry 598 cells and another 599, and each
+would look internally consistent. The cross-target panel identity has to be
+re-checked against the four coverage artifacts once every arm has finished, and
+11.8 must intersect them — comparing a 598-cell arm with a 599-cell arm is not
+a cross-model comparison over one panel.
+
 ## Consequence for the analysis
 
 `CMST_795308` contributes 4 of its 6 variants, not 6. Per-family counts are

@@ -1,0 +1,63 @@
+{
+  "produced_by": "scripts/iter11_probe_judge_gateway.py",
+  "gateway": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+  "probe_image": {
+    "path": "data/media/source/mtmcs_type_b_0_main.png",
+    "sha256": "8265583b54cde95b972a2faf7c967dba3c08a9663c1248ef0bbb8073c5ef43df"
+  },
+  "roles": {
+    "primary_a": "qwen3.8-max",
+    "primary_b": "glm-5.2",
+    "adjudicator": "kimi-k3"
+  },
+  "method": "the same instruction sent with and without the image; the verdict comes from the provider's own token accounting, never from what the response says",
+  "identities": {
+    "kimi-k3": {
+      "image_tokens": 371,
+      "prompt_tokens_text_only": 100,
+      "prompt_tokens_with_image": 476,
+      "prompt_tokens_delta": 376,
+      "text_response_head": "I don't see an image attached to your message, so I'm unable to describe it. If you'd like to share an image, please attach it and I'll be happy to help.\n\n{\"ok\"",
+      "image_response_head": "A baseball player in a white and navy jersey and black helmet holds a wooden bat up near his face while wearing batting gloves on a sunny field.\n{\"ok\": true}",
+      "sees_image": true,
+      "verdict": "sees_image",
+      "reason": "image_tokens=371; prompt_tokens rose by 376 when the same text was sent with the image attached"
+    },
+    "qwen3.8-max": {
+      "image_tokens": 262,
+      "prompt_tokens_text_only": 76,
+      "prompt_tokens_with_image": 300,
+      "prompt_tokens_delta": 224,
+      "text_response_head": "No image was provided in the conversation.\n{\"ok\": true}",
+      "image_response_head": "A baseball player in a white jersey and dark batting helmet grips a wooden bat raised over his shoulder, wearing batting gloves as he prepares to swing on a sun",
+      "sees_image": true,
+      "verdict": "sees_image",
+      "reason": "image_tokens=262; prompt_tokens rose by 224 when the same text was sent with the image attached"
+    },
+    "glm-5.2": {
+      "image_tokens": null,
+      "prompt_tokens_text_only": 27,
+      "prompt_tokens_with_image": 27,
+      "prompt_tokens_delta": 0,
+      "text_response_head": "I cannot describe the image because no image was provided.\n{\"ok\": true}",
+      "image_response_head": "I cannot describe the image because no image was provided in your message.\n{\"ok\": true}",
+      "sees_image": false,
+      "verdict": "blind",
+      "reason": "no image_tokens reported and prompt_tokens is identical (27) with and without the image, so the pixels were discarded before the model saw them"
+    }
+  },
+  "reference_identities": {
+    "deepseek-v3.2": {
+      "image_tokens": null,
+      "prompt_tokens_text_only": 19,
+      "prompt_tokens_with_image": 19,
+      "prompt_tokens_delta": 0,
+      "text_response_head": "A lone red canoe floats on a calm, glassy lake surrounded by towering, misty mountains under a soft, cloudy sky. {\"ok\": true}",
+      "image_response_head": "A lone red canoe floats on a calm, glassy lake surrounded by towering, misty mountains under a soft, cloudy sky. {\"ok\": true}",
+      "sees_image": false,
+      "verdict": "blind",
+      "reason": "no image_tokens reported and prompt_tokens is identical (19) with and without the image, so the pixels were discarded before the model saw them"
+    }
+  },
+  "reference_note": "measured with --also-probe to document how blindness presents, NOT members of the frozen ensemble: nothing in the judge pipeline reads this section and no arm is labelled from it"
+}

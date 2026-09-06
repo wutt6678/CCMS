@@ -73,6 +73,39 @@ CREDENTIALS_FILE = (
     Path(__file__).parent.parent
     / "configs" / "evaluation" / "llm_judge_credentials.conf")
 
+#: Measured per-identity vision capability, written by
+#: ``scripts/iter11_probe_judge_gateway.py``. Read so the sensitivity artifact
+#: can label a blind primary's arm as a VISION ABLATION rather than as a
+#: model-choice arm -- the two claim different things, and only one of them is
+#: supported when the provider discards the image.
+VISION_ARTIFACT = (
+    Path(__file__).parent.parent
+    / "outputs" / "iteration_11" / "diagnostics" / "judge_vision"
+    / "identity_vision_capability.json")
+
+
+def load_identity_vision() -> dict:
+    """``{model_id: measured vision verdict}``, empty when never probed.
+
+    Absent stays absent rather than being defaulted in either direction.
+    Assuming an unmeasured identity CAN see would label a blind judge's arm
+    "model-choice" and claim a comparison it cannot make; assuming it cannot
+    would disparage an arm that may be fine. ``finalize_ensemble`` records
+    "unmeasured" and leaves the reader with the truth.
+    """
+    if not VISION_ARTIFACT.exists():
+        print(f"  NOTE: no vision measurement at {VISION_ARTIFACT}; run "
+              f"scripts/iter11_probe_judge_gateway.py so each judge arm can "
+              f"be labelled on evidence rather than by assumption")
+        return {}
+    try:
+        return json.loads(
+            VISION_ARTIFACT.read_text(encoding="utf-8")).get("identities", {})
+    except (json.JSONDecodeError, OSError) as exc:
+        print(f"  NOTE: unreadable vision measurement ({exc}); judge arms "
+              f"will be recorded as unmeasured")
+        return {}
+
 
 def _load_credentials_file() -> dict:
     """Load KEY=VALUE pairs from the gitignored credentials conf file.
@@ -667,6 +700,9 @@ def main():
 
     print("\nFinalizing ensemble (agreement -> adjudication -> "
           "evaluation -> sensitivity)...")
+    identity_vision = load_identity_vision()
+    for model_id, measured in sorted(identity_vision.items()):
+        print(f"  vision {model_id:16s} {measured.get('verdict')}")
     report = finalize_ensemble(
         judgments_a=all_judgments["A"],
         judgments_b=all_judgments["B"],
@@ -678,6 +714,7 @@ def main():
         adjudicator_model_id=ADJUDICATOR_MODEL,
         primary_model_ids=(PRIMARY_A_MODEL, PRIMARY_B_MODEL),
         judge_coverage=coverage,
+        judge_vision=identity_vision,
     )
 
     # Print summary
@@ -699,6 +736,12 @@ def main():
           f"A={sens['judges']['judge_A']['n_qualifying']}, "
           f"B={sens['judges']['judge_B']['n_qualifying']}, "
           f"ensemble={sens['judges']['ensemble']['n_qualifying']}")
+    for label in ("judge_A", "judge_B"):
+        # judge_model_sensitivity merges judge_meta FLAT into each entry.
+        entry = sens["judges"][label]
+        if entry.get("arm") == "vision-ablated":
+            print(f"  {label} is a VISION-ABLATION arm, not a model-choice "
+                  f"arm: {entry.get('model_id')} never sees the family media")
     print("Qualifying under BOTH primaries: "
           f"{sens.get('qualifying_under_all_primaries', [])}")
     print("\nKey files:")
