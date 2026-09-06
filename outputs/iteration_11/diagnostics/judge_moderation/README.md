@@ -171,12 +171,41 @@ It also makes the uniformity claim above a CONTINGENT one, and it is worth
 being precise about why. The four judge-A arms resume item-0410 minutes apart,
 not simultaneously, so a policy that moves during that window can refuse the
 cell in some arms and accept it in others. `judge_coverage.json` is written per
-target and does not compare targets, so nothing in the pipeline would flag the
-resulting split: one target would carry 598 cells and another 599, and each
-would look internally consistent. The cross-target panel identity has to be
-re-checked against the four coverage artifacts once every arm has finished, and
-11.8 must intersect them — comparing a 598-cell arm with a 599-cell arm is not
-a cross-model comparison over one panel.
+target and unions only judges A and B of THAT session, so nothing in the
+pipeline would flag the resulting split on its own: one target would carry 598
+cells and another 599, and each would look internally consistent.
+
+That gap is now closed by a committed producer and gate rather than by a note
+in this file. `scripts/iter11_common_panel.py` reads the eight completed
+primary outputs — four targets times judges A and B — and derives the UNION of
+the cells any of them lost into `outputs/iteration_11/judge/common_panel.json`.
+Phase 2 runs it BEFORE finalizing anything, and each finalize reads the result:
+the profile declares its comparison with `cross_arm_group`, and
+`build_judge_coverage` then drops the union from every arm, labelling each
+excluded cell `this_target` or `another_arm`. The arms therefore land on one
+panel by construction instead of by coincidence. Deriving it afterwards would
+not be free — the adjudicator's binding fingerprint covers the restricted
+panel, so changing the panel re-calls it on every disagreement — and a cell
+this target's providers DID judge is not destroyed by the union: the judgment
+stays in that arm's completed `llm_labels_judge_*.json`, which the exclusion
+filter never touches.
+
+`--verify` is the gate the contingency calls for, over the four ACTUAL
+`judge_coverage.json` artifacts once phase 2 has written them. It requires
+identical excluded-cell sets, identical surviving-family sets read from the
+per-cell `evaluation_outputs.jsonl` each analysis really used, and a
+`panel_restriction` that accounts for every family its analysis does not carry.
+On divergence it names the global union the per-model analyses have to be
+regenerated on and exits non-zero.
+
+The same artifact records what the blinding audit had to leave open at 600
+cells: each arm's `item_id -> (family_id, variant)` map digest, and whether the
+four agree. `item_id` is an index into a per-target seed-42 shuffle, so
+alignment is a property of the completed journals and could not be measured
+while they were partial. The union is taken over cells rather than ids, so a
+divergence would not corrupt it — but it would mean the arms are not
+comparable in the way channel 4 claimed, and that is now stated from the
+panels rather than from memory.
 
 ## Consequence for the analysis
 
