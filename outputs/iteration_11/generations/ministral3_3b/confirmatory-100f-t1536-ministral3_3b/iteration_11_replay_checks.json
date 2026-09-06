@@ -1,0 +1,95 @@
+{
+  "model_key": "ministral3_3b",
+  "run_dir": "outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b",
+  "lock_path": "outputs/iteration_11/preflight/resolved_models.lock.yaml",
+  "coverage": {
+    "n_families": 100,
+    "n_records": 600,
+    "expected_attempts": 600,
+    "n_succeeded": 600,
+    "n_error_records": 0,
+    "issues": [],
+    "ok": true
+  },
+  "full_panel": {
+    "issues": [],
+    "ok": true
+  },
+  "provenance": {
+    "locked_revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "locked_processor_revision": "b6d637bef2393152b3da2b2fde72eecdee30557e",
+    "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+    "code_commit": "6389df65dd7e0fbfb5db8a5f2a41672c73fc5e49",
+    "issues": [],
+    "ok": true
+  },
+  "confirmatory_gate": {
+    "present": true,
+    "passed": true,
+    "n_checks": 49,
+    "issues": [],
+    "ok": true
+  },
+  "eligibility": {
+    "report": "outputs/iteration_11/eligibility/ministral3_3b/preflight_report.json",
+    "issues": [],
+    "ok": true
+  },
+  "terminal_query_equality": {
+    "n_families_checked": 100,
+    "issues": [],
+    "ok": true
+  },
+  "media": {
+    "issues": [],
+    "n_issues": 0,
+    "ok": true
+  },
+  "truncation": {
+    "overall_rate": 0.0016666666666666668,
+    "variant_spread": 0.01,
+    "per_variant_rate": {
+      "neutral": 0.01,
+      "text_only": 0.0,
+      "vision_only": 0.0,
+      "cross_modal": 0.0,
+      "shuffle": 0.0,
+      "history_reset": 0.0
+    },
+    "per_variant_truncated": {
+      "neutral": 1,
+      "text_only": 0,
+      "vision_only": 0,
+      "cross_modal": 0,
+      "shuffle": 0,
+      "history_reset": 0
+    },
+    "per_variant_mean_output_tokens": {
+      "neutral": 492.2,
+      "text_only": 480.5,
+      "vision_only": 253.5,
+      "cross_modal": 246.9,
+      "shuffle": 254.0,
+      "history_reset": 352.3
+    },
+    "per_variant_max_output_tokens": {
+      "neutral": 1536,
+      "text_only": 1451,
+      "vision_only": 661,
+      "cross_modal": 500,
+      "shuffle": 587,
+      "history_reset": 1179
+    },
+    "thresholds": {
+      "max_rate": 0.02,
+      "max_variant_spread": 0.05
+    },
+    "issues": [],
+    "ok": true
+  },
+  "verdict": "PASS",
+  "failures": [],
+  "warnings": [
+    "1 truncated record(s); the frozen uniform_cap_rule forbids raising the cap for one variant or checkpoint — choose a new UNIFORM cap and rerun ALL FIVE targets including Qwen3.5-9B, retaining this evidence"
+  ]
+}

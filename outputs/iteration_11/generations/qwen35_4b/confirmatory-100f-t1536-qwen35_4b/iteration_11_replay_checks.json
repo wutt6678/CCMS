@@ -1,0 +1,93 @@
+{
+  "model_key": "qwen35_4b",
+  "run_dir": "outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b",
+  "lock_path": "outputs/iteration_11/preflight/resolved_models.lock.yaml",
+  "coverage": {
+    "n_families": 100,
+    "n_records": 600,
+    "expected_attempts": 600,
+    "n_succeeded": 600,
+    "n_error_records": 0,
+    "issues": [],
+    "ok": true
+  },
+  "full_panel": {
+    "issues": [],
+    "ok": true
+  },
+  "provenance": {
+    "locked_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+    "locked_processor_revision": "851bf6e806efd8d0a36b00ddf55e13ccb7b8cd0a",
+    "system_prompt_sha256": "e51b41e6a82264406aa184050eb0552cce8653ff097db9225e775a20b1bf7d9c",
+    "code_commit": "6389df65dd7e0fbfb5db8a5f2a41672c73fc5e49",
+    "issues": [],
+    "ok": true
+  },
+  "confirmatory_gate": {
+    "present": true,
+    "passed": true,
+    "n_checks": 49,
+    "issues": [],
+    "ok": true
+  },
+  "eligibility": {
+    "report": "outputs/iteration_11/eligibility/qwen35_4b/preflight_report.json",
+    "issues": [],
+    "ok": true
+  },
+  "terminal_query_equality": {
+    "n_families_checked": 100,
+    "issues": [],
+    "ok": true
+  },
+  "media": {
+    "issues": [],
+    "n_issues": 0,
+    "ok": true
+  },
+  "truncation": {
+    "overall_rate": 0.0,
+    "variant_spread": 0.0,
+    "per_variant_rate": {
+      "neutral": 0.0,
+      "text_only": 0.0,
+      "vision_only": 0.0,
+      "cross_modal": 0.0,
+      "shuffle": 0.0,
+      "history_reset": 0.0
+    },
+    "per_variant_truncated": {
+      "neutral": 0,
+      "text_only": 0,
+      "vision_only": 0,
+      "cross_modal": 0,
+      "shuffle": 0,
+      "history_reset": 0
+    },
+    "per_variant_mean_output_tokens": {
+      "neutral": 418.1,
+      "text_only": 348.4,
+      "vision_only": 463.1,
+      "cross_modal": 412.3,
+      "shuffle": 371.4,
+      "history_reset": 340.0
+    },
+    "per_variant_max_output_tokens": {
+      "neutral": 952,
+      "text_only": 1142,
+      "vision_only": 1086,
+      "cross_modal": 930,
+      "shuffle": 889,
+      "history_reset": 981
+    },
+    "thresholds": {
+      "max_rate": 0.02,
+      "max_variant_spread": 0.05
+    },
+    "issues": [],
+    "ok": true
+  },
+  "verdict": "PASS",
+  "failures": [],
+  "warnings": []
+}
