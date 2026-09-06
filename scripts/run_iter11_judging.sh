@@ -42,6 +42,22 @@
 #      and it is the slower phase: at the measured 0.398-0.502 disagreement
 #      rate the adjudicator alone takes 955-1205 calls across the panel.
 #
+# Phase 2 ENFORCES that rather than assuming it, per target, because the
+# assumption once nearly cost an arm. Phase 1 counts a failed primary in
+# `failed` and then used to run phase 2 anyway; when judge A died on aliyun
+# input moderation for one target, that target's finalize was one process-exit
+# away from launching. A finalize started early does not fail loudly: the
+# pipeline sees a checkpoint with a matching fingerprint and RESUMES the
+# primary, so two processes write one checkpoint file and the arm that survives
+# looks complete. Phase 2 now checks each target's artifacts before starting
+# it and skips the ones that are not ready.
+#
+# The check is against the artifacts, not the exit codes. A primary can exit 0
+# having written fewer judgments than the panel holds, and only the arithmetic
+# against blinded_items.json catches that. Refusals count as accounted-for: the
+# provider dropped those cells, not the panel, and judge_coverage.json excludes
+# them from EVERY arm.
+#
 # A target is skipped unless its 11.6 completion gate recorded PASS. phi4_mm
 # is skipped today for exactly that reason: its first attempt was stopped at
 # 197 of 600 cells by the LongRoPE defect documented under
@@ -53,6 +69,13 @@
 #   TARGETS="qwen35_2b" bash scripts/run_iter11_judging.sh
 #   PHASE=1 bash scripts/run_iter11_judging.sh      # primaries only
 #   PHASE=1 JUDGES="A" bash scripts/run_iter11_judging.sh   # one primary only
+#   PHASE=2 CHECK_ONLY=1 bash scripts/run_iter11_judging.sh # ask, do not spend
+#
+# CHECK_ONLY reports which targets phase 2 would finalize and exits without
+# launching anything: 0 if every eligible target is ready, 1 otherwise. It
+# exists so a waiting driver can poll readiness through the same check phase 2
+# itself uses instead of keeping a second copy of the rule, which is how the two
+# would drift apart.
 #
 # JUDGES selects WHICH primaries phase 1 launches. It exists because a
 # provider-side failure is per-identity, not per-target: aliyun's input
@@ -68,12 +91,14 @@ source /scratch/wutiantong/miniconda3/etc/profile.d/conda.sh
 conda activate ccms-iter11
 
 GENERATIONS="outputs/iteration_11/generations"
+JUDGE_DIR="outputs/iteration_11/judge"
 TARGETS="${TARGETS:-qwen35_2b qwen35_4b ministral3_3b phi4_mm}"
 # Eight concurrent gateway requests is what was measured clean; 2 judges per
 # target, so four targets is the ceiling that measurement supports.
 MAX_TARGETS="${MAX_TARGETS:-4}"
 PHASE="${PHASE:-1,2}"
 JUDGES="${JUDGES:-A B}"
+CHECK_ONLY="${CHECK_ONLY:-0}"
 LOG_DIR="${LOG_DIR:-/scratch/wutiantong/logs_iter11_7}"
 
 mkdir -p "$LOG_DIR"
@@ -128,6 +153,54 @@ run_profile() {  # key, judges-label, CCMS_JUDGES value ("" = full mode)
   return "$code"
 }
 
+finalize_ready() {  # model_key -> 0 when both primaries are complete
+  # Evidence, not exit codes. Requires, per primary: the split-mode completion
+  # marker, its .fingerprint sidecar (without which phase 2 would RE-JUDGE
+  # rather than skip), and n_judged + n_refused == n_blinded.
+  python3 - "${JUDGE_DIR}/$1" <<'PY'
+import json, sys
+from pathlib import Path
+
+d = Path(sys.argv[1])
+blinded = d / "blinded_items.json"
+if not blinded.exists():
+    print(f"      {d.name}: no blinded_items.json")
+    sys.exit(1)
+items = json.loads(blinded.read_text(encoding="utf-8"))
+if isinstance(items, dict):
+    items = items.get("items", [])
+n_blinded = len(items)
+
+problems = []
+for j in ("A", "B"):
+    done = d / f"llm_labels_judge_{j}.json"
+    if not done.exists():
+        ck = d / f"llm_labels_judge_{j}.checkpoint.json"
+        n = len(json.loads(ck.read_text(encoding="utf-8"))["judgments"]) \
+            if ck.exists() else 0
+        problems.append(f"judge_{j} incomplete ({n}/{n_blinded})")
+        continue
+    if not done.with_name(done.name + ".fingerprint").exists():
+        problems.append(f"judge_{j} has no .fingerprint sidecar, so phase 2 "
+                        "would re-judge it instead of skipping")
+    obj = json.loads(done.read_text(encoding="utf-8"))
+    n = len(obj) if isinstance(obj, list) else len(obj.get("judgments", []))
+    rf = d / f"llm_labels_judge_{j}.refusals.json"
+    n_ref = 0
+    if rf.exists():
+        robj = json.loads(rf.read_text(encoding="utf-8"))
+        n_ref = len(robj) if isinstance(robj, list) \
+            else len(robj.get("refusals", []))
+    if n + n_ref != n_blinded:
+        problems.append(f"judge_{j} accounts for {n}+{n_ref} of {n_blinded} "
+                        "cells: the panel and the judgments disagree")
+
+for p in problems:
+    print(f"      {p}")
+sys.exit(1 if problems else 0)
+PY
+}
+
 failed=0
 if [[ ",${PHASE}," == *,1,* ]]; then
   echo "=== phase 1: primary judges ${JUDGES}, one process each ==="
@@ -151,8 +224,29 @@ fi
 if [[ ",${PHASE}," == *,2,* ]]; then
   echo
   echo "=== phase 2: agreement, adjudication, labels, evaluation ==="
-  pids=(); names=()
+  ready=()
   for key in "${eligible[@]}"; do
+    if finalize_ready "$key"; then
+      ready+=("$key")
+    else
+      echo "SKIP ${key}: primaries are not both complete; finalizing now "
+      echo "     would resume a primary into the checkpoint another process "
+      echo "     may still be writing"
+      failed=$((failed + 1))
+    fi
+  done
+  if [ "$CHECK_ONLY" = "1" ]; then
+    listed="${ready[*]:-none}"
+    echo "CHECK_ONLY: would finalize ${#ready[@]} of ${#eligible[@]}: ${listed}"
+    if [ "${#ready[@]}" -eq "${#eligible[@]}" ]; then exit 0; else exit 1; fi
+  fi
+  if [ "${#ready[@]}" -eq 0 ]; then
+    echo "no target is ready to finalize" >&2
+    exit 1
+  fi
+  echo "finalizing: ${ready[*]}"
+  pids=(); names=()
+  for key in "${ready[@]}"; do
     run_profile "$key" "finalize" "" &
     pids+=($!); names+=("${key}/finalize")
     sleep 5
