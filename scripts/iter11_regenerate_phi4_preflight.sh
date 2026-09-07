@@ -35,9 +35,29 @@
 # and could not reach status PASS anyway, since evidence written from a dirty
 # tree cannot be reconstructed from the code_commit it records.
 #
-# --update-lock is deliberately NOT passed. phi4_mm's revision is already
-# pinned in the shared lock, and re-pinning is what --force-lock exists for;
-# without it this script rewrites one file, its own target's artifact.
+# --update-lock IS passed, and the first attempt at this lane showed why. It
+# was originally omitted on the reasoning that phi4_mm's revision is already
+# pinned, so there was nothing to update. That reasoning was wrong about the
+# producer: report["lock"] is initialised to None and populated ONLY inside the
+# `if args.update_lock` branch, so omitting the flag wrote a PASS artifact with
+# "lock": null -- no dependency-lock path, no pip_freeze_sha256, no
+# editable-install audit in the lock block. It would have been the only one of
+# the four preflight artifacts with no dependency binding at all, which is the
+# opposite of the gap this lane exists to close. That attempt (2026-09-07
+# 15:13-15:16, exit 0, status PASS, cuda:0) is not committed.
+#
+# --force-lock is NOT passed, and that is what keeps this safe. update_lock()
+# raises when a key is already locked to a DIFFERENT revision unless
+# allow_change is explicit, so re-pinning still has to be deliberate; here the
+# locked revision (93f923e1...) equals the one the smoke resolves, so the call
+# cannot raise and cannot move anything. It refreshes phi4_mm's own entry and
+# rewrites the dependency_lock block, whose five LOCK_IDENTITY_FIELDS are
+# unchanged -- pip_freeze_sha256 c03a5800ca95b020, n_packages 100,
+# pyproject_sha256, python_version 3.10.20, excluded_self_distributions
+# [causal-mllm] -- so no confirmatory run's resolved_run_fingerprint moves.
+# `executable` does differ between interpreters (bin/python vs bin/python3) and
+# is recorded, but registry.py documents it as operational metadata outside the
+# hashed identity, which is why the digest above is stable.
 #
 # This script commits nothing. Inspect the artifact and the diff, re-run the
 # phi4 tests, then commit.
@@ -109,7 +129,7 @@ echo "slot: cuda:${idx} ($(nvidia-smi --query-gpu=memory.free \
 
 echo "=== running the preflight $(date -Is) ==="
 PYTHONPATH=src python scripts/iter11_model_preflight.py \
-  --model-key phi4_mm --device "cuda:${idx}" --gpu-smoke
+  --model-key phi4_mm --device "cuda:${idx}" --gpu-smoke --update-lock
 code=$?
 echo "---- exit ${code} $(date -Is) ----"
 
@@ -129,5 +149,5 @@ print('   smoke:', [(e['variant'], e['deterministic']) for e in d['gpu_smoke']])
 "
 
 echo "=== git diff --stat (this script commits nothing) ==="
-git diff --stat -- "$ART"
+git diff --stat -- "$ART" "outputs/iteration_11/preflight/resolved_models.lock.yaml"
 exit "$code"
