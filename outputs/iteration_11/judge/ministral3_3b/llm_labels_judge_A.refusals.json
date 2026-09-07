@@ -1,0 +1,44 @@
+{
+  "fingerprint": "551bc81373082f0ee3dbbf3d5b2186de6e6a254af712a25968bf1e50ffb00c15",
+  "refusals": [
+    {
+      "status": 400,
+      "error_code": "data_inspection_failed",
+      "error_message": "Input text data may contain inappropriate content.",
+      "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-342c6916-d411-9682-892b-988b33bf984d\"}",
+      "item_id": "item-0164",
+      "family_id": "CMST_795308",
+      "variant": "cross_modal",
+      "response_sha256": "09b33b00078313415b6a605ddf64e4dbcba9185bf46203c6f0595e2162f3c552",
+      "judge_id": "A",
+      "model_id": "qwen3.8-max",
+      "detail_source": "refusal_sidecar"
+    },
+    {
+      "status": 400,
+      "error_code": "data_inspection_failed",
+      "error_message": "Input text data may contain inappropriate content.",
+      "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-a47661fb-cc44-9434-9e80-84cc3699c034\"}",
+      "item_id": "item-0365",
+      "family_id": "CMST_456921",
+      "variant": "text_only",
+      "response_sha256": "410407483e1c1db7dcf2e6ddb7f6be8beac46a50041e6ccdec6c34e1bfca8873",
+      "judge_id": "A",
+      "model_id": "qwen3.8-max",
+      "detail_source": "refusal_sidecar"
+    },
+    {
+      "status": 400,
+      "error_code": "data_inspection_failed",
+      "error_message": "Input text data may contain inappropriate content.",
+      "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-e6a759a6-20a5-96dc-9b90-85c823c8737a\"}",
+      "item_id": "item-0410",
+      "family_id": "CMST_795308",
+      "variant": "shuffle",
+      "response_sha256": "86500d820d05db382742787584f8b8f33f313aa4ef0c099ea69d22e4eb33f31c",
+      "judge_id": "A",
+      "model_id": "qwen3.8-max",
+      "detail_source": "refusal_sidecar"
+    }
+  ]
+}

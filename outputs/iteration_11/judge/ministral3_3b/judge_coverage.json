@@ -1,0 +1,154 @@
+{
+  "n_panel_items": 600,
+  "n_excluded": 3,
+  "n_judged": 597,
+  "excluded_item_ids": [
+    "item-0164",
+    "item-0365",
+    "item-0410"
+  ],
+  "excluded_cells": [
+    {
+      "item_id": "item-0164",
+      "family_id": "CMST_795308",
+      "variant": "cross_modal",
+      "response_sha256": "09b33b00078313415b6a605ddf64e4dbcba9185bf46203c6f0595e2162f3c552",
+      "refused_by": [
+        "A"
+      ],
+      "reason": "data_inspection_failed",
+      "exclusion_origin": "this_target",
+      "refused_in_targets": [
+        "ministral3_3b",
+        "phi4_mm",
+        "qwen35_2b",
+        "qwen35_4b"
+      ]
+    },
+    {
+      "item_id": "item-0365",
+      "family_id": "CMST_456921",
+      "variant": "text_only",
+      "response_sha256": "410407483e1c1db7dcf2e6ddb7f6be8beac46a50041e6ccdec6c34e1bfca8873",
+      "refused_by": [
+        "A"
+      ],
+      "reason": "data_inspection_failed",
+      "exclusion_origin": "this_target",
+      "refused_in_targets": [
+        "ministral3_3b"
+      ]
+    },
+    {
+      "item_id": "item-0410",
+      "family_id": "CMST_795308",
+      "variant": "shuffle",
+      "response_sha256": "86500d820d05db382742787584f8b8f33f313aa4ef0c099ea69d22e4eb33f31c",
+      "refused_by": [
+        "A"
+      ],
+      "reason": "data_inspection_failed",
+      "exclusion_origin": "this_target",
+      "refused_in_targets": [
+        "ministral3_3b",
+        "phi4_mm",
+        "qwen35_2b",
+        "qwen35_4b"
+      ]
+    }
+  ],
+  "exclusion_rule": "the union of cells any primary of ANY TARGET in this cross-model comparison refused is dropped from EVERY arm of every target, so all of them judge one identical panel",
+  "outcome_independent": "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+  "per_judge": {
+    "A": {
+      "n_refused": 3,
+      "model_id": "qwen3.8-max",
+      "refusals": [
+        {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "error_message": "Input text data may contain inappropriate content.",
+          "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-342c6916-d411-9682-892b-988b33bf984d\"}",
+          "item_id": "item-0164",
+          "family_id": "CMST_795308",
+          "variant": "cross_modal",
+          "response_sha256": "09b33b00078313415b6a605ddf64e4dbcba9185bf46203c6f0595e2162f3c552",
+          "judge_id": "A",
+          "model_id": "qwen3.8-max",
+          "detail_source": "refusal_sidecar"
+        },
+        {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "error_message": "Input text data may contain inappropriate content.",
+          "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-a47661fb-cc44-9434-9e80-84cc3699c034\"}",
+          "item_id": "item-0365",
+          "family_id": "CMST_456921",
+          "variant": "text_only",
+          "response_sha256": "410407483e1c1db7dcf2e6ddb7f6be8beac46a50041e6ccdec6c34e1bfca8873",
+          "judge_id": "A",
+          "model_id": "qwen3.8-max",
+          "detail_source": "refusal_sidecar"
+        },
+        {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "error_message": "Input text data may contain inappropriate content.",
+          "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-e6a759a6-20a5-96dc-9b90-85c823c8737a\"}",
+          "item_id": "item-0410",
+          "family_id": "CMST_795308",
+          "variant": "shuffle",
+          "response_sha256": "86500d820d05db382742787584f8b8f33f313aa4ef0c099ea69d22e4eb33f31c",
+          "judge_id": "A",
+          "model_id": "qwen3.8-max",
+          "detail_source": "refusal_sidecar"
+        }
+      ]
+    },
+    "B": {
+      "n_refused": 0,
+      "model_id": "glm-5.2",
+      "refusals": []
+    }
+  },
+  "stale_refusals_ignored": [],
+  "cross_arm": {
+    "artifact": "outputs/iteration_11/judge/common_panel.json",
+    "group": "outputs/iteration_11/judge",
+    "n_targets": 4,
+    "targets": [
+      "ministral3_3b",
+      "phi4_mm",
+      "qwen35_2b",
+      "qwen35_4b"
+    ],
+    "excluded_cells_per_target": {
+      "ministral3_3b": [
+        "CMST_456921/text_only",
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "phi4_mm": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "qwen35_2b": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "qwen35_4b": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ]
+    },
+    "identical_across_targets": false,
+    "union_excluded_cells": [
+      "CMST_456921/text_only",
+      "CMST_795308/cross_modal",
+      "CMST_795308/shuffle"
+    ],
+    "n_cells_this_target_lost": 3,
+    "n_cells_added_by_the_union": 0,
+    "rule": "a cell any arm of this comparison lost is dropped from every arm, so the four per-model analyses are computed over one identical panel and can be placed side by side"
+  }
+}

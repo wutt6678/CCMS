@@ -1,0 +1,1114 @@
+{
+  "kind": "iteration_11_cross_model_analysis_v1",
+  "protocol": {
+    "alpha": 0.05,
+    "family_wise_correction": "Holm-Bonferroni",
+    "n_confirmatory_model_tests": 4,
+    "raw_ci_preserved": true,
+    "primary_estimand_per_new_model": "Delta_TV sign (frozen estimator)",
+    "sign_convention": "DeltaTV uses the exact Iteration 10 definition and sign; Iteration 10 Qwen3.5-9B DeltaTV is POSITIVE (CI [0.0495, 0.1800]).",
+    "statements": {
+      "H1": "DeltaTV sign in Qwen3.5-2B matches the Iteration 10 9B sign.",
+      "H2": "DeltaTV sign in Qwen3.5-4B matches the Iteration 10 9B sign.",
+      "H3": "DeltaTV sign in Ministral-3-3B matches the Iteration 10 sign.",
+      "H4": "DeltaTV sign in Phi-4-multimodal matches the Iteration 10 sign."
+    },
+    "pooled_statement": "Pooled cross-family DeltaTV sign matches the Iteration 10 sign.",
+    "retention": "All null, attenuated, heterogeneous, or sign-reversed results are retained and reported. No checkpoint is replaced because its scientific result is unfavorable.",
+    "protocol_sha256": "8867143465d1dfbae7f8e87981c40d4a40d3f9ccc5a209d8e2993c0cd8ab34a1"
+  },
+  "common_panel": {
+    "n_families_in_panel": 100,
+    "n_families_common": 98,
+    "union_excluded_cells": [
+      "CMST_456921/text_only",
+      "CMST_795308/cross_modal",
+      "CMST_795308/shuffle"
+    ],
+    "families_dropped": [
+      "CMST_456921",
+      "CMST_795308"
+    ],
+    "identical_across_targets": false,
+    "per_target_excluded_cells": {
+      "ministral3_3b": [
+        "CMST_456921/text_only",
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "phi4_mm": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "qwen35_2b": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "qwen35_4b": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ]
+    },
+    "cells_added_by_the_union": {
+      "ministral3_3b": [],
+      "phi4_mm": [
+        "CMST_456921/text_only"
+      ],
+      "qwen35_2b": [
+        "CMST_456921/text_only"
+      ],
+      "qwen35_4b": [
+        "CMST_456921/text_only"
+      ]
+    },
+    "item_id_alignment_identical": true,
+    "targets": [
+      "ministral3_3b",
+      "phi4_mm",
+      "qwen35_2b",
+      "qwen35_4b"
+    ],
+    "source": "outputs/iteration_11/judge/common_panel.json",
+    "source_sha256": "3a93ba4b79579d9ead570c6dc7841020ce09fdd8e760d2cea48c60b7f6b10b8d",
+    "rule": "a cell is excluded from EVERY arm iff any arm's provider refused it, so all four analyses are computed over one identical panel"
+  },
+  "reference": {
+    "status": "restricted",
+    "model": "Qwen3.5-9B (Iteration 10 Scale-C, sealed)",
+    "n_families": 98,
+    "families_dropped": [
+      "CMST_456921",
+      "CMST_795308"
+    ],
+    "Delta_TV": {
+      "mean": 0.11479591836734694,
+      "std": 0.3392843577990091,
+      "n": 98,
+      "bootstrap_mean": 0.11366999999999997,
+      "ci_lower": 0.045918367346938785,
+      "ci_upper": 0.1811352040816325
+    },
+    "sign": "positive",
+    "unrestricted": {
+      "mean": 0.11600000000000002,
+      "std": 0.3359653661803955,
+      "n": 100,
+      "bootstrap_mean": 0.11506760000000027,
+      "ci_lower": 0.0495,
+      "ci_upper": 0.17999999999999997
+    },
+    "unrestricted_n_families": 100,
+    "source": "outputs/iteration_11/analysis/cross_model/reference_restriction.json",
+    "source_sha256": "b40747954cb464cabb0f6a482fb7378d765a8bddb3edbb1626cfac9589a04f5d"
+  },
+  "primary_estimand": "Delta_TV",
+  "estimands_reported": [
+    "Delta_T",
+    "Delta_V",
+    "Delta_TV",
+    "order_effect",
+    "history_effect"
+  ],
+  "test_definition": {
+    "confirmatory": "two-sided bootstrap p-value from the same seed-42, 5000-resample distribution that produces the frozen percentile CI, floored at 1/n_bootstrap",
+    "sensitivity": "exact two-sided binomial sign test over the family-level Delta_TV values, ties dropped and counted",
+    "pooled": "the four models' family-level estimands averaged per family, then bootstrapped over FAMILIES by the frozen estimator; numerically the mean of the four model means, with uncertainty from the families rather than from four points",
+    "decided_before": "the protocol froze the correction and the estimand but no p-value existed in this repository; both were chosen and implemented before any Iteration 11 arm was evaluated, and the sensitivity is reported whichever way it points"
+  },
+  "tolerance": 1e-12,
+  "status": "derived",
+  "issues": [],
+  "per_model": {
+    "qwen35_2b": {
+      "hypothesis": "H1",
+      "statement": "DeltaTV sign in Qwen3.5-2B matches the Iteration 10 9B sign.",
+      "report": "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_report.json",
+      "report_sha256": "058a6b3d7c1e11d0e23a57b0e26889f249e79c54a3c71139e58339715b858502",
+      "cells": "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_outputs.jsonl",
+      "n_records_analysed": 588,
+      "n_families": 98,
+      "panel_restriction": {
+        "n_records_in_panel": 600,
+        "n_records_analysed": 588,
+        "n_families_in_panel": 100,
+        "n_families_analysed": 98,
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "n_excluded_cells": 3,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "cells_dropped_with_their_family": 9,
+        "rule": "a cell no judge could label is dropped, and so is every remaining cell of a family that lost one: the frozen estimator needs all six variants of a family to produce any of its five estimands",
+        "outcome_independent": "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed",
+        "exclusion_source": "labels_artifact"
+      },
+      "reproduction_check": "PASS",
+      "estimands": {
+        "Delta_T": {
+          "mean": 0.47928571428571426,
+          "std": 0.3371170985641782,
+          "n": 98,
+          "bootstrap_mean": 0.4788429387755118,
+          "ci_lower": 0.4107142857142858,
+          "ci_upper": 0.543877551020408,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "Delta_V": {
+          "mean": -0.027040816326530617,
+          "std": 0.10383580598961187,
+          "n": 98,
+          "bootstrap_mean": -0.027175816326530582,
+          "ci_lower": -0.0489795918367347,
+          "ci_upper": -0.00816326530612245,
+          "bootstrap_p_two_sided": 0.0028
+        },
+        "Delta_TV": {
+          "mean": -0.14663265306122453,
+          "std": 0.36118060672655583,
+          "n": 98,
+          "bootstrap_mean": -0.14672426530612295,
+          "ci_lower": -0.21785714285714275,
+          "ci_upper": -0.0764234693877552,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "order_effect": {
+          "mean": 0.009285714285714288,
+          "std": 0.2406359700940257,
+          "n": 98,
+          "bootstrap_mean": 0.009095489795918352,
+          "ci_lower": -0.03714285714285715,
+          "ci_upper": 0.056739795918367295,
+          "bootstrap_p_two_sided": 0.7144
+        },
+        "history_effect": {
+          "mean": 0.33214285714285713,
+          "std": 0.28935138984308295,
+          "n": 98,
+          "bootstrap_mean": 0.3315397959183671,
+          "ci_lower": 0.27549744897959183,
+          "ci_upper": 0.3877551020408163,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "n_families": 98
+      },
+      "sign": "negative",
+      "sign_matches_reference": false,
+      "confirmatory_p": 0.0002,
+      "sensitivity_family_sign_test": {
+        "test": "exact two-sided binomial sign test, H0: P(> null) = 0.5",
+        "null": 0.0,
+        "n_families": 98,
+        "n_positive": 28,
+        "n_negative": 60,
+        "n_ties_dropped": 10,
+        "tie_families": [
+          "CMST_009475",
+          "CMST_205722",
+          "CMST_250380",
+          "CMST_283869",
+          "CMST_354052",
+          "CMST_521577",
+          "CMST_564696",
+          "CMST_692701",
+          "CMST_750663",
+          "CMST_874595"
+        ],
+        "n_tested": 88,
+        "majority_sign": "negative",
+        "p_value": 0.0008464960856166748
+      }
+    },
+    "qwen35_4b": {
+      "hypothesis": "H2",
+      "statement": "DeltaTV sign in Qwen3.5-4B matches the Iteration 10 9B sign.",
+      "report": "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_report.json",
+      "report_sha256": "04defc74541602725fd3726fc1bd58b16692c3ff5add437fb142cbbaca42016f",
+      "cells": "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_outputs.jsonl",
+      "n_records_analysed": 588,
+      "n_families": 98,
+      "panel_restriction": {
+        "n_records_in_panel": 600,
+        "n_records_analysed": 588,
+        "n_families_in_panel": 100,
+        "n_families_analysed": 98,
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "n_excluded_cells": 3,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "cells_dropped_with_their_family": 9,
+        "rule": "a cell no judge could label is dropped, and so is every remaining cell of a family that lost one: the frozen estimator needs all six variants of a family to produce any of its five estimands",
+        "outcome_independent": "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed",
+        "exclusion_source": "labels_artifact"
+      },
+      "reproduction_check": "PASS",
+      "estimands": {
+        "Delta_T": {
+          "mean": 0.23418367346938768,
+          "std": 0.3064257649438409,
+          "n": 98,
+          "bootstrap_mean": 0.23409928571428398,
+          "ci_lower": 0.17448979591836739,
+          "ci_upper": 0.29642857142857143,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "Delta_V": {
+          "mean": -0.014285714285714285,
+          "std": 0.08645361070611056,
+          "n": 98,
+          "bootstrap_mean": -0.014439387755102059,
+          "ci_lower": -0.03316326530612245,
+          "ci_upper": 0.0005102040816326541,
+          "bootstrap_p_two_sided": 0.0664
+        },
+        "Delta_TV": {
+          "mean": 0.09387755102040815,
+          "std": 0.40021033813306206,
+          "n": 98,
+          "bootstrap_mean": 0.09319214285714283,
+          "ci_lower": 0.013265306122448983,
+          "ci_upper": 0.17246173469387738,
+          "bootstrap_p_two_sided": 0.0256
+        },
+        "order_effect": {
+          "mean": -0.0015306122448979652,
+          "std": 0.21182248958613123,
+          "n": 98,
+          "bootstrap_mean": -0.0014676530612245022,
+          "ci_lower": -0.0423469387755102,
+          "ci_upper": 0.040318877551020246,
+          "bootstrap_p_two_sided": 0.9196
+        },
+        "history_effect": {
+          "mean": 0.31734693877551023,
+          "std": 0.2975069990354316,
+          "n": 98,
+          "bootstrap_mean": 0.3165124489795913,
+          "ci_lower": 0.25816326530612244,
+          "ci_upper": 0.37500000000000006,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "n_families": 98
+      },
+      "sign": "positive",
+      "sign_matches_reference": true,
+      "confirmatory_p": 0.0256,
+      "sensitivity_family_sign_test": {
+        "test": "exact two-sided binomial sign test, H0: P(> null) = 0.5",
+        "null": 0.0,
+        "n_families": 98,
+        "n_positive": 44,
+        "n_negative": 36,
+        "n_ties_dropped": 18,
+        "tie_families": [
+          "CMST_008635",
+          "CMST_009475",
+          "CMST_035954",
+          "CMST_097413",
+          "CMST_103738",
+          "CMST_191994",
+          "CMST_196064",
+          "CMST_205722",
+          "CMST_250380",
+          "CMST_285899",
+          "CMST_501124",
+          "CMST_521577",
+          "CMST_550115",
+          "CMST_561466",
+          "CMST_564696",
+          "CMST_663807",
+          "CMST_874595",
+          "CMST_953809"
+        ],
+        "n_tested": 80,
+        "majority_sign": "positive",
+        "p_value": 0.4340422553454785
+      }
+    },
+    "ministral3_3b": {
+      "hypothesis": "H3",
+      "statement": "DeltaTV sign in Ministral-3-3B matches the Iteration 10 sign.",
+      "report": "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_report.json",
+      "report_sha256": "ed264817f13ab6bc5f846f2b800bf2c8a737eefa7fcfe739288a6dec9e408431",
+      "cells": "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_outputs.jsonl",
+      "n_records_analysed": 588,
+      "n_families": 98,
+      "panel_restriction": {
+        "n_records_in_panel": 600,
+        "n_records_analysed": 588,
+        "n_families_in_panel": 100,
+        "n_families_analysed": 98,
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "n_excluded_cells": 3,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "cells_dropped_with_their_family": 9,
+        "rule": "a cell no judge could label is dropped, and so is every remaining cell of a family that lost one: the frozen estimator needs all six variants of a family to produce any of its five estimands",
+        "outcome_independent": "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed",
+        "exclusion_source": "labels_artifact"
+      },
+      "reproduction_check": "PASS",
+      "estimands": {
+        "Delta_T": {
+          "mean": 0.5711224489795917,
+          "std": 0.31728839089384053,
+          "n": 98,
+          "bootstrap_mean": 0.5705547142857124,
+          "ci_lower": 0.5068367346938776,
+          "ci_upper": 0.630107142857143,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "Delta_V": {
+          "mean": -0.018877551020408164,
+          "std": 0.0883745852940734,
+          "n": 98,
+          "bootstrap_mean": -0.018995918367346796,
+          "ci_lower": -0.03826530612244898,
+          "ci_upper": -0.0035714285714285713,
+          "bootstrap_p_two_sided": 0.0104
+        },
+        "Delta_TV": {
+          "mean": -0.13102040816326532,
+          "std": 0.2907774498691551,
+          "n": 98,
+          "bootstrap_mean": -0.13097036734693862,
+          "ci_lower": -0.1894897959183674,
+          "ci_upper": -0.07418112244897962,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "order_effect": {
+          "mean": -0.010918367346938776,
+          "std": 0.19678386665229072,
+          "n": 98,
+          "bootstrap_mean": -0.01109881632653057,
+          "ci_lower": -0.04918877551020407,
+          "ci_upper": 0.02867857142857136,
+          "bootstrap_p_two_sided": 0.5652
+        },
+        "history_effect": {
+          "mean": 0.43653061224489814,
+          "std": 0.3214596286746789,
+          "n": 98,
+          "bootstrap_mean": 0.435912714285714,
+          "ci_lower": 0.3727551020408164,
+          "ci_upper": 0.4980663265306122,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "n_families": 98
+      },
+      "sign": "negative",
+      "sign_matches_reference": false,
+      "confirmatory_p": 0.0002,
+      "sensitivity_family_sign_test": {
+        "test": "exact two-sided binomial sign test, H0: P(> null) = 0.5",
+        "null": 0.0,
+        "n_families": 98,
+        "n_positive": 28,
+        "n_negative": 60,
+        "n_ties_dropped": 10,
+        "tie_families": [
+          "CMST_097413",
+          "CMST_181033",
+          "CMST_191994",
+          "CMST_205722",
+          "CMST_356638",
+          "CMST_387717",
+          "CMST_750663",
+          "CMST_765848",
+          "CMST_838043",
+          "CMST_974576"
+        ],
+        "n_tested": 88,
+        "majority_sign": "negative",
+        "p_value": 0.0008464960856166748
+      }
+    },
+    "phi4_mm": {
+      "hypothesis": "H4",
+      "statement": "DeltaTV sign in Phi-4-multimodal matches the Iteration 10 sign.",
+      "report": "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_report.json",
+      "report_sha256": "7e0249708c58e416dc53eb96697ec63471edff9303b648ccf4674f71c9aee1ba",
+      "cells": "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_outputs.jsonl",
+      "n_records_analysed": 588,
+      "n_families": 98,
+      "panel_restriction": {
+        "n_records_in_panel": 600,
+        "n_records_analysed": 588,
+        "n_families_in_panel": 100,
+        "n_families_analysed": 98,
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "n_excluded_cells": 3,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "cells_dropped_with_their_family": 9,
+        "rule": "a cell no judge could label is dropped, and so is every remaining cell of a family that lost one: the frozen estimator needs all six variants of a family to produce any of its five estimands",
+        "outcome_independent": "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed",
+        "exclusion_source": "labels_artifact"
+      },
+      "reproduction_check": "PASS",
+      "estimands": {
+        "Delta_T": {
+          "mean": 0.2081632653061224,
+          "std": 0.2065541886853295,
+          "n": 98,
+          "bootstrap_mean": 0.20769234693877534,
+          "ci_lower": 0.1673469387755102,
+          "ci_upper": 0.24897959183673457,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "Delta_V": {
+          "mean": -0.0071428571428571435,
+          "std": 0.041243556197726836,
+          "n": 98,
+          "bootstrap_mean": -0.007171530612244865,
+          "ci_lower": -0.015318877551020356,
+          "ci_upper": 0.001020408163265306,
+          "bootstrap_p_two_sided": 0.0808
+        },
+        "Delta_TV": {
+          "mean": -0.05102040816326531,
+          "std": 0.20192113289378613,
+          "n": 98,
+          "bootstrap_mean": -0.05080663265306112,
+          "ci_lower": -0.09081632653061225,
+          "ci_upper": -0.010714285714285707,
+          "bootstrap_p_two_sided": 0.0136
+        },
+        "order_effect": {
+          "mean": -0.0020408163265306107,
+          "std": 0.18582753995442192,
+          "n": 98,
+          "bootstrap_mean": -0.002062959183673524,
+          "ci_lower": -0.038775510204081626,
+          "ci_upper": 0.034183673469387756,
+          "bootstrap_p_two_sided": 0.91
+        },
+        "history_effect": {
+          "mean": 0.1540816326530612,
+          "std": 0.2090323150408272,
+          "n": 98,
+          "bootstrap_mean": 0.15370683673469435,
+          "ci_lower": 0.11326530612244898,
+          "ci_upper": 0.19540816326530602,
+          "bootstrap_p_two_sided": 0.0002
+        },
+        "n_families": 98
+      },
+      "sign": "negative",
+      "sign_matches_reference": false,
+      "confirmatory_p": 0.0136,
+      "sensitivity_family_sign_test": {
+        "test": "exact two-sided binomial sign test, H0: P(> null) = 0.5",
+        "null": 0.0,
+        "n_families": 98,
+        "n_positive": 20,
+        "n_negative": 50,
+        "n_ties_dropped": 28,
+        "tie_families": [
+          "CMST_004472",
+          "CMST_008635",
+          "CMST_009475",
+          "CMST_010907",
+          "CMST_035954",
+          "CMST_153033",
+          "CMST_196064",
+          "CMST_283869",
+          "CMST_284549",
+          "CMST_354052",
+          "CMST_361008",
+          "CMST_365452",
+          "CMST_371717",
+          "CMST_376858",
+          "CMST_448198",
+          "CMST_501124",
+          "CMST_521577",
+          "CMST_535487",
+          "CMST_564696",
+          "CMST_660413",
+          "CMST_663807",
+          "CMST_692701",
+          "CMST_696183",
+          "CMST_723233",
+          "CMST_902904",
+          "CMST_974576",
+          "CMST_977348",
+          "CMST_988577"
+        ],
+        "n_tested": 70,
+        "majority_sign": "negative",
+        "p_value": 0.0004402850065139684
+      }
+    }
+  },
+  "holm_bonferroni": {
+    "method": "Holm-Bonferroni",
+    "alpha": 0.05,
+    "n_tests": 4,
+    "order": [
+      "H1",
+      "H3",
+      "H4",
+      "H2"
+    ],
+    "raw_p": {
+      "H1": 0.0002,
+      "H3": 0.0002,
+      "H4": 0.0136,
+      "H2": 0.0256
+    },
+    "adjusted_p": {
+      "H1": 0.0008,
+      "H3": 0.0008,
+      "H4": 0.0272,
+      "H2": 0.0272
+    },
+    "critical_values": {
+      "H1": 0.0125,
+      "H3": 0.016666666666666666,
+      "H4": 0.025,
+      "H2": 0.05
+    },
+    "rejected": [
+      "H1",
+      "H2",
+      "H3",
+      "H4"
+    ],
+    "retained": [],
+    "n_rejected": 4,
+    "rule": "step-down over the ascending raw p-values against alpha / (m - i + 1), stopping at the first failure; adjusted p-values are the running maximum of (m - i + 1) * p capped at 1"
+  },
+  "verdicts": {
+    "H1": {
+      "model": "qwen35_2b",
+      "statement": "DeltaTV sign in Qwen3.5-2B matches the Iteration 10 9B sign.",
+      "verdict": "refuted",
+      "sign": "negative",
+      "reference_sign": "positive",
+      "sign_matches_reference": false,
+      "raw_p": 0.0002,
+      "adjusted_p": 0.0008,
+      "critical_value": 0.0125,
+      "holm_rejected": true,
+      "raw_mean": -0.14663265306122453,
+      "raw_bootstrap_mean": -0.14672426530612295,
+      "raw_ci": [
+        -0.21785714285714275,
+        -0.0764234693877552
+      ],
+      "sensitivity_majority_sign": "negative",
+      "sensitivity_p": 0.0008464960856166748,
+      "sensitivity_agrees": true
+    },
+    "H2": {
+      "model": "qwen35_4b",
+      "statement": "DeltaTV sign in Qwen3.5-4B matches the Iteration 10 9B sign.",
+      "verdict": "confirmed",
+      "sign": "positive",
+      "reference_sign": "positive",
+      "sign_matches_reference": true,
+      "raw_p": 0.0256,
+      "adjusted_p": 0.0272,
+      "critical_value": 0.05,
+      "holm_rejected": true,
+      "raw_mean": 0.09387755102040815,
+      "raw_bootstrap_mean": 0.09319214285714283,
+      "raw_ci": [
+        0.013265306122448983,
+        0.17246173469387738
+      ],
+      "sensitivity_majority_sign": "positive",
+      "sensitivity_p": 0.4340422553454785,
+      "sensitivity_agrees": true
+    },
+    "H3": {
+      "model": "ministral3_3b",
+      "statement": "DeltaTV sign in Ministral-3-3B matches the Iteration 10 sign.",
+      "verdict": "refuted",
+      "sign": "negative",
+      "reference_sign": "positive",
+      "sign_matches_reference": false,
+      "raw_p": 0.0002,
+      "adjusted_p": 0.0008,
+      "critical_value": 0.016666666666666666,
+      "holm_rejected": true,
+      "raw_mean": -0.13102040816326532,
+      "raw_bootstrap_mean": -0.13097036734693862,
+      "raw_ci": [
+        -0.1894897959183674,
+        -0.07418112244897962
+      ],
+      "sensitivity_majority_sign": "negative",
+      "sensitivity_p": 0.0008464960856166748,
+      "sensitivity_agrees": true
+    },
+    "H4": {
+      "model": "phi4_mm",
+      "statement": "DeltaTV sign in Phi-4-multimodal matches the Iteration 10 sign.",
+      "verdict": "refuted",
+      "sign": "negative",
+      "reference_sign": "positive",
+      "sign_matches_reference": false,
+      "raw_p": 0.0136,
+      "adjusted_p": 0.0272,
+      "critical_value": 0.025,
+      "holm_rejected": true,
+      "raw_mean": -0.05102040816326531,
+      "raw_bootstrap_mean": -0.05080663265306112,
+      "raw_ci": [
+        -0.09081632653061225,
+        -0.010714285714285707
+      ],
+      "sensitivity_majority_sign": "negative",
+      "sensitivity_p": 0.0004402850065139684,
+      "sensitivity_agrees": true
+    }
+  },
+  "pooled_H5": {
+    "statement": "Pooled cross-family DeltaTV sign matches the Iteration 10 sign.",
+    "n_families": 98,
+    "n_models_pooled": 4,
+    "models": [
+      "qwen35_2b",
+      "qwen35_4b",
+      "ministral3_3b",
+      "phi4_mm"
+    ],
+    "estimands": {
+      "Delta_T": {
+        "mean": 0.3731887755102041,
+        "std": 0.2127267682120637,
+        "n": 98,
+        "bootstrap_mean": 0.37279732142857197,
+        "ci_lower": 0.3307366071428571,
+        "ci_upper": 0.41423596938775514,
+        "bootstrap_p_two_sided": 0.0002
+      },
+      "Delta_V": {
+        "mean": -0.01683673469387755,
+        "std": 0.06264421610897744,
+        "n": 98,
+        "bootstrap_mean": -0.016945663265306193,
+        "ci_lower": -0.029974489795918362,
+        "ci_upper": -0.0053539540816327,
+        "bootstrap_p_two_sided": 0.0024
+      },
+      "Delta_TV": {
+        "mean": -0.058698979591836724,
+        "std": 0.19905874825457934,
+        "n": 98,
+        "bootstrap_mean": -0.05882728061224491,
+        "ci_lower": -0.09701785714285713,
+        "ci_upper": -0.020457270408163305,
+        "bootstrap_p_two_sided": 0.0016
+      },
+      "order_effect": {
+        "mean": -0.0013010204081632668,
+        "std": 0.13006997997105127,
+        "n": 98,
+        "bootstrap_mean": -0.0013834846938775272,
+        "ci_lower": -0.027044642857142847,
+        "ci_upper": 0.02372831632653056,
+        "bootstrap_p_two_sided": 0.9144
+      },
+      "history_effect": {
+        "mean": 0.31002551020408164,
+        "std": 0.23132476358949766,
+        "n": 98,
+        "bootstrap_mean": 0.3094179489795908,
+        "ci_lower": 0.26492283163265307,
+        "ci_upper": 0.35466964285714286,
+        "bootstrap_p_two_sided": 0.0002
+      },
+      "n_families": 98
+    },
+    "sign": "negative",
+    "sign_matches_reference": false,
+    "bootstrap_p_two_sided": 0.0016,
+    "mean_of_the_four_model_means": -0.05869897959183675,
+    "part_of_the_corrected_family": false,
+    "note": "H5 is not one of the 4 confirmatory model tests, so it is reported uncorrected; the correction covers H1-H4"
+  },
+  "differential_censoring_sensitivity": {
+    "premise": "judge B refused no cell in any arm, so its labels cover the whole 600-cell panel four times over, including the cells A's provider refused",
+    "judge": "B alone, and NOT the ensemble: B is vision-ablated, so its absolute level is not the confirmatory quantity. Used only to price the change in the FAMILY SET, with one consistent judge across all four arms",
+    "uniformly_excluded_cells": [
+      "CMST_795308/cross_modal",
+      "CMST_795308/shuffle"
+    ],
+    "differentially_excluded_cells": [
+      "CMST_456921/text_only"
+    ],
+    "families_dropped_by_the_union": [
+      "CMST_456921",
+      "CMST_795308"
+    ],
+    "per_target": {
+      "ministral3_3b": {
+        "status": "measured",
+        "own_excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "cells_added_by_the_union": [],
+        "n_families_own_panel": 98,
+        "n_families_common_panel": 98,
+        "judge_b_Delta_TV_mean_own_panel": -0.11091836734693879,
+        "judge_b_Delta_TV_mean_common_panel": -0.11091836734693879,
+        "shift_from_the_union": 0.0
+      },
+      "phi4_mm": {
+        "status": "measured",
+        "own_excluded_cells": [
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "cells_added_by_the_union": [
+          "CMST_456921/text_only"
+        ],
+        "n_families_own_panel": 99,
+        "n_families_common_panel": 98,
+        "judge_b_Delta_TV_mean_own_panel": -0.06666666666666667,
+        "judge_b_Delta_TV_mean_common_panel": -0.0653061224489796,
+        "shift_from_the_union": 0.001360544217687068
+      },
+      "qwen35_2b": {
+        "status": "measured",
+        "own_excluded_cells": [
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "cells_added_by_the_union": [
+          "CMST_456921/text_only"
+        ],
+        "n_families_own_panel": 99,
+        "n_families_common_panel": 98,
+        "judge_b_Delta_TV_mean_own_panel": -0.15454545454545454,
+        "judge_b_Delta_TV_mean_common_panel": -0.15,
+        "shift_from_the_union": 0.004545454545454547
+      },
+      "qwen35_4b": {
+        "status": "measured",
+        "own_excluded_cells": [
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "cells_added_by_the_union": [
+          "CMST_456921/text_only"
+        ],
+        "n_families_own_panel": 99,
+        "n_families_common_panel": 98,
+        "judge_b_Delta_TV_mean_own_panel": 0.14747474747474748,
+        "judge_b_Delta_TV_mean_common_panel": 0.1489795918367347,
+        "shift_from_the_union": 0.0015048443619872232
+      }
+    },
+    "max_differential_shift": 0.004545454545454547,
+    "reading": "the union moves each arm's judge-B mean by its own shift; the spread between the largest and smallest shift is what the cross-model comparison pays for one panel, and it is a number rather than an assurance"
+  },
+  "non_truncated_sensitivity": {
+    "purpose": "a sensitivity only; the primary results retain every analysed cell including the capped ones",
+    "rule": "a family is dropped from the sensitivity when ANY arm reached the generation cap on any of its cells, so all four arms and the reference are compared over one family set",
+    "n_families_primary": 98,
+    "n_families_sensitivity": 89,
+    "families_excluded_from_the_sensitivity": [
+      "CMST_035954",
+      "CMST_361008",
+      "CMST_380403",
+      "CMST_475310",
+      "CMST_501124",
+      "CMST_619519",
+      "CMST_654232",
+      "CMST_696183",
+      "CMST_993351"
+    ],
+    "n_capped_cells_total": 12,
+    "per_target": {
+      "ministral3_3b": {
+        "n_capped_cells": 1,
+        "capped_cells": [
+          "CMST_475310/neutral"
+        ],
+        "families_with_a_capped_cell": [
+          "CMST_475310"
+        ],
+        "capped_cells_retained_in_the_primary": 1,
+        "capped_cells_present_in_the_analysed_records": 1
+      },
+      "phi4_mm": {
+        "n_capped_cells": 4,
+        "capped_cells": [
+          "CMST_380403/cross_modal",
+          "CMST_475310/vision_only",
+          "CMST_501124/vision_only",
+          "CMST_654232/vision_only"
+        ],
+        "families_with_a_capped_cell": [
+          "CMST_380403",
+          "CMST_475310",
+          "CMST_501124",
+          "CMST_654232"
+        ],
+        "capped_cells_retained_in_the_primary": 4,
+        "capped_cells_present_in_the_analysed_records": 4
+      },
+      "qwen35_2b": {
+        "n_capped_cells": 7,
+        "capped_cells": [
+          "CMST_035954/shuffle",
+          "CMST_361008/history_reset",
+          "CMST_361008/neutral",
+          "CMST_619519/shuffle",
+          "CMST_654232/neutral",
+          "CMST_696183/shuffle",
+          "CMST_993351/vision_only"
+        ],
+        "families_with_a_capped_cell": [
+          "CMST_035954",
+          "CMST_361008",
+          "CMST_619519",
+          "CMST_654232",
+          "CMST_696183",
+          "CMST_993351"
+        ],
+        "capped_cells_retained_in_the_primary": 7,
+        "capped_cells_present_in_the_analysed_records": 7
+      },
+      "qwen35_4b": {
+        "n_capped_cells": 0,
+        "capped_cells": [],
+        "families_with_a_capped_cell": [],
+        "capped_cells_retained_in_the_primary": 0,
+        "capped_cells_present_in_the_analysed_records": 0
+      }
+    },
+    "per_model": {
+      "ministral3_3b": {
+        "primary": {
+          "mean": -0.13102040816326532,
+          "bootstrap_mean": -0.13097036734693862,
+          "ci_lower": -0.1894897959183674,
+          "ci_upper": -0.07418112244897962,
+          "n_families": 98
+        },
+        "non_truncated_families": {
+          "mean": -0.13977528089887642,
+          "bootstrap_mean": -0.13946719101123678,
+          "ci_lower": -0.19764325842696623,
+          "ci_upper": -0.08134831460674159,
+          "n_families": 89
+        },
+        "shift": -0.008496823664298159,
+        "primary_sign": "negative",
+        "sensitivity_sign": "negative"
+      },
+      "phi4_mm": {
+        "primary": {
+          "mean": -0.05102040816326531,
+          "bootstrap_mean": -0.05080663265306112,
+          "ci_lower": -0.09081632653061225,
+          "ci_upper": -0.010714285714285707,
+          "n_families": 98
+        },
+        "non_truncated_families": {
+          "mean": -0.04382022471910113,
+          "bootstrap_mean": -0.04355292134831712,
+          "ci_lower": -0.08370786516853931,
+          "ci_upper": -0.004480337078651887,
+          "n_families": 89
+        },
+        "shift": 0.007253711304744004,
+        "primary_sign": "negative",
+        "sensitivity_sign": "negative"
+      },
+      "qwen35_2b": {
+        "primary": {
+          "mean": -0.14663265306122453,
+          "bootstrap_mean": -0.14672426530612295,
+          "ci_lower": -0.21785714285714275,
+          "ci_upper": -0.0764234693877552,
+          "n_families": 98
+        },
+        "non_truncated_families": {
+          "mean": -0.1552808988764045,
+          "bootstrap_mean": -0.15522433707865205,
+          "ci_lower": -0.2325842696629213,
+          "ci_upper": -0.07875280898876422,
+          "n_families": 89
+        },
+        "shift": -0.008500071772529094,
+        "primary_sign": "negative",
+        "sensitivity_sign": "negative"
+      },
+      "qwen35_4b": {
+        "primary": {
+          "mean": 0.09387755102040815,
+          "bootstrap_mean": 0.09319214285714283,
+          "ci_lower": 0.013265306122448983,
+          "ci_upper": 0.17246173469387738,
+          "n_families": 98
+        },
+        "non_truncated_families": {
+          "mean": 0.09550561797752811,
+          "bootstrap_mean": 0.09581449438202183,
+          "ci_lower": 0.014030898876404543,
+          "ci_upper": 0.18089887640449442,
+          "n_families": 89
+        },
+        "shift": 0.0026223515248789964,
+        "primary_sign": "positive",
+        "sensitivity_sign": "positive"
+      }
+    },
+    "pooled_H5": {
+      "primary": {
+        "mean": -0.058698979591836724,
+        "bootstrap_mean": -0.05882728061224491,
+        "ci_lower": -0.09701785714285713,
+        "ci_upper": -0.020457270408163305,
+        "n_families": 98
+      },
+      "non_truncated_families": {
+        "mean": -0.060842696629213475,
+        "bootstrap_mean": -0.06060748876404482,
+        "ci_lower": -0.10157373595505617,
+        "ci_upper": -0.018033005617977528,
+        "n_families": 89
+      },
+      "shift": -0.0017802081517999113
+    },
+    "reference": {
+      "primary": {
+        "mean": 0.11479591836734694,
+        "bootstrap_mean": 0.11366999999999997,
+        "ci_lower": 0.045918367346938785,
+        "ci_upper": 0.1811352040816325,
+        "n_families": 98
+      },
+      "non_truncated_families": {
+        "mean": 0.11460674157303372,
+        "bootstrap_mean": 0.11440089887640356,
+        "ci_lower": 0.04887640449438204,
+        "ci_upper": 0.18314606741573033,
+        "n_families": 89
+      },
+      "shift": 0.0007308988764035962,
+      "anchored_to": "outputs/iteration_11/analysis/cross_model/reference_restriction.json"
+    },
+    "signs_unchanged": true,
+    "max_absolute_shift": 0.008500071772529094
+  },
+  "primary_results_retain_all_cells": {
+    "claim": "H1-H5 are estimated over every cell the arms analysed: no cell was dropped from a primary result for having reached the generation cap",
+    "holds": true,
+    "evidence": "the only cells any primary result excludes are the moderation union the cross-arm common panel derived, and the only families dropped are the ones that union made incomplete; truncation is nowhere in either list, and it is checked per arm rather than assumed",
+    "n_capped_cells": 12,
+    "n_capped_cells_in_a_family_the_primary_analyses": 12,
+    "n_capped_cells_present_in_the_analysed_records": 12,
+    "per_target": {
+      "ministral3_3b": {
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "excluded_cells_are_the_moderation_union": true,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "families_dropped_are_the_moderation_families": true,
+        "n_records_analysed": 588,
+        "n_families_analysed": 98,
+        "exclusion_source": "labels_artifact"
+      },
+      "phi4_mm": {
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "excluded_cells_are_the_moderation_union": true,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "families_dropped_are_the_moderation_families": true,
+        "n_records_analysed": 588,
+        "n_families_analysed": 98,
+        "exclusion_source": "labels_artifact"
+      },
+      "qwen35_2b": {
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "excluded_cells_are_the_moderation_union": true,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "families_dropped_are_the_moderation_families": true,
+        "n_records_analysed": 588,
+        "n_families_analysed": 98,
+        "exclusion_source": "labels_artifact"
+      },
+      "qwen35_4b": {
+        "excluded_cells": [
+          "CMST_456921/text_only",
+          "CMST_795308/cross_modal",
+          "CMST_795308/shuffle"
+        ],
+        "excluded_cells_are_the_moderation_union": true,
+        "families_dropped_incomplete": [
+          "CMST_456921",
+          "CMST_795308"
+        ],
+        "families_dropped_are_the_moderation_families": true,
+        "n_records_analysed": 588,
+        "n_families_analysed": 98,
+        "exclusion_source": "labels_artifact"
+      }
+    },
+    "where_the_capped_cells_appear_instead": "non_truncated_sensitivity, which is a sensitivity and not a primary result"
+  },
+  "summary": {
+    "n_confirmed": 1,
+    "n_refuted": 3,
+    "n_inconclusive": 0,
+    "n_sensitivity_disagreements": 0,
+    "reference_sign": "positive",
+    "reference_ci": [
+      0.045918367346938785,
+      0.1811352040816325
+    ],
+    "retention": "All null, attenuated, heterogeneous, or sign-reversed results are retained and reported. No checkpoint is replaced because its scientific result is unfavorable.",
+    "primary_retains_all_cells": true,
+    "truncation_signs_unchanged": true,
+    "truncation_max_absolute_shift": 0.008500071772529094
+  }
+}

@@ -1,0 +1,330 @@
+{
+  "kind": "iteration_11_common_panel_v1",
+  "status": "derived",
+  "group": "outputs/iteration_11/judge",
+  "n_targets": 4,
+  "targets": [
+    "ministral3_3b",
+    "phi4_mm",
+    "qwen35_2b",
+    "qwen35_4b"
+  ],
+  "incomplete_targets": [],
+  "per_target": {
+    "ministral3_3b": {
+      "judge_dir": "outputs/iteration_11/judge/ministral3_3b",
+      "status": "complete",
+      "arms": {
+        "A": {
+          "primary": "A",
+          "model_id": "qwen3.8-max",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_A.json",
+          "fingerprint": "551bc81373082f0ee3dbbf3d5b2186de6e6a254af712a25968bf1e50ffb00c15",
+          "output_sha256": "c7b35cb9ee35e29c85202a0bc65f3e0550adcc7cc78a4715a3e99f52b53be4a6",
+          "n_judged": 597,
+          "n_unjudged": 3,
+          "unjudged_item_ids": [
+            "item-0164",
+            "item-0365",
+            "item-0410"
+          ],
+          "unjudged_cells": [
+            "CMST_456921/text_only",
+            "CMST_795308/cross_modal",
+            "CMST_795308/shuffle"
+          ],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": true,
+            "fingerprint": "551bc81373082f0ee3dbbf3d5b2186de6e6a254af712a25968bf1e50ffb00c15",
+            "fingerprint_matches": true,
+            "n_records": 3,
+            "cells": [
+              "CMST_456921/text_only",
+              "CMST_795308/cross_modal",
+              "CMST_795308/shuffle"
+            ]
+          }
+        },
+        "B": {
+          "primary": "B",
+          "model_id": "glm-5.2",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_B.json",
+          "fingerprint": "db1b565ed998993fe9299c84146c47cd344c8ab34d8b500a447b6592042a953c",
+          "output_sha256": "3c43da646a732ec2c471c98b5f48d8aaf4a75d5af0f3771643e2a37225627346",
+          "n_judged": 600,
+          "n_unjudged": 0,
+          "unjudged_item_ids": [],
+          "unjudged_cells": [],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": false
+          }
+        }
+      },
+      "excluded_cells": [
+        "CMST_456921/text_only",
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "n_excluded": 3,
+      "n_panel_items": 600,
+      "n_families": 100,
+      "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+      "excluded_item_ids": [
+        "item-0164",
+        "item-0365",
+        "item-0410"
+      ],
+      "n_judged": 597,
+      "exclusion_rule": "the union over judges A and B of the cells whose judgment is absent from that judge's completed output"
+    },
+    "phi4_mm": {
+      "judge_dir": "outputs/iteration_11/judge/phi4_mm",
+      "status": "complete",
+      "arms": {
+        "A": {
+          "primary": "A",
+          "model_id": "qwen3.8-max",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_A.json",
+          "fingerprint": "4f060d5635417030799a70bb3753ec7e5f5a183e81b567e667bce8dea14b0f1d",
+          "output_sha256": "9ff6b96b1f1b26d01bbe2c4a038639f0d934c4498e8bad745401c024d6be3943",
+          "n_judged": 598,
+          "n_unjudged": 2,
+          "unjudged_item_ids": [
+            "item-0164",
+            "item-0410"
+          ],
+          "unjudged_cells": [
+            "CMST_795308/cross_modal",
+            "CMST_795308/shuffle"
+          ],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": true,
+            "fingerprint": "4f060d5635417030799a70bb3753ec7e5f5a183e81b567e667bce8dea14b0f1d",
+            "fingerprint_matches": true,
+            "n_records": 2,
+            "cells": [
+              "CMST_795308/cross_modal",
+              "CMST_795308/shuffle"
+            ]
+          }
+        },
+        "B": {
+          "primary": "B",
+          "model_id": "glm-5.2",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_B.json",
+          "fingerprint": "1fb16d352c1ce7d0598999f2b1f97a1a91447dbf0d49919ec9a6d1ff8760171c",
+          "output_sha256": "fc8185cff1e8c08d623cddbf50de16d3c099ee6d150f92aee236fc1dc1989cce",
+          "n_judged": 600,
+          "n_unjudged": 0,
+          "unjudged_item_ids": [],
+          "unjudged_cells": [],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": false
+          }
+        }
+      },
+      "excluded_cells": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "n_excluded": 2,
+      "n_panel_items": 600,
+      "n_families": 100,
+      "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+      "excluded_item_ids": [
+        "item-0164",
+        "item-0410"
+      ],
+      "n_judged": 598,
+      "exclusion_rule": "the union over judges A and B of the cells whose judgment is absent from that judge's completed output"
+    },
+    "qwen35_2b": {
+      "judge_dir": "outputs/iteration_11/judge/qwen35_2b",
+      "status": "complete",
+      "arms": {
+        "A": {
+          "primary": "A",
+          "model_id": "qwen3.8-max",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_A.json",
+          "fingerprint": "ff8e7e6c624a8f316c628c2a2f768c42ce581e39acf9311c9a62b818772a33ad",
+          "output_sha256": "235768b9926a7ddfecafd636801dec23b3b3aaa61c3bb2fcdf217705026b5e4b",
+          "n_judged": 598,
+          "n_unjudged": 2,
+          "unjudged_item_ids": [
+            "item-0164",
+            "item-0410"
+          ],
+          "unjudged_cells": [
+            "CMST_795308/cross_modal",
+            "CMST_795308/shuffle"
+          ],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": true,
+            "fingerprint": "ff8e7e6c624a8f316c628c2a2f768c42ce581e39acf9311c9a62b818772a33ad",
+            "fingerprint_matches": true,
+            "n_records": 2,
+            "cells": [
+              "CMST_795308/cross_modal",
+              "CMST_795308/shuffle"
+            ]
+          }
+        },
+        "B": {
+          "primary": "B",
+          "model_id": "glm-5.2",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_B.json",
+          "fingerprint": "9da7e1c48809a56535ea8e8bb697060b5c897520c92fa1e152414ccb60926c5e",
+          "output_sha256": "66281c41d418b00b9637947913b05155b0c670c6b64763122f6c4b2945a64457",
+          "n_judged": 600,
+          "n_unjudged": 0,
+          "unjudged_item_ids": [],
+          "unjudged_cells": [],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": false
+          }
+        }
+      },
+      "excluded_cells": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "n_excluded": 2,
+      "n_panel_items": 600,
+      "n_families": 100,
+      "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+      "excluded_item_ids": [
+        "item-0164",
+        "item-0410"
+      ],
+      "n_judged": 598,
+      "exclusion_rule": "the union over judges A and B of the cells whose judgment is absent from that judge's completed output"
+    },
+    "qwen35_4b": {
+      "judge_dir": "outputs/iteration_11/judge/qwen35_4b",
+      "status": "complete",
+      "arms": {
+        "A": {
+          "primary": "A",
+          "model_id": "qwen3.8-max",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_A.json",
+          "fingerprint": "01e9ed427b19785324304a607a1be7f5461319f1c82aa467fdd6e30f27dd2173",
+          "output_sha256": "70db51ad1c709b39f0d6e52c6ae8d54ddef26bae482b6e4744b73b4208f9f5da",
+          "n_judged": 598,
+          "n_unjudged": 2,
+          "unjudged_item_ids": [
+            "item-0164",
+            "item-0410"
+          ],
+          "unjudged_cells": [
+            "CMST_795308/cross_modal",
+            "CMST_795308/shuffle"
+          ],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": true,
+            "fingerprint": "01e9ed427b19785324304a607a1be7f5461319f1c82aa467fdd6e30f27dd2173",
+            "fingerprint_matches": true,
+            "n_records": 2,
+            "cells": [
+              "CMST_795308/cross_modal",
+              "CMST_795308/shuffle"
+            ]
+          }
+        },
+        "B": {
+          "primary": "B",
+          "model_id": "glm-5.2",
+          "complete": true,
+          "output_file": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_B.json",
+          "fingerprint": "e03f1deb1da653996fa563e2f4d90f998c73c8583f472100b06dbb12d1bc81c3",
+          "output_sha256": "c21fd9de7863c82de0f6fa20ccddd4136f69e6af686aa74766d1c45c9184fbc4",
+          "n_judged": 600,
+          "n_unjudged": 0,
+          "unjudged_item_ids": [],
+          "unjudged_cells": [],
+          "judgments_outside_the_panel": [],
+          "refusal_sidecar": {
+            "exists": false
+          }
+        }
+      },
+      "excluded_cells": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "n_excluded": 2,
+      "n_panel_items": 600,
+      "n_families": 100,
+      "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+      "excluded_item_ids": [
+        "item-0164",
+        "item-0410"
+      ],
+      "n_judged": 598,
+      "exclusion_rule": "the union over judges A and B of the cells whose judgment is absent from that judge's completed output"
+    }
+  },
+  "union_excluded_cells": [
+    "CMST_456921/text_only",
+    "CMST_795308/cross_modal",
+    "CMST_795308/shuffle"
+  ],
+  "rule": "a cell is excluded from EVERY arm iff any arm's provider refused it, so all four analyses are computed over one identical panel",
+  "why": "11.8 compares the four models with each other. aliyun's input moderation verdict depends on the request bytes and on the provider's policy at the moment of the call, and the four arms reach a given cell minutes apart, so without a union one arm can drop a family the others kept and the two Delta_TV values placed side by side would describe different families",
+  "n_panel_items": 600,
+  "n_families_in_panel": 100,
+  "n_union_excluded_cells": 3,
+  "identical_across_targets": false,
+  "cells_added_by_the_union": {
+    "ministral3_3b": [],
+    "phi4_mm": [
+      "CMST_456921/text_only"
+    ],
+    "qwen35_2b": [
+      "CMST_456921/text_only"
+    ],
+    "qwen35_4b": [
+      "CMST_456921/text_only"
+    ]
+  },
+  "families_dropped": [
+    "CMST_456921",
+    "CMST_795308"
+  ],
+  "n_families_common": 98,
+  "item_id_alignment": {
+    "reference_target": "ministral3_3b",
+    "identical_across_targets": true,
+    "per_target": {
+      "ministral3_3b": {
+        "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+        "matches_reference": true
+      },
+      "phi4_mm": {
+        "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+        "matches_reference": true
+      },
+      "qwen35_2b": {
+        "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+        "matches_reference": true
+      },
+      "qwen35_4b": {
+        "item_cell_map_sha256": "12bd21dc18647c81aa690cedafb3c17ee9322fb2476236762ab63d638f14f449",
+        "matches_reference": true
+      }
+    }
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "n_panel_items": 600,
+  "n_excluded": 3,
+  "n_judged": 597,
+  "excluded_item_ids": [
+    "item-0164",
+    "item-0365",
+    "item-0410"
+  ],
+  "excluded_cells": [
+    {
+      "item_id": "item-0164",
+      "family_id": "CMST_795308",
+      "variant": "cross_modal",
+      "response_sha256": "6a119077f443b8f0f471e29e155cbedf7f9b39aa8bd2378926d73bf69d9f548f",
+      "refused_by": [
+        "A"
+      ],
+      "reason": "data_inspection_failed",
+      "exclusion_origin": "this_target",
+      "refused_in_targets": [
+        "ministral3_3b",
+        "phi4_mm",
+        "qwen35_2b",
+        "qwen35_4b"
+      ]
+    },
+    {
+      "item_id": "item-0365",
+      "family_id": "CMST_456921",
+      "variant": "text_only",
+      "response_sha256": "bb1ec2b98675f4292dbb5699177041364f041f3220cfaab584523b992df2b4c1",
+      "refused_by": [],
+      "reason": null,
+      "exclusion_origin": "another_arm",
+      "refused_in_targets": [
+        "ministral3_3b"
+      ]
+    },
+    {
+      "item_id": "item-0410",
+      "family_id": "CMST_795308",
+      "variant": "shuffle",
+      "response_sha256": "7078a073b698c6483de1a8b9599d3ef37ece5b3d34ad71bb256a6699b830100d",
+      "refused_by": [
+        "A"
+      ],
+      "reason": "data_inspection_failed",
+      "exclusion_origin": "this_target",
+      "refused_in_targets": [
+        "ministral3_3b",
+        "phi4_mm",
+        "qwen35_2b",
+        "qwen35_4b"
+      ]
+    }
+  ],
+  "exclusion_rule": "the union of cells any primary of ANY TARGET in this cross-model comparison refused is dropped from EVERY arm of every target, so all of them judge one identical panel",
+  "outcome_independent": "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+  "per_judge": {
+    "A": {
+      "n_refused": 2,
+      "model_id": "qwen3.8-max",
+      "refusals": [
+        {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "error_message": "Input text data may contain inappropriate content.",
+          "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-31f4dcec-9362-9ec9-9fa7-457b5f331b75\"}",
+          "item_id": "item-0164",
+          "family_id": "CMST_795308",
+          "variant": "cross_modal",
+          "response_sha256": "6a119077f443b8f0f471e29e155cbedf7f9b39aa8bd2378926d73bf69d9f548f",
+          "judge_id": "A",
+          "model_id": "qwen3.8-max",
+          "detail_source": "refusal_sidecar"
+        },
+        {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "error_message": "Input text data may contain inappropriate content.",
+          "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-7c81782e-8f66-9251-b825-11b9cb77e6ee\"}",
+          "item_id": "item-0410",
+          "family_id": "CMST_795308",
+          "variant": "shuffle",
+          "response_sha256": "7078a073b698c6483de1a8b9599d3ef37ece5b3d34ad71bb256a6699b830100d",
+          "judge_id": "A",
+          "model_id": "qwen3.8-max",
+          "detail_source": "refusal_sidecar"
+        }
+      ]
+    },
+    "B": {
+      "n_refused": 0,
+      "model_id": "glm-5.2",
+      "refusals": []
+    }
+  },
+  "stale_refusals_ignored": [],
+  "cross_arm": {
+    "artifact": "outputs/iteration_11/judge/common_panel.json",
+    "group": "outputs/iteration_11/judge",
+    "n_targets": 4,
+    "targets": [
+      "ministral3_3b",
+      "phi4_mm",
+      "qwen35_2b",
+      "qwen35_4b"
+    ],
+    "excluded_cells_per_target": {
+      "ministral3_3b": [
+        "CMST_456921/text_only",
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "phi4_mm": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "qwen35_2b": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ],
+      "qwen35_4b": [
+        "CMST_795308/cross_modal",
+        "CMST_795308/shuffle"
+      ]
+    },
+    "identical_across_targets": false,
+    "union_excluded_cells": [
+      "CMST_456921/text_only",
+      "CMST_795308/cross_modal",
+      "CMST_795308/shuffle"
+    ],
+    "n_cells_this_target_lost": 2,
+    "n_cells_added_by_the_union": 1,
+    "rule": "a cell any arm of this comparison lost is dropped from every arm, so the four per-model analyses are computed over one identical panel and can be placed side by side"
+  }
+}

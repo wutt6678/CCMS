@@ -1,0 +1,11 @@
+{
+  "fingerprint": "e03f1deb1da653996fa563e2f4d90f998c73c8583f472100b06dbb12d1bc81c3",
+  "judgments_file": "llm_labels_judge_B.json",
+  "judgments_sha256": "c21fd9de7863c82de0f6fa20ccddd4136f69e6af686aa74766d1c45c9184fbc4",
+  "n_judgments": 600,
+  "refusals_file": "llm_labels_judge_B.refusals.json",
+  "refusals_sha256": "1fdeb680c662d4a7daff3f37c3b27605d3b25c7848a03dfeb925bb44a9ce99be",
+  "n_refusals": 0,
+  "n_panel_items": 600,
+  "rule": "written last, after the judgment file, its fingerprint sidecar and the refusal sidecar; its presence is what means the set is complete rather than half-written"
+}

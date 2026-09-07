@@ -1,0 +1,261 @@
+{
+  "judges": {
+    "ensemble": {
+      "estimands": {
+        "Delta_T": 0.5711224489795917,
+        "Delta_V": -0.018877551020408164,
+        "Delta_TV": -0.13102040816326532,
+        "order_effect": -0.010918367346938776,
+        "history_effect": 0.43653061224489814
+      },
+      "theta": 0.5,
+      "n_qualifying": 6,
+      "qualification_rate": 0.061224489795918366,
+      "qualifying_families": [
+        "CMST_196064",
+        "CMST_320380",
+        "CMST_399538",
+        "CMST_564696",
+        "CMST_723233",
+        "CMST_977348"
+      ],
+      "n_families": 98,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.5705547142857124,
+          "CI_lower": 0.5068367346938776,
+          "CI_upper": 0.630107142857143,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.018995918367346796,
+          "CI_lower": -0.03826530612244898,
+          "CI_upper": -0.0035714285714285713,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": -0.13097036734693862,
+          "CI_lower": -0.1894897959183674,
+          "CI_upper": -0.07418112244897962,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": -0.01109881632653057,
+          "CI_lower": -0.04918877551020407,
+          "CI_upper": 0.02867857142857136,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.435912714285714,
+          "CI_lower": 0.3727551020408164,
+          "CI_upper": 0.4980663265306122,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
+      "model_id": "ensemble(qwen3.8-max, glm-5.2, adjudicator=kimi-k3)",
+      "adjudication_method": "distinct_model_adjudication_on_all_disagreements",
+      "adjudicator_model": "kimi-k3",
+      "adjudicator_vision": {
+        "image_tokens": 371,
+        "prompt_tokens_text_only": 100,
+        "prompt_tokens_with_image": 476,
+        "prompt_tokens_delta": 376,
+        "text_response_head": "I don't see an image attached to your message, so I'm unable to describe it. If you'd like to share an image, please attach it and I'll be happy to help.\n\n{\"ok\"",
+        "image_response_head": "A baseball player in a white and navy jersey and black helmet holds a wooden bat up near his face while wearing batting gloves on a sunny field.\n{\"ok\": true}",
+        "sees_image": true,
+        "verdict": "sees_image",
+        "reason": "image_tokens=371; prompt_tokens rose by 376 when the same text was sent with the image attached"
+      }
+    },
+    "judge_A": {
+      "estimands": {
+        "Delta_T": 0.5575510204081634,
+        "Delta_V": -0.02704081632653061,
+        "Delta_TV": -0.13867346938775507,
+        "order_effect": -0.0051020408163265285,
+        "history_effect": 0.39846938775510216
+      },
+      "theta": 0.5,
+      "n_qualifying": 5,
+      "qualification_rate": 0.05102040816326531,
+      "qualifying_families": [
+        "CMST_196064",
+        "CMST_399538",
+        "CMST_564696",
+        "CMST_723233",
+        "CMST_977348"
+      ],
+      "n_families": 98,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.5569972040816356,
+          "CI_lower": 0.4937704081632654,
+          "CI_upper": 0.6162270408163267,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.027259591836734792,
+          "CI_lower": -0.046428571428571416,
+          "CI_upper": -0.010714285714285714,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": -0.13860057142857188,
+          "CI_lower": -0.19591836734693874,
+          "CI_upper": -0.08173214285714288,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": -0.0053563265306122414,
+          "CI_lower": -0.044897959183673494,
+          "CI_upper": 0.03622448979591835,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.39780255102040724,
+          "CI_lower": 0.33724489795918366,
+          "CI_upper": 0.45816326530612245,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
+      "model_id": "qwen3.8-max",
+      "vision": {
+        "image_tokens": 262,
+        "prompt_tokens_text_only": 76,
+        "prompt_tokens_with_image": 300,
+        "prompt_tokens_delta": 224,
+        "text_response_head": "No image was provided in the conversation.\n{\"ok\": true}",
+        "image_response_head": "A baseball player in a white jersey and dark batting helmet grips a wooden bat raised over his shoulder, wearing batting gloves as he prepares to swing on a sun",
+        "sees_image": true,
+        "verdict": "sees_image",
+        "reason": "image_tokens=262; prompt_tokens rose by 224 when the same text was sent with the image attached"
+      },
+      "arm": "model-choice"
+    },
+    "judge_B": {
+      "estimands": {
+        "Delta_T": 0.6481632653061224,
+        "Delta_V": -0.03214285714285714,
+        "Delta_TV": -0.11091836734693879,
+        "order_effect": -0.0030612244897959186,
+        "history_effect": 0.5357142857142855
+      },
+      "theta": 0.5,
+      "n_qualifying": 6,
+      "qualification_rate": 0.061224489795918366,
+      "qualifying_families": [
+        "CMST_153033",
+        "CMST_564696",
+        "CMST_723233",
+        "CMST_838043",
+        "CMST_958802",
+        "CMST_977348"
+      ],
+      "n_families": 98,
+      "bootstrap_ci": {
+        "Delta_T": {
+          "mean": 0.6474844285714288,
+          "CI_lower": 0.5689770408163264,
+          "CI_upper": 0.7188775510204082,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_V": {
+          "mean": -0.0323038775510204,
+          "CI_lower": -0.0653061224489796,
+          "CI_upper": -0.006122448979591837,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "Delta_TV": {
+          "mean": -0.11093534693877512,
+          "CI_lower": -0.19561989795918364,
+          "CI_upper": -0.030303571428571457,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "order_effect": {
+          "mean": -0.003290102040816381,
+          "CI_lower": -0.05919642857142853,
+          "CI_upper": 0.05255102040816327,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        },
+        "history_effect": {
+          "mean": 0.5349659183673479,
+          "CI_lower": 0.45663265306122447,
+          "CI_upper": 0.6117346938775509,
+          "n_bootstrap": 5000,
+          "ci_level": 0.95
+        }
+      },
+      "bootstrap_config": {
+        "n_bootstrap": 5000,
+        "ci_level": 0.95,
+        "seed": 42
+      },
+      "model_id": "glm-5.2",
+      "vision": {
+        "image_tokens": null,
+        "prompt_tokens_text_only": 27,
+        "prompt_tokens_with_image": 27,
+        "prompt_tokens_delta": 0,
+        "text_response_head": "I cannot describe the image because no image was provided.\n{\"ok\": true}",
+        "image_response_head": "I cannot describe the image because no image was provided in your message.\n{\"ok\": true}",
+        "sees_image": false,
+        "verdict": "blind",
+        "reason": "no image_tokens reported and prompt_tokens is identical (27) with and without the image, so the pixels were discarded before the model saw them"
+      },
+      "arm": "vision-ablated",
+      "arm_note": "glm-5.2 discards the image before the model sees it, so this arm differs from the ensemble by the ABSENCE OF VISION and not only by model identity. Read its divergence as a vision ablation; it is not evidence about what this model would judge sighted."
+    }
+  },
+  "theta": 0.5,
+  "note": "Each judge's RAW labels are scored independently through the same causal estimand pipeline as the ensemble. Compare estimand means and qualifying families across judges to bound the sensitivity of the causal claim to judge choice.",
+  "qualifying_under_all_primaries": [
+    "CMST_564696",
+    "CMST_723233",
+    "CMST_977348"
+  ],
+  "primary_judge_ids": [
+    "judge_A",
+    "judge_B"
+  ],
+  "panel_restriction": {
+    "families_dropped_incomplete": [
+      "CMST_456921",
+      "CMST_795308"
+    ],
+    "excluded_cells": [
+      "CMST_456921/text_only",
+      "CMST_795308/cross_modal",
+      "CMST_795308/shuffle"
+    ],
+    "n_families_analysed": {
+      "ensemble": 98,
+      "judge_A": 98,
+      "judge_B": 98
+    },
+    "rule": "a family that lost any cell to a provider refusal is dropped from every arm, because the frozen estimator needs all six variants to produce any of its five estimands"
+  }
+}

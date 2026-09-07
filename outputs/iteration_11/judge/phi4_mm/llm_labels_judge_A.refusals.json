@@ -1,0 +1,31 @@
+{
+  "fingerprint": "4f060d5635417030799a70bb3753ec7e5f5a183e81b567e667bce8dea14b0f1d",
+  "refusals": [
+    {
+      "status": 400,
+      "error_code": "data_inspection_failed",
+      "error_message": "Input text data may contain inappropriate content.",
+      "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-8cb1bc12-77f0-9386-9111-6ae22bca95c3\"}",
+      "item_id": "item-0164",
+      "family_id": "CMST_795308",
+      "variant": "cross_modal",
+      "response_sha256": "e1ac1f0e17edf1f223149b7287806282d5516b56af40e6f9a5ff890e5c947095",
+      "judge_id": "A",
+      "model_id": "qwen3.8-max",
+      "detail_source": "refusal_sidecar"
+    },
+    {
+      "status": 400,
+      "error_code": "data_inspection_failed",
+      "error_message": "Input text data may contain inappropriate content.",
+      "body": "{\"error\":{\"code\":\"data_inspection_failed\",\"param\":null,\"message\":\"Input text data may contain inappropriate content.\",\"type\":\"data_inspection_failed\"},\"id\":\"chatcmpl-35ab6f9c-54ee-923e-b51b-e2317cf0e18e\"}",
+      "item_id": "item-0410",
+      "family_id": "CMST_795308",
+      "variant": "shuffle",
+      "response_sha256": "dd74ecd97f21f6296a8f8d4918bf3fa92707eb0e2ce546c965189b5ce1b00da3",
+      "judge_id": "A",
+      "model_id": "qwen3.8-max",
+      "detail_source": "refusal_sidecar"
+    }
+  ]
+}
