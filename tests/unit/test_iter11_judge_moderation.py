@@ -587,3 +587,259 @@ class TestCoverage:
                                "judgment": _judgment()[0]}]
         with pytest.raises(EvaluationError):
             compute_pairwise_agreement(arm_a, arm_b_full)
+
+
+def _load_probe():
+    """Import the moderation probe, which resolves credentials at import.
+
+    Resolution is env-first and never fatal at import, so the pure parts of the
+    probe are testable in CI where only the ``.example`` credential template is
+    committed. No request is made here: ``requests.post`` is monkeypatched.
+    """
+    os.environ.setdefault("LLM_JUDGE_API_KEY", "test-key-never-used")
+    os.environ.setdefault("LLM_JUDGE_BASE_URL", "http://localhost/v1")
+    spec = importlib.util.spec_from_file_location(
+        "iter11_probe_judge_moderation_under_test",
+        ROOT / "scripts" / "iter11_probe_judge_moderation.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+probe = _load_probe()
+
+
+def _verdict(status: int, code: str | None = None,
+             body: int = 10_000) -> dict:
+    """One ``_post`` result, in the shape the probe returns."""
+    transport = status < 0
+    return {"status": status, "error_code": code,
+            "error_message": "Input text data may contain inappropriate "
+                             "content." if code else None,
+            "request_bytes": body, "transport_attempts": 1,
+            "transport_error": "ConnectionError: reset by peer" if transport
+            else None,
+            "prompt_sha256": "0" * 64}
+
+
+class TestAScanSeparatesAVerdictFromADroppedConnection:
+    """A transport failure is not a provider refusal.
+
+    The first full scan of the frozen panel reported FIVE refusals in
+    ``qwen35_2b``'s arm: the two real ``data_inspection_failed`` cells the
+    production run had also recorded, plus three cells whose request never got
+    a response at all. Filed together, the three transport failures took the
+    refusal rate from 2/600 to 5/600, gave the ``shuffle`` variant four
+    refusals when one was real — which reads as a claim about which KIND of
+    cell gets moderated — put a 164,991-byte body into a size comparison whose
+    smallest genuinely refused body was 1,546,338 bytes, and spent seven
+    bisection requests on each of three cells that had no trigger to find. All
+    four bisections of all three came back 200, which is how they were
+    identified.
+    """
+
+    def test_the_three_categories_are_disjoint_and_exhaustive(self):
+        results = [_verdict(200), _verdict(400, "data_inspection_failed"),
+                   _verdict(-1)]
+        accepted, refused, unmeasured = probe.classify(results)
+        assert [r["status"] for r in accepted] == [200]
+        assert [r["status"] for r in refused] == [400]
+        assert [r["status"] for r in unmeasured] == [-1]
+        assert len(accepted) + len(refused) + len(unmeasured) == len(results)
+
+    def test_a_dropped_connection_is_unmeasured_not_refused(self):
+        _accepted, refused, unmeasured = probe.classify(
+            [_verdict(-1), _verdict(-1)])
+        assert refused == []
+        assert len(unmeasured) == 2
+
+    def test_a_gateway_error_is_a_verdict_about_the_request(self):
+        # A 5xx came FROM the gateway, so it is a statement about the request
+        # even though it is not moderation. Merging it with cells that were
+        # never measured at all would hide the difference between "the provider
+        # objected" and "we never heard back".
+        _accepted, refused, unmeasured = probe.classify(
+            [_verdict(500, "internal_error"), _verdict(-1)])
+        assert [r["status"] for r in refused] == [500]
+        assert [r["status"] for r in unmeasured] == [-1]
+
+    def test_a_transport_failure_is_retried_and_can_recover(self, monkeypatch):
+        calls = []
+
+        def fake_post(url, headers=None, data=None, timeout=None, **kw):
+            calls.append(data)
+            if len(calls) < 3:
+                raise ConnectionError("reset by peer")
+            return _FakeResponse(200, {"ok": True})
+
+        monkeypatch.setattr(probe.requests, "post", fake_post)
+        out = probe._post("A", "prompt", [])
+        assert out["status"] == 200
+        assert out["transport_attempts"] == 3
+        assert out["transport_error"] is None
+        assert len(calls) == 3
+        # The retry re-sends the SAME bytes, which is why it cannot bias the
+        # measurement: moderation is a function of the request, not of the
+        # number of times it was sent.
+        assert len(set(calls)) == 1
+
+    def test_a_provider_verdict_is_never_retried(self, monkeypatch):
+        calls = []
+
+        def fake_post(url, headers=None, data=None, timeout=None, **kw):
+            calls.append(data)
+            return _FakeResponse(400, MODERATION_BODY)
+
+        monkeypatch.setattr(probe.requests, "post", fake_post)
+        out = probe._post("A", "prompt", [])
+        assert out["status"] == 400
+        assert out["error_code"] == "data_inspection_failed"
+        assert out["transport_attempts"] == 1
+        assert len(calls) == 1
+
+    def test_the_retry_budget_is_bounded_and_the_failure_is_kept(
+            self, monkeypatch):
+        calls = []
+
+        def fake_post(url, headers=None, data=None, timeout=None, **kw):
+            calls.append(data)
+            raise TimeoutError("timed out")
+
+        monkeypatch.setattr(probe.requests, "post", fake_post)
+        out = probe._post("A", "prompt", [])
+        assert out["status"] == probe.TRANSPORT_FAILURE
+        assert out["transport_attempts"] == probe.TRANSPORT_RETRIES + 1
+        assert out["transport_error"].startswith("TimeoutError")
+        assert len(calls) == probe.TRANSPORT_RETRIES + 1
+
+
+class TestScanAggregation:
+    """``scan_target``'s counts, over fakes: no network, no panel read."""
+
+    @pytest.fixture
+    def arm(self, monkeypatch):
+        """Four cells: accepted, refused, unmeasured, accepted.
+
+        The refused cell carries the real 1,546,338-byte body and the
+        unmeasured one the real 164,991-byte body from the 2026-09-07 scan, so
+        the size comparison is asserted on the numbers that exposed the defect.
+        """
+        items = _items(4)
+        scan = [_verdict(200, body=9_712),
+                _verdict(400, "data_inspection_failed", body=1_546_338),
+                _verdict(-1, body=164_991),
+                _verdict(200, body=2_961_488)]
+        calls = []
+
+        def fake_post(label, prompt, images, max_tokens=1, **kw):
+            calls.append((label, prompt))
+            # After the four scan requests every bisection is served, so the
+            # bisection tally is a function of which cells were bisected and
+            # not of what the gateway said.
+            return scan[len(calls) - 1] if len(calls) <= len(scan) \
+                else _verdict(200)
+
+        monkeypatch.setattr(probe, "_blinded_items", lambda key: items)
+        monkeypatch.setattr(probe, "_render",
+                            lambda label, item, **kw: ("prompt", []))
+        monkeypatch.setattr(probe, "_post", fake_post)
+        monkeypatch.setattr(
+            probe, "_panel_binding",
+            lambda key, n: {"model_key": key, "path": "blinded_items.json",
+                            "sha256": "a" * 64, "n_items_scanned": n})
+        return items, calls
+
+    def test_the_categories_are_reported_separately(self, arm):
+        out = probe.scan_target("qwen35_2b", None, 1, 0)
+        assert out["n_items"] == 4
+        assert out["n_accepted"] == 2
+        assert out["n_refused"] == 1
+        assert out["n_unmeasured"] == 1
+        assert out["refusal_rate"] == 0.25
+        assert out["error_codes"] == {"data_inspection_failed": 1}
+        assert out["transport_errors"] == {"ConnectionError": 1}
+        assert [c["item_id"] for c in out["unmeasured_cells"]] == \
+            ["item-0002"]
+
+    def test_the_variant_tally_counts_verdicts_only(self, arm):
+        out = probe.scan_target("qwen35_2b", None, 1, 0)
+        # item-0001 (cross_modal) was refused; item-0002 (text_only) was never
+        # measured. Under the old counting BOTH landed in "refused", which is
+        # how a dropped connection becomes a claim about a variant.
+        assert out["by_variant"]["cross_modal"] == {
+            "n": 2, "refused": 1, "unmeasured": 0}
+        assert out["by_variant"]["text_only"] == {
+            "n": 2, "refused": 0, "unmeasured": 1}
+
+    def test_the_size_comparison_is_over_real_refusals(self, arm):
+        out = probe.scan_target("qwen35_2b", None, 1, 0)
+        assert out["request_bytes"]["refused_min"] == 1_546_338
+        assert out["request_bytes"]["refused_max"] == 1_546_338
+        assert out["request_bytes"]["accepted_max"] == 2_961_488
+        # Refuted on the honest numbers: an ACCEPTED body was larger than the
+        # refused one, so size does not separate them.
+        assert out["size_hypothesis_refuted"] is True
+
+    def test_only_a_provider_verdict_is_bisected(self, arm):
+        _items_, calls = arm
+        out = probe.scan_target("qwen35_2b", None, 1, 40)
+        assert out["n_bisected"] == 1
+        assert [b["item_id"] for b in out["bisected"]] == ["item-0001"]
+        # Four bisections plus the two other identities, for ONE cell: the
+        # unmeasured cell cost nothing beyond its own retries.
+        assert len(calls) == 4 + len(probe.BISECTIONS) + 2
+        assert out["bisection_tally"] == {
+            name: 0 for name in
+            list(probe.BISECTIONS) + ["full_B", "full_ADJUDICATOR"]}
+
+    def test_the_rule_is_written_into_the_artifact(self, arm):
+        out = probe.scan_target("qwen35_2b", None, 1, 0)
+        assert out["transport_retries"] == probe.TRANSPORT_RETRIES
+        rule = out["classification_rule"]
+        assert "unmeasured" in rule and "n_refused" in rule
+
+    def test_the_scan_names_the_panel_it_scanned(self, arm):
+        out = probe.scan_target("qwen35_2b", None, 1, 0)
+        assert out["panel"] == {"model_key": "qwen35_2b",
+                                "path": "blinded_items.json",
+                                "sha256": "a" * 64, "n_items_scanned": 4}
+
+
+class TestScanProvenance:
+    """The artifact has to name the code that produced it.
+
+    The counting rule is the artifact's whole meaning: the same five non-200
+    responses read as "five cells were refused" under one version of this
+    script and as "two were refused and three were never measured" under the
+    next. An artifact that does not say which version wrote it cannot be
+    interpreted, only quoted.
+    """
+
+    def test_it_names_the_producer_and_the_commit(self):
+        prov = probe.provenance()
+        assert prov["produced_by"] == \
+            "scripts/iter11_probe_judge_moderation.py"
+        assert prov["kind"] == "iteration_11_judge_moderation_scan_v1"
+        commit = prov["code_commit"]
+        assert commit is None or len(commit) == 40
+        for key in ("git_dirty", "code_dirty_paths", "untracked_code_paths",
+                    "excluded_own_outputs", "excluded_cache_paths"):
+            assert key in prov
+
+    def test_the_exclusion_is_exactly_this_stages_own_output_tree(self):
+        # Narrow by construction: the only thing a scan may make invisible is
+        # the artifact the scan itself is writing. If this ever widens, the
+        # dirtiness it records stops meaning anything.
+        own = probe.OUT_DIR.relative_to(probe.REPO_ROOT).as_posix() + "/"
+        assert probe.OWN_OUTPUT_PREFIXES == (own,)
+
+    def test_a_dirty_tree_is_recorded_rather_than_hidden(self, monkeypatch):
+        monkeypatch.setattr(probe, "code_tree_status", lambda **kw: {
+            "dirty": True, "dirty_paths": ["scripts/x.py"],
+            "untracked_paths": [], "code_dirty_paths": ["scripts/x.py"],
+            "excluded_own_outputs": list(kw["exclude_prefixes"]),
+            "excluded_cache_paths": []})
+        prov = probe.provenance()
+        assert prov["git_dirty"] is True
+        assert prov["code_dirty_paths"] == ["scripts/x.py"]
+        assert prov["excluded_own_outputs"] == list(probe.OWN_OUTPUT_PREFIXES)

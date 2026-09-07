@@ -35,8 +35,35 @@ recorded in the artifact because both were plausible:
 
 The consequence for the run is handled in
 :mod:`scripts.run_llm_judge_pipeline`: a refusal is recorded per cell and the
-cell is excluded from EVERY arm. This script is what establishes the exclusion
-is uniform and outcome-independent rather than merely asserting it.
+cell is excluded from EVERY arm. This script is what establishes that the
+exclusion is outcome-independent rather than merely asserting it.
+
+UNIFORMITY DID NOT SURVIVE THE CONFIRMATORY RUN, and the paragraph above is
+kept as the 2026-09-06 reading rather than rewritten over: judge A additionally
+refused ``CMST_456921/text_only`` in ONE arm and served it in three, and
+``--cells`` re-probing localizes that trigger to the arm's own REPLY
+(``cell_probe_CMST_456921_text_only.json``). So two cells are uniform censoring
+and one is differential, the union of all three is dropped from every arm, and
+``outputs/iteration_11/diagnostics/judge_moderation/README.md`` carries both
+readings with the dates that separate them.
+
+WHAT THE REGENERATED SCAN FOUND (2026-09-07, once judging was no longer
+competing for the gateway) is the same two ``data_inspection_failed`` cells the
+production run recorded for this arm, bisecting the same way:
+``neutral_response`` and ``context_only`` still 400 while ``no_history`` and
+``terminal_only`` return 200, and both other identities accept the full
+payload. It also found a defect in this script. Three cells came back with no
+HTTP response at all — a transport failure, which is not a verdict — and the
+first version filed them under ``n_refused``. That made the rate 5/600 instead
+of 2/600, put four refusals in the ``shuffle`` variant's tally when one was
+real, dragged a 165 KB body into the size comparison whose whole job is to
+refute the size hypothesis (still refuted — 1.55 MB refused against 2.96 MB
+accepted — but on the wrong numbers), and spent seven bisection requests per
+cell localizing a trigger that did not exist. All four bisections of all three
+cells returned 200, which is how they were identified as transport rather than
+moderation. Transport failures are now retried (:data:`TRANSPORT_RETRIES`),
+classified as ``unmeasured`` instead of refused, never bisected, and they make
+the exit code 3, so an incomplete scan cannot be filed as a complete one.
 
 ``max_tokens=1`` keeps the cost near zero; only the INPUT is moderated, so the
 verdict does not depend on the completion. Concurrency defaults to 8, which
@@ -47,6 +74,9 @@ Usage:
     python3 scripts/iter11_probe_judge_moderation.py --target phi4_mm
     python3 scripts/iter11_probe_judge_moderation.py --limit 40       # trial
     python3 scripts/iter11_probe_judge_moderation.py --all-targets
+
+Exit codes: 0 every cell obtained a verdict; 2 no credentials resolved; 3 the
+artifact was written but some cells are ``unmeasured``, so re-run it.
 """
 
 from __future__ import annotations
@@ -55,6 +85,7 @@ import argparse
 import base64
 import hashlib
 import json
+import os
 import sys
 import threading
 from concurrent.futures import ThreadPoolExecutor
@@ -71,6 +102,8 @@ from causal_mllm.evaluation.llm_judge import (  # noqa: E402
     MultimodalLLMJudge,
     _payload_image,
 )
+from causal_mllm.seeds import code_tree_status, get_git_commit  # noqa: E402
+from causal_mllm.validation.relations import _file_sha256  # noqa: E402
 
 PROFILES_FILE = REPO_ROOT / "configs" / "evaluation" / "scale_profiles.json"
 CREDENTIALS_FILE = REPO_ROOT / "configs" / "evaluation" \
@@ -92,20 +125,72 @@ BISECTIONS = {
     "terminal_only": "the terminal query alone",
 }
 
+#: ``status`` when no HTTP response arrived at all — a timeout, a reset, a TLS
+#: failure. This is NOT a verdict about the cell, and treating it as one is the
+#: defect documented under "What the first committed scan found" below.
+TRANSPORT_FAILURE = -1
+
+#: Transport failures are retried; provider verdicts are not. Retrying cannot
+#: bias the measurement because the request bytes are identical and only the
+#: provider's answer is read, while re-asking a question the gateway has
+#: already answered spends requests and proves nothing — the production
+#: pipeline established that a 400 here is stable over eleven attempts.
+TRANSPORT_RETRIES = 3
+
+#: This stage's own output tree, excluded from the code-dirtiness it RECORDS so
+#: that a scan cannot invalidate itself by writing its artifact. Narrow and
+#: reported, never a blanket ignore of ``outputs/`` — the same per-stage scoping
+#: the preflight and the confirmatory gate use.
+OWN_OUTPUT_PREFIXES = (
+    "outputs/iteration_11/diagnostics/judge_moderation/",
+)
+
+
+def provenance() -> dict:
+    """The code, and the state of the code tree, that produced this artifact.
+
+    A diagnostic that costs ~600 requests per arm and is cited as evidence has
+    to name the code that produced it. Without that, a reader holding the
+    artifact cannot tell which counting rule the numbers came from — which is
+    exactly the question the 2026-09-07 regeneration turned on, when three
+    transport failures turned out to have been counted as refusals. Run it from
+    a dirty tree and the artifact says so rather than looking reconstructible.
+    """
+    tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
+    return {
+        "produced_by": "scripts/iter11_probe_judge_moderation.py",
+        "kind": "iteration_11_judge_moderation_scan_v1",
+        "code_commit": get_git_commit(),
+        "git_dirty": tree["dirty"],
+        "code_dirty_paths": tree["code_dirty_paths"],
+        "untracked_code_paths": tree["untracked_paths"],
+        "excluded_own_outputs": tree["excluded_own_outputs"],
+        "excluded_cache_paths": tree["excluded_cache_paths"],
+    }
+
 
 def _load_credentials() -> dict:
-    if not CREDENTIALS_FILE.exists():
-        raise SystemExit(
-            f"{CREDENTIALS_FILE} not found; copy the .example template and "
-            "fill in the rotated key")
+    """Environment first, then the credentials file, then empty strings.
+
+    Resolved at import rather than enforced at import: how a scan classifies
+    its own results is pure logic and is unit-tested offline, and a CI checkout
+    holds only ``llm_judge_credentials.conf.example``. A missing key is fatal
+    where it matters — when :func:`main` is about to spend a request.
+    """
     values = {}
-    for line in CREDENTIALS_FILE.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, _, value = line.partition("=")
-        values[key.strip()] = value.strip()
-    return values
+    if CREDENTIALS_FILE.exists():
+        for line in CREDENTIALS_FILE.read_text(
+                encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            values[key.strip()] = value.strip()
+    return {key: os.environ.get(key) or values.get(key) or ""
+            for key in ("LLM_JUDGE_BASE_URL", "LLM_JUDGE_API_KEY",
+                        "LLM_JUDGE_PRIMARY_A_MODEL",
+                        "LLM_JUDGE_PRIMARY_B_MODEL",
+                        "LLM_ADJUDICATOR_MODEL")}
 
 
 CREDS = _load_credentials()
@@ -132,20 +217,37 @@ _lock = threading.Lock()
 _issued = 0
 
 
+def _panel_path(model_key: str) -> Path:
+    """The blinded panel this target's judge sessions were built from."""
+    profiles = json.loads(PROFILES_FILE.read_text(encoding="utf-8"))
+    profile = profiles[f"iteration_11_{model_key}"]
+    return REPO_ROOT / profile["output_dir"] / "blinded_items.json"
+
+
 def _blinded_items(model_key: str) -> list[dict]:
     """The items the judge pipeline actually built for this target.
 
     Read rather than re-derived: this measures the payloads that were sent,
     not a reconstruction of them.
     """
-    profiles = json.loads(PROFILES_FILE.read_text(encoding="utf-8"))
-    profile = profiles[f"iteration_11_{model_key}"]
-    path = REPO_ROOT / profile["output_dir"] / "blinded_items.json"
+    path = _panel_path(model_key)
     if not path.exists():
         raise SystemExit(
             f"{path} not found; run the judge pipeline for {model_key} first "
             "(it writes the blinded panel before it judges anything)")
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _panel_binding(model_key: str, n_scanned: int) -> dict:
+    """What was scanned, by hash, so the artifact cannot be read as a scan of
+    some other panel than the one the four arms were judged on."""
+    path = _panel_path(model_key)
+    return {
+        "model_key": model_key,
+        "path": str(path.relative_to(REPO_ROOT)) if path.exists() else None,
+        "sha256": _file_sha256(path) if path.exists() else None,
+        "n_items_scanned": n_scanned,
+    }
 
 
 def _render(label: str, item: dict, *, response: str | None = None,
@@ -160,8 +262,16 @@ def _render(label: str, item: dict, *, response: str | None = None,
 
 
 def _post(label: str, prompt: str, image_contents: list,
-          max_tokens: int = 1) -> dict:
-    """One request in the production body shape, with no retries."""
+          max_tokens: int = 1, retries: int = TRANSPORT_RETRIES) -> dict:
+    """One request in the production body shape.
+
+    A transport failure is retried up to ``retries`` times and a provider
+    verdict is returned on the first attempt. ``status`` is the HTTP status, or
+    :data:`TRANSPORT_FAILURE` when no response arrived at all even after the
+    retries; ``transport_attempts`` records how many it took, so a cell that
+    needed three tries is visible rather than being folded silently into a 200,
+    and ``transport_error`` keeps the exception text of the last failure.
+    """
     global _issued
     judge = _JUDGES[label]
     content = [{"type": "text", "text": prompt}]
@@ -172,29 +282,56 @@ def _post(label: str, prompt: str, image_contents: list,
                "seed": judge.config.seed,
                "max_tokens": max_tokens}
     body = json.dumps(payload).encode("utf-8")
-    try:
-        resp = requests.post(
-            f"{BASE_URL}/chat/completions",
-            headers={"Authorization": f"Bearer {API_KEY}",
-                     "Content-Type": "application/json"},
-            data=body, timeout=180)
-        status, text = resp.status_code, resp.text
-    except Exception as exc:                            # noqa: BLE001
-        status, text = -1, f"{type(exc).__name__}: {exc}"
+    status, text = TRANSPORT_FAILURE, "no attempt made"
+    attempts = 0
+    while attempts <= retries:
+        attempts += 1
+        try:
+            resp = requests.post(
+                f"{BASE_URL}/chat/completions",
+                headers={"Authorization": f"Bearer {API_KEY}",
+                         "Content-Type": "application/json"},
+                data=body, timeout=180)
+            status, text = resp.status_code, resp.text
+        except Exception as exc:                        # noqa: BLE001
+            status, text = TRANSPORT_FAILURE, f"{type(exc).__name__}: {exc}"
+        with _lock:
+            _issued += 1
+            if _issued % 25 == 0:
+                print(f"    ... {_issued} requests", flush=True)
+        if status != TRANSPORT_FAILURE:
+            break
     code = message = None
     try:
         err = (json.loads(text) or {}).get("error") or {}
         code, message = err.get("code"), err.get("message")
     except Exception:                                   # noqa: BLE001
         pass
-    with _lock:
-        _issued += 1
-        if _issued % 25 == 0:
-            print(f"    ... {_issued} requests", flush=True)
     return {"status": status, "error_code": code, "error_message": message,
             "request_bytes": len(body),
+            "transport_attempts": attempts,
+            "transport_error": text if status == TRANSPORT_FAILURE else None,
             "prompt_sha256": hashlib.sha256(
                 prompt.encode("utf-8")).hexdigest()}
+
+
+def classify(results: list[dict]) -> tuple[list[dict], list[dict], list[dict]]:
+    """Split one arm's requests into accepted, refused and unmeasured.
+
+    ``200`` is acceptance and an HTTP ``4xx``/``5xx`` is the provider's own
+    verdict. A negative status is this script's transport failing: it says
+    nothing about the cell, and filing it as a refusal is not a harmless
+    rounding — it inflates the refusal rate, puts a cell into the wrong
+    variant's tally (which reads as a claim about which kinds of cell get
+    moderated), drags an unrelated body size into the size comparison that is
+    supposed to refute the size hypothesis, and spends seven bisection requests
+    localizing a trigger that does not exist. So unmeasured cells are reported
+    as their own category, with the denominator stated beside the rate.
+    """
+    accepted = [r for r in results if r["status"] == 200]
+    refused = [r for r in results if r["status"] >= 400]
+    unmeasured = [r for r in results if r["status"] < 0]
+    return accepted, refused, unmeasured
 
 
 def scan_target(model_key: str, limit: int | None, concurrency: int,
@@ -217,20 +354,29 @@ def scan_target(model_key: str, limit: int | None, concurrency: int,
     with ThreadPoolExecutor(max_workers=concurrency) as ex:
         results = list(ex.map(one, enumerate(items)))
 
-    refused = [r for r in results if r["status"] != 200]
-    accepted = [r for r in results if r["status"] == 200]
+    accepted, refused, unmeasured = classify(results)
     codes: dict = {}
     for r in refused:
         key = r["error_code"] or f"http_{r['status']}"
         codes[key] = codes.get(key, 0) + 1
+    transport_codes: dict = {}
+    for r in unmeasured:
+        key = (r.get("transport_error") or "unknown").split(":")[0]
+        transport_codes[key] = transport_codes.get(key, 0) + 1
     print(f"  accepted {len(accepted)}/{len(results)}   "
           f"refused {len(refused)}   codes={codes}")
+    if unmeasured:
+        print(f"  UNMEASURED {len(unmeasured)} (transport failed after "
+              f"{TRANSPORT_RETRIES} retries, so no verdict was obtained): "
+              f"{transport_codes}")
 
     by_variant: dict = {}
     for r in results:
-        slot = by_variant.setdefault(r["variant"], {"n": 0, "refused": 0})
+        slot = by_variant.setdefault(r["variant"],
+                                     {"n": 0, "refused": 0, "unmeasured": 0})
         slot["n"] += 1
-        slot["refused"] += int(r["status"] != 200)
+        slot["refused"] += int(r["status"] >= 400)
+        slot["unmeasured"] += int(r["status"] < 0)
 
     sizes = {
         "accepted_min": min((r["request_bytes"] for r in accepted),
@@ -278,31 +424,53 @@ def scan_target(model_key: str, limit: int | None, concurrency: int,
             bisected = list(ex.map(bisect_one, sample))
 
     tally = {}
+    unmeasured_tally = {}
     if bisected:
         names = list(BISECTIONS) + ["full_B", "full_ADJUDICATOR"]
-        tally = {name: sum(1 for b in bisected if b[name]["status"] != 200)
+        # Counted over provider verdicts only. A transport failure inside a
+        # bisection would otherwise be tallied as "still refused", which is
+        # how a network blip becomes a claim about the payload.
+        tally = {name: sum(1 for b in bisected if b[name]["status"] >= 400)
                  for name in names}
+        unmeasured_tally = {
+            name: sum(1 for b in bisected if b[name]["status"] < 0)
+            for name in names}
         print("  bisection tally (still refused / sampled):")
         for name, n in tally.items():
-            print(f"    {name:20s} {n}/{len(bisected)}")
+            extra = f"   ({unmeasured_tally[name]} unmeasured)" \
+                if unmeasured_tally[name] else ""
+            print(f"    {name:20s} {n}/{len(bisected)}{extra}")
 
     return {
         "model_key": model_key,
         "identity": IDENTITIES["A"],
+        "panel": _panel_binding(model_key, len(results)),
         "n_items": len(results),
         "n_accepted": len(accepted),
         "n_refused": len(refused),
+        "n_unmeasured": len(unmeasured),
         "refusal_rate": round(len(refused) / len(results), 4) if results
         else None,
+        "classification_rule": (
+            "status 200 is accepted; an HTTP 4xx/5xx is the provider's refusal "
+            "and is the only thing counted in n_refused, refusal_rate, "
+            "by_variant.refused and the size comparison; a negative status "
+            f"means no response arrived after {TRANSPORT_RETRIES} transport "
+            "retries, so the cell is unmeasured rather than refused and is "
+            "never bisected"),
+        "transport_retries": TRANSPORT_RETRIES,
         "error_codes": codes,
+        "transport_errors": transport_codes or None,
         "by_variant": by_variant,
         "request_bytes": sizes,
         "size_hypothesis_refuted": size_refutes,
         "bisections": {k: v for k, v in BISECTIONS.items()},
         "bisection_tally": tally or None,
+        "bisection_unmeasured": unmeasured_tally or None,
         "n_bisected": len(bisected),
         "bisected": bisected,
         "refused_cells": refused,
+        "unmeasured_cells": unmeasured,
         "scanned_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -399,8 +567,19 @@ def probe_cells(targets: list[str], cells: list[str], label: str,
         name = f"{rec['family_id']}/{rec['variant']}"
         full_statuses.setdefault(name, {})[rec["model_key"]] = \
             rec["full"]["status"]
-    divergent = sorted(name for name, per in full_statuses.items()
-                       if len(set(per.values())) > 1)
+    # A divergence is a difference between two VERDICTS. An arm whose response
+    # never arrived has no verdict to differ with, so counting it as a
+    # disagreement would report a network blip as a finding about that arm's
+    # reply -- precisely the claim this probe exists to make or refuse.
+    divergent = sorted(
+        name for name, per in full_statuses.items()
+        if len({status for status in per.values() if status >= 0}) > 1)
+    unmeasured_now = sorted(
+        f"{name} ({arm})" for name, per in full_statuses.items()
+        for arm, status in per.items() if status < 0)
+    if unmeasured_now:
+        print(f"  UNMEASURED (transport failed after {TRANSPORT_RETRIES} "
+              f"retries, so these arms answered nothing): {unmeasured_now}")
     return {
         "identity": IDENTITIES[label],
         "cells": sorted({f"{r['family_id']}/{r['variant']}" for r in results}),
@@ -409,11 +588,14 @@ def probe_cells(targets: list[str], cells: list[str], label: str,
         "per_cell": per_cell,
         "full_payload_status": full_statuses,
         "arms_that_disagree_now": divergent,
+        "arms_unmeasured_now": unmeasured_now,
         "reading": (
             "a cell whose full payload is refused in some arms and accepted in "
             "others AT THE SAME TIME is a function of that arm's reply, not of "
             "the shared history; a cell refused or accepted in all arms now "
-            "but not during the run is a verdict that moved"),
+            "but not during the run is a verdict that moved; an arm listed as "
+            "unmeasured obtained no verdict at all and is evidence about the "
+            "network, not about the cell"),
         "probed_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -472,6 +654,12 @@ def main() -> int:
     ap.add_argument("--json-out", default=None)
     args = ap.parse_args()
 
+    if not BASE_URL or not API_KEY:
+        print("FAIL: no gateway credentials resolved from the environment or "
+              f"{CREDENTIALS_FILE}; this probe spends real requests",
+              file=sys.stderr)
+        return 2
+
     profiles = json.loads(PROFILES_FILE.read_text(encoding="utf-8"))
     targets = (sorted(k[len("iteration_11_"):] for k in profiles
                       if k.startswith("iteration_11_"))
@@ -482,11 +670,14 @@ def main() -> int:
     print(f"targets    {targets}")
 
     if args.cells:
-        probe = probe_cells(
-            targets, [c.strip() for c in args.cells.split(",") if c.strip()],
-            args.identity, args.concurrency)
+        cell_specs = [c.strip() for c in args.cells.split(",") if c.strip()]
+        probe = probe_cells(targets, cell_specs, args.identity,
+                            args.concurrency)
         probe["gateway"] = BASE_URL
         probe["identities"] = IDENTITIES
+        probe.update(provenance())
+        probe["panels"] = {key: _panel_binding(key, len(cell_specs))
+                           for key in targets}
         probe["question"] = (
             "is a cell refused in one arm and served in another a function of "
             "that arm's reply, or of when the request was made")
@@ -505,8 +696,14 @@ def main() -> int:
                     "and is the trigger the shared cell or the target's reply",
         "gateway": BASE_URL,
         "identities": IDENTITIES,
+        **provenance(),
         "max_tokens": 1,
         "concurrency": args.concurrency,
+        "transport_retries": TRANSPORT_RETRIES,
+        "classification": (
+            "a provider refusal is an HTTP 4xx/5xx carrying the gateway's own "
+            "error code; a cell whose request never arrived is unmeasured, is "
+            "reported separately, and is not counted as a refusal"),
         "targets": {},
         "size_ladder": None,
         "started_at": datetime.now(timezone.utc).isoformat(),
@@ -527,7 +724,18 @@ def main() -> int:
     print(f"\nwrote {out}")
 
     total_refused = sum(t["n_refused"] for t in report["targets"].values())
-    print(f"total refused: {total_refused}")
+    total_unmeasured = sum(t["n_unmeasured"]
+                           for t in report["targets"].values())
+    print(f"total refused: {total_refused}   "
+          f"total unmeasured: {total_unmeasured}")
+    if total_unmeasured:
+        # The artifact is written either way, but a scan that did not obtain a
+        # verdict for every cell has not measured the whole panel, and the exit
+        # code is what tells the operator to re-run it.
+        print("INCOMPLETE: some cells obtained no verdict after "
+              f"{TRANSPORT_RETRIES} transport retries; they are listed under "
+              "unmeasured_cells and are NOT refusals", file=sys.stderr)
+        return 3
     return 0
 
 
