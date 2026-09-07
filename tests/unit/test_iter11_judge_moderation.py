@@ -26,6 +26,12 @@ other primary alone. That keeps the arms on one identical panel, and the
 exclusion is outcome-independent -- a refusal is a function of the request
 bytes, so the excluded set was fixed before any label existed.
 
+The confirmatory run then showed that "the request bytes" include the target's
+own reply: judge A additionally refused CMST_456921/text_only in ONE arm and
+served it in three, so the excluded set is the UNION of three cells -- two
+uniform history triggers and one differential reply trigger. Both readings are
+pinned against the committed artifacts below, not only against fakes.
+
 CI-safe: no network. ``requests.post`` is monkeypatched for the transport
 tests and ``MultimodalLLMJudge.judge`` for the pipeline tests.
 """
@@ -843,3 +849,274 @@ class TestScanProvenance:
         assert prov["git_dirty"] is True
         assert prov["code_dirty_paths"] == ["scripts/x.py"]
         assert prov["excluded_own_outputs"] == list(probe.OWN_OUTPUT_PREFIXES)
+
+
+EVIDENCE_DIR = ROOT / "outputs" / "iteration_11" / "diagnostics" \
+    / "judge_moderation"
+SCAN_ARTIFACT = EVIDENCE_DIR / "judge_a_moderation_qwen35_2b.json"
+UNION_PROBE_ARTIFACT = EVIDENCE_DIR \
+    / "cell_probe_exclusion_union_reprobe.json"
+
+#: The 2026-09-07 re-run, taken after all four arms were finalized.
+SCANNED_ITEMS = 600
+SCANNED_ACCEPTED = 598
+SCANNED_REFUSED = 2
+SCANNED_REFUSAL_RATE = 0.0033
+
+#: ``(item_id, family, variant, request_bytes)`` -- the same two cells the
+#: production run recorded in this arm's ``.refusals.json`` sidecar.
+REFUSED_CELLS = [
+    ("item-0164", "CMST_795308", "cross_modal", 1_546_338),
+    ("item-0410", "CMST_795308", "shuffle", 1_547_881),
+]
+
+#: The largest request the provider accepted in the same scan. The size
+#: hypothesis is refuted by this being larger than every refusal.
+LARGEST_ACCEPTED_REQUEST = 2_961_488
+
+#: ``refused_min`` as the pre-fix script computed it, from a body that was
+#: never refused -- a dropped connection on CMST_232475/shuffle. Quoted so the
+#: regression is visible as a number rather than as a prose claim.
+PRE_FIX_REFUSED_MIN = 164_991
+
+HISTORY_TRIGGERED_CELLS = ("CMST_795308/cross_modal", "CMST_795308/shuffle")
+REPLY_TRIGGERED_CELL = "CMST_456921/text_only"
+REPLY_TRIGGERED_ARM = "ministral3_3b"
+ARMS = ("ministral3_3b", "phi4_mm", "qwen35_2b", "qwen35_4b")
+
+
+def _load_evidence(path: Path) -> dict:
+    if not path.exists():
+        pytest.skip(f"{path.name} not committed")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+@pytest.fixture(scope="module")
+def scan_artifact() -> dict:
+    return _load_evidence(SCAN_ARTIFACT)
+
+
+@pytest.fixture(scope="module")
+def scan(scan_artifact) -> dict:
+    return scan_artifact["targets"]["qwen35_2b"]
+
+
+@pytest.fixture(scope="module")
+def union_probe() -> dict:
+    return _load_evidence(UNION_PROBE_ARTIFACT)
+
+
+class TestTheCommittedScanCountedVerdictsNotConnections:
+    """Pin the artifact, not just the code that writes it.
+
+    The first re-run reported five refusals where two were real, because a
+    request that never arrived was filed under ``n_refused``. The unit tests
+    above pin the classification rule against fakes; these pin the committed
+    numbers, so a regeneration that quietly restores the old rule -- or that
+    picks up three more dropped connections and calls them censoring -- fails
+    here with the real counts in the message.
+    """
+
+    def test_it_was_produced_by_committed_code_from_a_clean_tree(
+            self, scan_artifact):
+        assert scan_artifact["produced_by"] == \
+            "scripts/iter11_probe_judge_moderation.py"
+        assert len(scan_artifact["code_commit"]) == 40
+        assert scan_artifact["git_dirty"] is False
+        assert scan_artifact["code_dirty_paths"] == []
+        assert scan_artifact["untracked_code_paths"] == []
+
+    def test_two_refusals_and_nothing_unmeasured(self, scan):
+        assert scan["n_items"] == SCANNED_ITEMS
+        assert scan["n_accepted"] == SCANNED_ACCEPTED
+        assert scan["n_refused"] == SCANNED_REFUSED
+        assert scan["n_unmeasured"] == 0
+        assert scan["refusal_rate"] == SCANNED_REFUSAL_RATE
+        assert scan["unmeasured_cells"] == []
+        assert scan["transport_errors"] is None
+        # The pre-fix sentinel is absent from the codes entirely: had one cell
+        # come back with no response, it would be here rather than hidden.
+        assert "http_-1" not in scan["error_codes"]
+        assert scan["error_codes"] == {"data_inspection_failed": 2}
+
+    def test_the_refused_cells_are_the_two_the_run_recorded(self, scan):
+        got = [(c["item_id"], c["family_id"], c["variant"],
+                c["request_bytes"]) for c in scan["refused_cells"]]
+        assert got == REFUSED_CELLS
+        # Every one is a provider verdict obtained on the first attempt, so no
+        # refusal in this list is a retry that happened to fail.
+        assert all(c["status"] == 400 for c in scan["refused_cells"])
+        assert all(c["transport_attempts"] == 1
+                   for c in scan["refused_cells"])
+        assert all(c["transport_error"] is None
+                   for c in scan["refused_cells"])
+
+    def test_the_variant_tally_is_one_and_one(self, scan):
+        by_variant = scan["by_variant"]
+        assert sum(v["n"] for v in by_variant.values()) == SCANNED_ITEMS
+        refused = {k: v["refused"] for k, v in by_variant.items()
+                   if v["refused"]}
+        assert refused == {"cross_modal": 1, "shuffle": 1}
+        # The pre-fix tally read {"shuffle": 4, "cross_modal": 1}, which is the
+        # shape of a variant-specific trigger. Every slot also carries its own
+        # unmeasured count, so a dropped connection cannot hide in ``n``.
+        assert all(v["unmeasured"] == 0 for v in by_variant.values())
+
+    def test_the_size_comparison_is_over_real_refusals(self, scan):
+        sizes = scan["request_bytes"]
+        assert sizes["refused_min"] == REFUSED_CELLS[0][3]
+        assert sizes["refused_min"] != PRE_FIX_REFUSED_MIN
+        assert sizes["accepted_max"] == LARGEST_ACCEPTED_REQUEST
+        assert sizes["accepted_max"] > sizes["refused_min"]
+        assert scan["size_hypothesis_refuted"] is True
+
+    def test_the_size_ladder_is_all_accepted(self, scan_artifact):
+        ladder = scan_artifact["size_ladder"]
+        assert len(ladder) == 5
+        assert all(step["status"] == 200 for step in ladder)
+        assert all(step["error_code"] is None for step in ladder)
+        # One image is above the downscale threshold and is sent reduced, so
+        # the ladder covers the base64 path as well as the raw one.
+        downscaled = [s for s in ladder if s["downscaled"]]
+        assert len(downscaled) == 1
+        assert downscaled[0]["transmitted_bytes"] < downscaled[0]["raw_bytes"]
+
+    def test_the_bisection_still_isolates_the_history(self, scan):
+        assert scan["bisection_tally"] == {
+            "neutral_response": 2, "no_history": 0, "context_only": 2,
+            "terminal_only": 0, "full_B": 0, "full_ADJUDICATOR": 0}
+        assert set(scan["bisection_unmeasured"]) == \
+            set(scan["bisection_tally"])
+        assert sum(scan["bisection_unmeasured"].values()) == 0
+        assert scan["n_bisected"] == SCANNED_REFUSED
+
+    def test_it_scanned_the_panel_this_arm_was_judged_on(self, scan):
+        panel = scan["panel"]
+        assert panel["n_items_scanned"] == SCANNED_ITEMS
+        path = ROOT / panel["path"]
+        if not path.exists():
+            pytest.skip(f"{panel['path']} not committed")
+        from causal_mllm.validation.relations import _file_sha256
+        # Recomputed rather than trusted: the binding is only worth having if
+        # it still holds against the file in the tree.
+        assert _file_sha256(path) == panel["sha256"]
+
+    def test_the_scan_found_what_the_production_run_recorded(self, scan):
+        """Two runs that share nothing but the payloads agree on the cells.
+
+        The sidecar is written by the judging run that was actually refused;
+        the scan is a re-measurement of the same bytes hours later, from
+        another process, with ``max_tokens=1`` and nothing else in common.
+        That they name the same cells under the same provider code is the
+        evidence that the exclusion set is a property of the payloads and not
+        of one run's circumstances -- which is what makes the exclusion
+        outcome-independent rather than merely asserted to be.
+        """
+        sidecar = ROOT / "outputs" / "iteration_11" / "judge" / "qwen35_2b" \
+            / "llm_labels_judge_A.refusals.json"
+        if not sidecar.exists():
+            pytest.skip("refusal sidecar not committed")
+        recorded = json.loads(
+            sidecar.read_text(encoding="utf-8"))["refusals"]
+        assert [(r["item_id"], r["family_id"], r["variant"])
+                for r in recorded] == \
+            [(c["item_id"], c["family_id"], c["variant"])
+             for c in scan["refused_cells"]]
+        assert {r["error_code"] for r in recorded} == set(scan["error_codes"])
+        assert all(r["judge_id"] == "A" for r in recorded)
+        assert all(r["status"] == 400 for r in recorded)
+
+
+class TestTheUnionReprobeSeparatesTheTwoReadings:
+    """One artifact holding both readings, distinguished by a stated test.
+
+    A cell refused in every arm at the same time is a function of the shared
+    history; a cell refused in one arm and served in three at the same time is
+    a function of that arm's reply. Measuring all three excluded cells across
+    all four arms in one artifact is what makes the distinction observable
+    rather than inferred from two probes taken five hours apart.
+    """
+
+    def test_the_history_cells_are_refused_in_every_arm(self, union_probe):
+        status = union_probe["full_payload_status"]
+        for cell in HISTORY_TRIGGERED_CELLS:
+            assert status[cell] == {arm: 400 for arm in ARMS}
+
+    def test_the_reply_cell_is_refused_in_one_arm_only(self, union_probe):
+        status = union_probe["full_payload_status"][REPLY_TRIGGERED_CELL]
+        assert status[REPLY_TRIGGERED_ARM] == 400
+        assert [arm for arm in ARMS if status[arm] == 200] == \
+            [a for a in ARMS if a != REPLY_TRIGGERED_ARM]
+        assert union_probe["arms_that_disagree_now"] == [REPLY_TRIGGERED_CELL]
+
+    def test_the_differential_trigger_is_the_reply(self, union_probe):
+        cell = union_probe["per_cell"][REPLY_TRIGGERED_CELL][REPLY_TRIGGERED_ARM]
+        # The history alone is accepted and the reply alone is refused -- the
+        # exact inverse of the shared-history signature.
+        assert cell["full"]["status"] == 400
+        assert cell["no_history"]["status"] == 400
+        assert cell["neutral_response"]["status"] == 200
+        assert cell["context_only"]["status"] == 200
+        assert cell["terminal_only"]["status"] == 200
+
+    def test_the_uniform_trigger_is_the_history_in_every_arm(self,
+                                                            union_probe):
+        for cell in HISTORY_TRIGGERED_CELLS:
+            for arm in ARMS:
+                probes = union_probe["per_cell"][cell][arm]
+                assert probes["full"]["status"] == 400, (cell, arm)
+                # Reply replaced and reply removed: still refused.
+                assert probes["neutral_response"]["status"] == 400, (cell, arm)
+                assert probes["context_only"]["status"] == 400, (cell, arm)
+                # History dropped: served.
+                assert probes["no_history"]["status"] == 200, (cell, arm)
+                assert probes["terminal_only"]["status"] == 200, (cell, arm)
+                # The other two frozen identities accept the full payload.
+                assert probes["full_B"]["status"] == 200, (cell, arm)
+                assert probes["full_ADJUDICATOR"]["status"] == 200, (cell, arm)
+
+    def test_no_arm_was_left_without_a_verdict(self, union_probe):
+        assert union_probe["arms_unmeasured_now"] == []
+        assert sorted(union_probe["cells"]) == sorted(
+            list(HISTORY_TRIGGERED_CELLS) + [REPLY_TRIGGERED_CELL])
+        assert tuple(union_probe["targets"]) == ARMS
+
+    def test_it_excluded_the_scan_written_beside_it(self, union_probe):
+        # The narrow exclusion working in the wild: the scan artifact was
+        # sitting uncommitted in this directory when the probe ran, and it is
+        # the ONLY path the probe reports as excluded.
+        assert union_probe["excluded_own_outputs"] == \
+            [str(SCAN_ARTIFACT.relative_to(ROOT))]
+        assert union_probe["git_dirty"] is False
+        assert union_probe["code_dirty_paths"] == []
+        assert union_probe["untracked_code_paths"] == []
+
+    def test_both_artifacts_bind_the_same_panel(self, union_probe, scan):
+        assert union_probe["panels"]["qwen35_2b"]["sha256"] == \
+            scan["panel"]["sha256"]
+        assert all(union_probe["panels"][arm]["sha256"] for arm in ARMS)
+
+
+class TestAProbeArtifactIsWrittenWhereItCanBeFound:
+    """A cell is named ``FAMILY/VARIANT`` everywhere in this project.
+
+    Interpolating that into a default output path puts the artifact in a
+    nested directory named after the family, where nobody looking in the
+    evidence directory will find it.
+    """
+
+    def test_the_separator_does_not_become_a_directory(self):
+        stem = probe._probe_out_stem(
+            ["CMST_456921/text_only", "CMST_795308/cross_modal"])
+        assert "/" not in stem
+        assert "\\" not in stem
+        assert Path(stem).name == stem
+
+    def test_every_probed_cell_is_still_named(self):
+        cells = list(HISTORY_TRIGGERED_CELLS) + [REPLY_TRIGGERED_CELL]
+        stem = probe._probe_out_stem(cells)
+        for cell in cells:
+            assert cell.replace("/", "_") in stem
+
+    def test_a_spec_without_a_separator_is_unchanged(self):
+        assert probe._probe_out_stem(["CMST_795308"]) == "CMST_795308"

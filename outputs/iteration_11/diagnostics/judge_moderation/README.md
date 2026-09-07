@@ -20,14 +20,26 @@ Machine-readable evidence, all of it produced by committed code:
 * `outputs/iteration_11/judge/<model_key>/judge_coverage.json` — the panel each
   arm actually judged, the cells dropped, which identity refused each and the
   provider's own reason. Written when the ensemble finalizes.
-* `judge_a_moderation_<targets>.json` in this directory — the diagnostic scan
+* `judge_a_moderation_qwen35_2b.json` in this directory — the diagnostic scan
   and its payload bisection, which is what localized the trigger to the shared
   history rather than to any model's response. Written by
   `scripts/iter11_probe_judge_moderation.py`; it costs ~600 requests per arm,
-  so it is run once the primary judging is not competing for the gateway.
+  so it is run once the primary judging is not competing for the gateway. The
+  committed artifact is the 2026-09-07 re-run at `code_commit` `f63e004`
+  (`git_dirty: false`), taken after all four arms were finalized, and it
+  reproduces the 2026-09-06 scan cell for cell.
+* `cell_probe_CMST_456921_text_only.json` — the targeted re-probe that found
+  the third cell's trigger in one arm's own reply (2026-09-07 01:07 UTC).
+* `cell_probe_exclusion_union_reprobe.json` — all three excluded cells across
+  all four arms at once (84 requests, 2026-09-07 06:23 UTC, `code_commit`
+  `f63e004`), which re-measures the whole exclusion set in one artifact rather
+  than one cell at a time. Same verdicts as the run five hours earlier.
 
-The numbers quoted below are from that scan over `qwen35_2b`'s arm plus direct
-probes of the same two cells in the other three arms.
+The numbers quoted below are from the 2026-09-06 scan over `qwen35_2b`'s arm
+plus direct probes of the same two cells in the other three arms. The
+"Re-run after judging" section below states what the 2026-09-07 artifacts
+reproduced — all of it — and what they corrected, which is a counting rule in
+the scan rather than a finding about the panel.
 
 ## What was observed
 
@@ -429,12 +441,178 @@ label is affected — but any claim about judge A's behaviour on overtly unsafe
 histories is unsupported by this run, and the 11.8 sensitivity analysis should
 not be read as covering them.
 
+## Re-run after judging: what it reproduced, and the defect it found in the scan
+
+The 2026-09-06 scan ran while judge A was still being resumed, so it was
+competing with production judging for the same gateway and answering its
+question about a run that had not finished. It was re-run on 2026-09-07 from
+05:08 to 06:07 UTC — 600 cells at concurrency 8, 59 minutes — after all four
+arms were finalized and nothing else was using the gateway.
+
+Two conditions were imposed that the original did not meet. It was launched
+from a clean tree, so the artifact records `code_commit f63e004…` with
+`git_dirty: false` and a reader can check out the exact counting rule that
+produced every number in it. And it binds the panel it scanned by hash —
+`outputs/iteration_11/judge/qwen35_2b/blinded_items.json`, sha256
+`402beb1a63bd07c2…`, 600 items — so it cannot be read as a scan of some other
+panel than the one this arm was judged on.
+
+### What it reproduced
+
+Everything the earlier scan concluded, on the same two cells:
+
+    n_items 600   n_accepted 598   n_refused 2   n_unmeasured 0   refusal_rate 0.0033
+    error_codes  {'data_inspection_failed': 2}
+    item-0164  CMST_795308/cross_modal  400  1,546,338 bytes
+    item-0410  CMST_795308/shuffle      400  1,547,881 bytes
+    bisection  neutral_response 2/2   context_only 2/2   no_history 0/2
+               terminal_only 0/2      full_B 0/2         full_ADJUDICATOR 0/2
+    size ladder  87,986 / 1,178,678 / 1,525,862 / 1,896,942 bytes -> all 200
+                 plus one image downscaled 58,307,665 -> 566,915 -> 200
+    accepted_max 2,961,488  >  refused_min 1,546,338
+
+Two cells, both of family `CMST_795308`, both refused by judge A's provider
+under its own `data_inspection_failed` code, both still refused with this
+target's reply replaced by `"OK."` and with the reply removed entirely, both
+served once the shared history is dropped, and both served by judge B and by
+the adjudicator on the full payload. The size hypothesis is refuted again on
+the same numbers: the largest request the provider accepted in this scan is
+nearly twice the size of the smallest one it refused. Nothing in the exclusion
+set, and nothing in the 11.8 reading of it, changes.
+
+### What it corrected: dropped connections had been counted as refusals
+
+The first attempt at the re-run came back with five refusals, not two:
+
+    n_refused 5   refusal_rate 0.0083
+    error_codes  {'http_-1': 3, 'data_inspection_failed': 2}
+
+Three of the five had no HTTP response at all. `http_-1` is this script's own
+sentinel for "the request never arrived" — a timeout, a reset, a TLS failure —
+and the version of the script that ran filed it under `n_refused`, because it
+classified anything that was not a 200 as the provider's verdict. That is a
+category error, and it damaged four numbers in an artifact whose whole purpose
+is to be cited:
+
+* the refusal rate was 0.0083 instead of 0.0033 — two and a half times the real
+  one — in the only quantity in the artifact that is a rate;
+* the `shuffle` variant was credited with four refusals when one was real. All
+  three transport failures happened to land in `shuffle`, so a reader checking
+  whether refusals cluster by variant would have found that they do, which is
+  the shape of evidence for a variant-specific trigger;
+* the size comparison, whose entire job is to refute the size hypothesis, was
+  computed over a `refused_min` of 164,991 bytes taken from a body the provider
+  never refused, and a `refused_max` of 1,952,510 that was an accepted payload.
+  The hypothesis was still refuted, but on numbers that did not mean what they
+  said;
+* the script spent 18 bisection requests — three cells x six probes — localizing
+  a trigger that did not exist.
+
+All 18 returned 200, and that is how the three were identified as transport
+rather than moderation. It is also checkable without the pre-fix artifact:
+`bisection_tally` is identical between the pre-fix run, which bisected five
+cells, and the fixed one, which bisected two, because a tally of provider
+verdicts only moves when a provider refuses. Three extra cells entered the
+bisection and left no mark on it.
+
+The commit message for `f63e004` puts this at seven requests apiece, which is
+21. The code sends six per bisected cell — the four `_bisection_kwargs`
+variants, then the same full payload to judge B and to the adjudicator — so 18
+is the count and the message is one per cell high. Both numbers are left where
+they are rather than reconciled silently, because a message that has been
+pushed cannot be corrected, and a reader who finds the two should be able to
+see which one the code supports.
+
+The three were `item-0062` `CMST_501124/shuffle` (1,952,510 bytes), `item-0258`
+`CMST_232475/shuffle` (164,991) and `item-0299` `CMST_010907/shuffle` (343,731).
+None is in the exclusion set, and none is in any arm's `.refusals.json` — the
+production pipeline was already correct about this distinction and only the
+diagnostic was not. In the fixed run all three obtained a 200. The artifact does
+not list accepted cells individually, but `n_items 600` with `n_unmeasured 0`
+and a `refused_cells` list of exactly the two real ones leaves no other verdict
+for them.
+
+The fix is in `scripts/iter11_probe_judge_moderation.py` and is tested offline
+in `tests/unit/test_iter11_judge_moderation.py`. Transport failures are retried
+up to `TRANSPORT_RETRIES` (3), and only transport failures are retried —
+re-asking a question the gateway has already answered spends requests and proves
+nothing, which the eleven stable retries in the production run had already
+established. A cell that still has no response afterwards is `unmeasured`: it
+gets its own count, its own per-variant slot and its own cell list, it is never
+bisected, and its presence makes the exit code 3, so an incomplete scan cannot
+be filed as a complete one. The artifact states the rule it used in
+`classification_rule` rather than leaving a reader to infer it from the code.
+
+The pre-fix run is deliberately NOT committed as evidence. Its numbers are
+quoted here because they are the reason the classification rule exists, and
+because 0.0083 was briefly a number in this project's history that a future
+reader could otherwise stumble on; but the artifact was produced by a counting
+rule this project has since declared wrong, and filing it beside the corrected
+one would give it the same standing.
+
+### The whole exclusion set, re-measured in one artifact
+
+`cell_probe_exclusion_union_reprobe.json` re-probes all three excluded cells
+across all four arms at once — 84 requests, 2026-09-07 06:23 UTC, same
+`code_commit`, `git_dirty: false` — instead of one cell at a time as the 01:07
+UTC probe did. It reproduces both readings and separates them by the test that
+distinguishes them, which is whether the arms disagree at the SAME time:
+
+| cell | ministral3_3b | phi4_mm | qwen35_2b | qwen35_4b | reading |
+| --- | --- | --- | --- | --- | --- |
+| `CMST_795308/cross_modal` | 400 | 400 | 400 | 400 | history trigger, uniform |
+| `CMST_795308/shuffle` | 400 | 400 | 400 | 400 | history trigger, uniform |
+| `CMST_456921/text_only` | **400** | 200 | 200 | 200 | reply trigger, differential |
+
+Both `CMST_795308` cells bisect identically in all four arms — 400 with the
+reply replaced and 400 with the reply removed, 200 with the history dropped and
+200 with only the terminal query, 200 from B and from the adjudicator on the
+full payload — which is the shared-history signature, and is what makes their
+exclusion uniform censoring. `CMST_456921/text_only` inverts it in the one arm
+that refuses it: `no_history` is 400 while `neutral_response` and
+`context_only` are 200, so the history is accepted and the reply alone is
+refused. That cell's exclusion is a function of what `ministral3_3b` said, and
+the artifact names it in `arms_that_disagree_now`.
+
+`arms_unmeasured_now` is empty, which is the part that makes the table above
+readable: every arm obtained a verdict on every cell, so a 200 in this table is
+an acceptance and not an absence of evidence.
+
+The re-probe also exercises the narrow provenance exclusion in the wild. By the
+time it ran, the scan artifact was sitting uncommitted in this directory, and
+`excluded_own_outputs` lists exactly that one file —
+`judge_a_moderation_qwen35_2b.json` — with `code_dirty_paths` and
+`untracked_code_paths` both empty. A diagnostic that writes into the tree it is
+measuring can otherwise invalidate itself; this is the mechanism not doing so,
+with the excluded path named rather than silently dropped.
+
 ## Reproducing
 
+    # one arm: ~600 requests, ~1h at concurrency 8
     python3 scripts/iter11_probe_judge_moderation.py --target qwen35_2b
+    # every arm
     python3 scripts/iter11_probe_judge_moderation.py --all-targets
+    # a trial first; 40 cells is enough to see the shape of the output
+    python3 scripts/iter11_probe_judge_moderation.py --limit 40
+    # just the excluded cells, in every arm: 3 cells x 4 arms x 7 requests
+    python3 scripts/iter11_probe_judge_moderation.py --all-targets --json-out \
+        outputs/iteration_11/diagnostics/judge_moderation/cell_probe_exclusion_union_reprobe.json \
+        --cells CMST_456921/text_only,CMST_795308/cross_modal,CMST_795308/shuffle
+
+`--cells` takes comma-separated `FAMILY/VARIANT` specs. Exit codes: 0 every cell
+obtained a verdict; 2 no gateway credentials resolved; 3 the artifact was
+written but some cells are `unmeasured`, so the scan is incomplete and should be
+re-run rather than cited.
 
 `max_tokens=1` keeps the cost near zero — only the input is moderated, so the
 verdict does not depend on the completion. The scan reads the pipeline's own
 committed `blinded_items.json` rather than re-deriving it, so it measures the
-payloads that were actually sent.
+payloads that were actually sent, and binds that file by sha256 under `panel`.
+
+Run it from a clean tree. The artifact records `code_commit` and `git_dirty` for
+the code that produced it; a `git_dirty: true` scan is still usable but cannot
+be checked out and re-derived, which matters here because the classification
+rule changed between the two 2026-09-07 runs, so the commit is what tells a
+reader which rule the counts came from. This stage's own output directory is
+excluded from that check and the excluded paths are listed in the artifact, so
+writing the result does not invalidate it.

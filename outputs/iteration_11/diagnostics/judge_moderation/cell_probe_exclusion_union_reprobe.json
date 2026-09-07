@@ -1,0 +1,656 @@
+{
+  "identity": "qwen3.8-max",
+  "cells": [
+    "CMST_456921/text_only",
+    "CMST_795308/cross_modal",
+    "CMST_795308/shuffle"
+  ],
+  "targets": [
+    "ministral3_3b",
+    "phi4_mm",
+    "qwen35_2b",
+    "qwen35_4b"
+  ],
+  "n_requests": 84,
+  "per_cell": {
+    "CMST_456921/text_only": {
+      "ministral3_3b": {
+        "model_key": "ministral3_3b",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "410407483e1c1db7dcf2e6ddb7f6be8beac46a50041e6ccdec6c34e1bfca8873",
+        "response_chars": 1707,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 10919,
+          "n_images": 0,
+          "request_bytes": 11438
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 10501
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:20:52.846146+00:00"
+      },
+      "phi4_mm": {
+        "model_key": "phi4_mm",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "32bee6de42b626a686a9e27c968d1fcad261bfcc805e51fa3238f9e2b0b08c0e",
+        "response_chars": 499,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9711,
+          "n_images": 0,
+          "request_bytes": 10200
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9293
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:21:48.886320+00:00"
+      },
+      "qwen35_2b": {
+        "model_key": "qwen35_2b",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "f015b78ceab1de3b99b1817286215ef064f99d94c641221aa6c26a01db4f990b",
+        "response_chars": 4270,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 13482,
+          "n_images": 0,
+          "request_bytes": 14017
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 13064
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:22:46.821471+00:00"
+      },
+      "qwen35_4b": {
+        "model_key": "qwen35_4b",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "bb1ec2b98675f4292dbb5699177041364f041f3220cfaab584523b992df2b4c1",
+        "response_chars": 313,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9525,
+          "n_images": 0,
+          "request_bytes": 10014
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9107
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:22:24.332298+00:00"
+      }
+    },
+    "CMST_795308/cross_modal": {
+      "ministral3_3b": {
+        "model_key": "ministral3_3b",
+        "item_id": "item-0164",
+        "family_id": "CMST_795308",
+        "variant": "cross_modal",
+        "response_sha256": "09b33b00078313415b6a605ddf64e4dbcba9185bf46203c6f0595e2162f3c552",
+        "response_chars": 976,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 10260,
+          "n_images": 1,
+          "request_bytes": 1547060
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9903
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:21:17.019991+00:00"
+      },
+      "phi4_mm": {
+        "model_key": "phi4_mm",
+        "item_id": "item-0164",
+        "family_id": "CMST_795308",
+        "variant": "cross_modal",
+        "response_sha256": "e1ac1f0e17edf1f223149b7287806282d5516b56af40e6f9a5ff890e5c947095",
+        "response_chars": 577,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9861,
+          "n_images": 1,
+          "request_bytes": 1546605
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9504
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:21:22.120437+00:00"
+      },
+      "qwen35_2b": {
+        "model_key": "qwen35_2b",
+        "item_id": "item-0164",
+        "family_id": "CMST_795308",
+        "variant": "cross_modal",
+        "response_sha256": "00dd5b73b898d43a17d242ae9ae78408aeb30409b4f40463914029117c4767fc",
+        "response_chars": 310,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9594,
+          "n_images": 1,
+          "request_bytes": 1546338
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9237
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:20:52.501984+00:00"
+      },
+      "qwen35_4b": {
+        "model_key": "qwen35_4b",
+        "item_id": "item-0164",
+        "family_id": "CMST_795308",
+        "variant": "cross_modal",
+        "response_sha256": "6a119077f443b8f0f471e29e155cbedf7f9b39aa8bd2378926d73bf69d9f548f",
+        "response_chars": 1110,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 10394,
+          "n_images": 1,
+          "request_bytes": 1547226
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 10037
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:22:10.362927+00:00"
+      }
+    },
+    "CMST_795308/shuffle": {
+      "ministral3_3b": {
+        "model_key": "ministral3_3b",
+        "item_id": "item-0410",
+        "family_id": "CMST_795308",
+        "variant": "shuffle",
+        "response_sha256": "86500d820d05db382742787584f8b8f33f313aa4ef0c099ea69d22e4eb33f31c",
+        "response_chars": 676,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9960,
+          "n_images": 1,
+          "request_bytes": 1546737
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9603
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:21:36.169945+00:00"
+      },
+      "phi4_mm": {
+        "model_key": "phi4_mm",
+        "item_id": "item-0410",
+        "family_id": "CMST_795308",
+        "variant": "shuffle",
+        "response_sha256": "dd74ecd97f21f6296a8f8d4918bf3fa92707eb0e2ce546c965189b5ce1b00da3",
+        "response_chars": 298,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9582,
+          "n_images": 1,
+          "request_bytes": 1546326
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9225
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:20:41.513204+00:00"
+      },
+      "qwen35_2b": {
+        "model_key": "qwen35_2b",
+        "item_id": "item-0410",
+        "family_id": "CMST_795308",
+        "variant": "shuffle",
+        "response_sha256": "b476c7a728d214ace35af22b0d75fefd8c10b77fcd0e1bb67ee22618b4b6d2a9",
+        "response_chars": 1831,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 11115,
+          "n_images": 1,
+          "request_bytes": 1547881
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 10758
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:23:18.809843+00:00"
+      },
+      "qwen35_4b": {
+        "model_key": "qwen35_4b",
+        "item_id": "item-0410",
+        "family_id": "CMST_795308",
+        "variant": "shuffle",
+        "response_sha256": "7078a073b698c6483de1a8b9599d3ef37ece5b3d34ad71bb256a6699b830100d",
+        "response_chars": 1359,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 10643,
+          "n_images": 1,
+          "request_bytes": 1547615
+        },
+        "neutral_response": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 10286
+        },
+        "context_only": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 9287
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8930
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T06:23:17.193548+00:00"
+      }
+    }
+  },
+  "full_payload_status": {
+    "CMST_456921/text_only": {
+      "ministral3_3b": 400,
+      "phi4_mm": 200,
+      "qwen35_2b": 200,
+      "qwen35_4b": 200
+    },
+    "CMST_795308/cross_modal": {
+      "ministral3_3b": 400,
+      "phi4_mm": 400,
+      "qwen35_2b": 400,
+      "qwen35_4b": 400
+    },
+    "CMST_795308/shuffle": {
+      "ministral3_3b": 400,
+      "phi4_mm": 400,
+      "qwen35_2b": 400,
+      "qwen35_4b": 400
+    }
+  },
+  "arms_that_disagree_now": [
+    "CMST_456921/text_only"
+  ],
+  "arms_unmeasured_now": [],
+  "reading": "a cell whose full payload is refused in some arms and accepted in others AT THE SAME TIME is a function of that arm's reply, not of the shared history; a cell refused or accepted in all arms now but not during the run is a verdict that moved; an arm listed as unmeasured obtained no verdict at all and is evidence about the network, not about the cell",
+  "probed_at": "2026-09-07T06:23:18.811328+00:00",
+  "gateway": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+  "identities": {
+    "A": "qwen3.8-max",
+    "B": "glm-5.2",
+    "ADJUDICATOR": "kimi-k3"
+  },
+  "produced_by": "scripts/iter11_probe_judge_moderation.py",
+  "kind": "iteration_11_judge_moderation_scan_v1",
+  "code_commit": "f63e004aa0e0eccd0850a703b02cacf5ab676357",
+  "git_dirty": false,
+  "code_dirty_paths": [],
+  "untracked_code_paths": [],
+  "excluded_own_outputs": [
+    "outputs/iteration_11/diagnostics/judge_moderation/judge_a_moderation_qwen35_2b.json"
+  ],
+  "excluded_cache_paths": [],
+  "panels": {
+    "ministral3_3b": {
+      "model_key": "ministral3_3b",
+      "path": "outputs/iteration_11/judge/ministral3_3b/blinded_items.json",
+      "sha256": "335171d7d0183a751bb9f7d8fd3a6aeb21240e20e7569a4c633d576a9c6cab1b",
+      "n_items_scanned": 3
+    },
+    "phi4_mm": {
+      "model_key": "phi4_mm",
+      "path": "outputs/iteration_11/judge/phi4_mm/blinded_items.json",
+      "sha256": "9728a65baa21aedfa1021d26cb7d725ab448f6977526fe8fc6fb610e89091968",
+      "n_items_scanned": 3
+    },
+    "qwen35_2b": {
+      "model_key": "qwen35_2b",
+      "path": "outputs/iteration_11/judge/qwen35_2b/blinded_items.json",
+      "sha256": "402beb1a63bd07c2fded0b672ddeb1ea47db3fd57b58af20db6580839b29745b",
+      "n_items_scanned": 3
+    },
+    "qwen35_4b": {
+      "model_key": "qwen35_4b",
+      "path": "outputs/iteration_11/judge/qwen35_4b/blinded_items.json",
+      "sha256": "2a17f4cec07570dc61558e900698994e3bceaadec2a335e1cbff09554f7255da",
+      "n_items_scanned": 3
+    }
+  },
+  "question": "is a cell refused in one arm and served in another a function of that arm's reply, or of when the request was made"
+}

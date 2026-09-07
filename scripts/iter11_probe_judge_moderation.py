@@ -250,6 +250,19 @@ def _panel_binding(model_key: str, n_scanned: int) -> dict:
     }
 
 
+def _probe_out_stem(cell_specs: list[str]) -> str:
+    """A filename stem for a ``--cells`` probe, from specs holding a separator.
+
+    ``FAMILY/VARIANT`` is how a cell is named everywhere else in this project,
+    and interpolating one into a default output path would silently place the
+    artifact in a nested directory named after the family. Evidence that has to
+    be searched for is evidence that goes unread, so the separator becomes an
+    underscore and the artifact lands in :data:`OUT_DIR` beside the scan it
+    explains.
+    """
+    return "_".join(spec.replace("/", "_") for spec in cell_specs)
+
+
 def _render(label: str, item: dict, *, response: str | None = None,
             history: list | None = None) -> tuple[str, list]:
     judge = _JUDGES[label]
@@ -682,7 +695,7 @@ def main() -> int:
             "is a cell refused in one arm and served in another a function of "
             "that arm's reply, or of when the request was made")
         out = Path(args.json_out) if args.json_out else \
-            OUT_DIR / f"cell_probe_{'_'.join(probe['cells'])}.json"
+            OUT_DIR / f"cell_probe_{_probe_out_stem(probe['cells'])}.json"
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(json.dumps(probe, indent=2, ensure_ascii=False),
                        encoding="utf-8")

@@ -1,0 +1,261 @@
+{
+  "question": "which cells does a judge's provider refuse to moderate, and is the trigger the shared cell or the target's reply",
+  "gateway": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+  "identities": {
+    "A": "qwen3.8-max",
+    "B": "glm-5.2",
+    "ADJUDICATOR": "kimi-k3"
+  },
+  "produced_by": "scripts/iter11_probe_judge_moderation.py",
+  "kind": "iteration_11_judge_moderation_scan_v1",
+  "code_commit": "f63e004aa0e0eccd0850a703b02cacf5ab676357",
+  "git_dirty": false,
+  "code_dirty_paths": [],
+  "untracked_code_paths": [],
+  "excluded_own_outputs": [],
+  "excluded_cache_paths": [],
+  "max_tokens": 1,
+  "concurrency": 8,
+  "transport_retries": 3,
+  "classification": "a provider refusal is an HTTP 4xx/5xx carrying the gateway's own error code; a cell whose request never arrived is unmeasured, is reported separately, and is not counted as a refusal",
+  "targets": {
+    "qwen35_2b": {
+      "model_key": "qwen35_2b",
+      "identity": "qwen3.8-max",
+      "panel": {
+        "model_key": "qwen35_2b",
+        "path": "outputs/iteration_11/judge/qwen35_2b/blinded_items.json",
+        "sha256": "402beb1a63bd07c2fded0b672ddeb1ea47db3fd57b58af20db6580839b29745b",
+        "n_items_scanned": 600
+      },
+      "n_items": 600,
+      "n_accepted": 598,
+      "n_refused": 2,
+      "n_unmeasured": 0,
+      "refusal_rate": 0.0033,
+      "classification_rule": "status 200 is accepted; an HTTP 4xx/5xx is the provider's refusal and is the only thing counted in n_refused, refusal_rate, by_variant.refused and the size comparison; a negative status means no response arrived after 3 transport retries, so the cell is unmeasured rather than refused and is never bisected",
+      "transport_retries": 3,
+      "error_codes": {
+        "data_inspection_failed": 2
+      },
+      "transport_errors": null,
+      "by_variant": {
+        "vision_only": {
+          "n": 100,
+          "refused": 0,
+          "unmeasured": 0
+        },
+        "history_reset": {
+          "n": 100,
+          "refused": 0,
+          "unmeasured": 0
+        },
+        "shuffle": {
+          "n": 100,
+          "refused": 1,
+          "unmeasured": 0
+        },
+        "cross_modal": {
+          "n": 100,
+          "refused": 1,
+          "unmeasured": 0
+        },
+        "text_only": {
+          "n": 100,
+          "refused": 0,
+          "unmeasured": 0
+        },
+        "neutral": {
+          "n": 100,
+          "refused": 0,
+          "unmeasured": 0
+        }
+      },
+      "request_bytes": {
+        "accepted_min": 9712,
+        "accepted_max": 2961488,
+        "refused_min": 1546338,
+        "refused_max": 1547881
+      },
+      "size_hypothesis_refuted": true,
+      "bisections": {
+        "neutral_response": "the cell with this target's reply removed",
+        "no_history": "the reply alone, with no multi-turn context",
+        "context_only": "the shared context alone, with no reply",
+        "terminal_only": "the terminal query alone"
+      },
+      "bisection_tally": {
+        "neutral_response": 2,
+        "no_history": 0,
+        "context_only": 2,
+        "terminal_only": 0,
+        "full_B": 0,
+        "full_ADJUDICATOR": 0
+      },
+      "bisection_unmeasured": {
+        "neutral_response": 0,
+        "no_history": 0,
+        "context_only": 0,
+        "terminal_only": 0,
+        "full_B": 0,
+        "full_ADJUDICATOR": 0
+      },
+      "n_bisected": 2,
+      "bisected": [
+        {
+          "item_id": "item-0164",
+          "family_id": "CMST_795308",
+          "variant": "cross_modal",
+          "neutral_response": {
+            "status": 400,
+            "error_code": "data_inspection_failed",
+            "prompt_chars": 9287
+          },
+          "no_history": {
+            "status": 200,
+            "error_code": null,
+            "prompt_chars": 9237
+          },
+          "context_only": {
+            "status": 400,
+            "error_code": "data_inspection_failed",
+            "prompt_chars": 9287
+          },
+          "terminal_only": {
+            "status": 200,
+            "error_code": null,
+            "prompt_chars": 8930
+          },
+          "full_B": {
+            "status": 200,
+            "error_code": null
+          },
+          "full_ADJUDICATOR": {
+            "status": 200,
+            "error_code": null
+          }
+        },
+        {
+          "item_id": "item-0410",
+          "family_id": "CMST_795308",
+          "variant": "shuffle",
+          "neutral_response": {
+            "status": 400,
+            "error_code": "data_inspection_failed",
+            "prompt_chars": 9287
+          },
+          "no_history": {
+            "status": 200,
+            "error_code": null,
+            "prompt_chars": 10758
+          },
+          "context_only": {
+            "status": 400,
+            "error_code": "data_inspection_failed",
+            "prompt_chars": 9287
+          },
+          "terminal_only": {
+            "status": 200,
+            "error_code": null,
+            "prompt_chars": 8930
+          },
+          "full_B": {
+            "status": 200,
+            "error_code": null
+          },
+          "full_ADJUDICATOR": {
+            "status": 200,
+            "error_code": null
+          }
+        }
+      ],
+      "refused_cells": [
+        {
+          "index": 164,
+          "item_id": "item-0164",
+          "family_id": "CMST_795308",
+          "variant": "cross_modal",
+          "n_images": 1,
+          "prompt_chars": 9594,
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "error_message": "Input text data may contain inappropriate content.",
+          "request_bytes": 1546338,
+          "transport_attempts": 1,
+          "transport_error": null,
+          "prompt_sha256": "540454b587112ec7f9829e676f59c51ea8e96355779d2df9c7b0d61e009a0e4d"
+        },
+        {
+          "index": 410,
+          "item_id": "item-0410",
+          "family_id": "CMST_795308",
+          "variant": "shuffle",
+          "n_images": 1,
+          "prompt_chars": 11115,
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "error_message": "Input text data may contain inappropriate content.",
+          "request_bytes": 1547881,
+          "transport_attempts": 1,
+          "transport_error": null,
+          "prompt_sha256": "39a5e61c65fca776fa5b4bad24a398ecf45e1c3219c434c40229ac8b1ca2dd3d"
+        }
+      ],
+      "unmeasured_cells": [],
+      "scanned_at": "2026-09-07T06:06:58.916382+00:00"
+    }
+  },
+  "size_ladder": [
+    {
+      "image": "mtmcs_type_b_716_main.png",
+      "raw_bytes": 57660,
+      "transmitted_bytes": 57660,
+      "downscaled": false,
+      "base64_bytes": 76880,
+      "request_bytes": 87986,
+      "status": 200,
+      "error_code": null
+    },
+    {
+      "image": "mtmcs_type_b_436_variant0.png",
+      "raw_bytes": 875677,
+      "transmitted_bytes": 875677,
+      "downscaled": false,
+      "base64_bytes": 1167572,
+      "request_bytes": 1178678,
+      "status": 200,
+      "error_code": null
+    },
+    {
+      "image": "mtmcs_type_b_27_variant2.png",
+      "raw_bytes": 1136065,
+      "transmitted_bytes": 1136065,
+      "downscaled": false,
+      "base64_bytes": 1514756,
+      "request_bytes": 1525862,
+      "status": 200,
+      "error_code": null
+    },
+    {
+      "image": "mtmcs_type_b_52_variant0.png",
+      "raw_bytes": 1414375,
+      "transmitted_bytes": 1414375,
+      "downscaled": false,
+      "base64_bytes": 1885836,
+      "request_bytes": 1896942,
+      "status": 200,
+      "error_code": null
+    },
+    {
+      "image": "mtmcs_type_b_139_main.png",
+      "raw_bytes": 58307665,
+      "transmitted_bytes": 566915,
+      "downscaled": true,
+      "base64_bytes": 755888,
+      "request_bytes": 766995,
+      "status": 200,
+      "error_code": null
+    }
+  ],
+  "started_at": "2026-09-07T05:08:21.453229+00:00"
+}
