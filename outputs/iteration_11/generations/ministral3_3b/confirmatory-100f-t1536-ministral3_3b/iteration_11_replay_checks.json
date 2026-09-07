@@ -43,7 +43,18 @@
   "media": {
     "issues": [],
     "n_issues": 0,
-    "ok": true
+    "ok": true,
+    "manifest_path": "outputs/iteration_11/media_manifest.json",
+    "manifest_rollup_sha256": "49637e1ced11db8e70b687f8d845b03e1d71384f92b7e9c3d42d3d437442152b",
+    "manifest_scope": "whole_media_tree",
+    "n_referenced_images": 100,
+    "n_hashed_here": 100,
+    "n_absent_here": 0,
+    "absent_images": [],
+    "n_referenced_but_unbound": 0,
+    "families_whose_images_could_not_be_hashed_here": [],
+    "n_families_whose_images_could_not_be_hashed_here": 0,
+    "verifiable_here": true
   },
   "truncation": {
     "overall_rate": 0.0016666666666666668,
@@ -87,9 +98,10 @@
     "issues": [],
     "ok": true
   },
-  "verdict": "PASS",
   "failures": [],
   "warnings": [
-    "1 truncated record(s); the frozen uniform_cap_rule forbids raising the cap for one variant or checkpoint — choose a new UNIFORM cap and rerun ALL FIVE targets including Qwen3.5-9B, retaining this evidence"
-  ]
+    "1 truncated record(s), within the registered tolerance (rate 0.0017 <= 0.02, variant spread 0.0100 <= 0.05); uniform-cap escalation is NOT triggered and the panel is accepted with all its cells"
+  ],
+  "verdict": "PASS",
+  "unverifiable_sections": []
 }

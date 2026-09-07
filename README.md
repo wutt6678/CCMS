@@ -1401,12 +1401,22 @@ that could not run is not a check that passed, and not FAIL, since nothing was
 found wrong — while an image that is present and differs from its bound digest
 still fails. And the media now have a committed identity,
 [`outputs/iteration_11/media_manifest.json`](outputs/iteration_11/media_manifest.json),
-which binds all 3,034 files by path, SHA-256 and size so "not present here" can
-be told apart from "present and different"; they are source photographs and
-rendered composites carried in from the dataset releases, so binding is the
-available option and deterministic materialization from a checkout is not.
-`--verify` skips a section this checkout cannot verify and names it instead of
-comparing it, and a genuine media failure is still caught because it lands in
+which binds all 3,034 files — 3,698,064,267 bytes, roll-up
+`49637e1ced11db8e70b687f8d845b03e1d71384f92b7e9c3d42d3d437442152b` — by path,
+SHA-256 and size, so "not present here" can be told apart from "present and
+different"; the 100 images the frozen panel actually references are a subset
+with their own roll-up,
+`d41dfe16a85c2d811b49b56a3ed2dc25058263242f32abe3bc3f436b9b4cc08b` over
+138,999,976 bytes, which `--verify --panel-only` checks on its own. They are
+source photographs and rendered composites carried in from the dataset
+releases, so binding is the available option and deterministic materialization
+from a checkout is not. The manifest's roll-up is recomputable from the manifest
+alone, so a checkout holding none of the media can still check that the binding
+is self-consistent and that it covers every image the panel references — which
+is what the last two test classes in
+[`tests/unit/test_iter11_completion_gate.py`](tests/unit/test_iter11_completion_gate.py)
+do. `--verify` skips a section this checkout cannot verify and names it instead
+of comparing it, and a genuine media failure is still caught because it lands in
 the top-level `verdict` and `failures`, which are never skipped.
 
 ## Schema Reports

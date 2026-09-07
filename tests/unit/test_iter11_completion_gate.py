@@ -34,6 +34,7 @@ import ast
 import hashlib
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -663,3 +664,155 @@ class TestTheManifestBindsTheTree:
         code, issues = manifest_producer.verify(path)
         assert code == 1
         assert "not a measurement of anything" in issues[0]
+
+
+# ---------------------------------------------------------------------------
+# The committed evidence
+# ---------------------------------------------------------------------------
+# None of this needs the media. The manifest is committed even though the bytes
+# it binds are not, so a checkout holding 20 of 3,034 files can still check that
+# the identity is self-consistent, that it covers every image the frozen panel
+# references, and that the four filed reports were checked against it. That is
+# the whole reason to bind rather than to hope.
+
+MANIFEST_PATH = ROOT / "outputs" / "iteration_11" / "media_manifest.json"
+GENERATIONS = ROOT / "outputs" / "iteration_11" / "generations"
+TARGETS = ("ministral3_3b", "phi4_mm", "qwen35_2b", "qwen35_4b")
+
+#: Measured on the tree the manifest was written from.
+BOUND_FILES = 3034
+BOUND_BYTES = 3_698_064_267
+BOUND_ROLLUP = ("49637e1ced11db8e70b687f8d845b03e1d71384f"
+                "92b7e9c3d42d3d437442152b")
+PANEL_IMAGES = 100
+PANEL_BYTES = 138_999_976
+PANEL_ROLLUP = ("d41dfe16a85c2d811b49b56a3ed2dc25058263242f"
+                "32abe3bc3f436b9b4cc08b")
+
+#: How many of the bound files a fresh checkout actually holds, and how many
+#: cells each target truncated -- the README's "qwen35_2b 7, phi4_mm 4,
+#: ministral3_3b 1, qwen35_4b 0".
+TRACKED_MEDIA_FILES = 20
+TRUNCATED = {"qwen35_2b": 7, "phi4_mm": 4, "ministral3_3b": 1, "qwen35_4b": 0}
+
+
+def _committed_manifest() -> dict:
+    assert MANIFEST_PATH.exists(), \
+        f"{MANIFEST_PATH} is the committed identity of data/media; without it " \
+        f"no checkout can tell an absent image from a changed one"
+    return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+
+
+def _report(target: str) -> dict:
+    matches = sorted(GENERATIONS.glob(f"{target}/*/{checks.CHECKS_FILE}"))
+    assert len(matches) == 1, \
+        f"{target}: expected exactly one filed completion report, found " \
+        f"{[str(m) for m in matches]}"
+    return json.loads(matches[0].read_text(encoding="utf-8"))
+
+
+class TestTheCommittedMediaIdentity:
+    def test_it_binds_the_whole_tree_with_the_numbers_measured_on_it(self):
+        manifest = _committed_manifest()
+        assert manifest["scope"] == "whole_media_tree"
+        assert manifest["n_files"] == BOUND_FILES
+        assert manifest["total_bytes"] == BOUND_BYTES
+        assert manifest["rollup_sha256"] == BOUND_ROLLUP
+
+    def test_the_roll_up_is_recomputable_from_the_manifest_alone(self):
+        # The check a machine WITHOUT the media can still run, and the one that
+        # makes the file more than a list: a hand-edited entry moves the roll-up.
+        manifest = _committed_manifest()
+        files = manifest["files"]
+        assert len(files) == manifest["n_files"] == BOUND_FILES
+        assert sum(entry["bytes"] for entry in files.values()) == BOUND_BYTES
+        assert manifest_producer.rollup_sha256(files) == BOUND_ROLLUP
+
+    def test_every_image_the_frozen_panel_references_is_bound(self):
+        manifest = _committed_manifest()
+        referenced = manifest_producer.panel_images()
+        assert len(referenced) == PANEL_IMAGES
+        assert manifest["n_panel_referenced_images"] == PANEL_IMAGES
+        assert manifest["panel_referenced_but_absent_from_the_manifest"] == []
+        assert set(referenced) <= set(manifest["files"])
+
+    def test_the_panel_subset_has_the_identity_the_panel_only_mode_reports(
+            self):
+        manifest = _committed_manifest()
+        subset = {path: manifest["files"][path]
+                  for path in manifest_producer.panel_images()}
+        assert len(subset) == PANEL_IMAGES
+        assert sum(entry["bytes"] for entry in subset.values()) == PANEL_BYTES
+        assert manifest_producer.rollup_sha256(subset) == PANEL_ROLLUP
+
+    def test_it_names_the_code_that_produced_it_from_a_clean_tree(self):
+        manifest = _committed_manifest()
+        assert manifest["produced_by"] == \
+            "scripts/iter11_write_media_manifest.py"
+        assert checks.is_immutable_revision(manifest["code_commit"]), \
+            f"code_commit {manifest['code_commit']!r} is not a 40-hex SHA"
+        assert manifest["git_dirty"] is False
+        assert manifest["code_dirty_paths"] == []
+        assert manifest["untracked_code_paths"] == []
+
+    def test_the_repository_holds_almost_none_of_what_is_bound(self):
+        # WHY the manifest exists, measured rather than asserted in prose: the
+        # gap between these two numbers is the gap a fresh checkout cannot
+        # cross, and it is what turned four PASS reports into FAIL.
+        tracked = subprocess.run(
+            ["git", "ls-files", "data/media"], cwd=ROOT,
+            capture_output=True, text=True, check=True)
+        assert len(tracked.stdout.splitlines()) == TRACKED_MEDIA_FILES
+        assert TRACKED_MEDIA_FILES < BOUND_FILES
+
+
+class TestTheFourFiledReportsWereCheckedAgainstIt:
+    def test_all_four_pass_with_the_media_actually_hashed(self):
+        for target in TARGETS:
+            report = _report(target)
+            media = report["media"]
+            assert report["failures"] == [], target
+            assert report["verdict"] == "PASS", target
+            assert report["unverifiable_sections"] == [], target
+            assert media["ok"] is True, target
+            assert media["verifiable_here"] is True, target
+            assert media["n_referenced_images"] == PANEL_IMAGES, target
+            assert media["n_hashed_here"] == PANEL_IMAGES, target
+            assert media["n_absent_here"] == 0, target
+            assert media["n_referenced_but_unbound"] == 0, target
+            assert media["manifest_rollup_sha256"] == BOUND_ROLLUP, target
+            assert media["manifest_path"] == \
+                "outputs/iteration_11/media_manifest.json", target
+
+    def test_the_filed_verdict_is_the_one_the_current_rule_gives(self):
+        # A report whose verdict was computed by an older rule is a report that
+        # no longer says what this gate would say about the same sections.
+        for target in TARGETS:
+            report = _report(target)
+            assert checks.verdict_for(report) == (
+                report["verdict"], report["unverifiable_sections"]), target
+
+    def test_the_four_arms_agree_on_the_media_they_all_checked(self):
+        blocks = [_report(target)["media"] for target in TARGETS]
+        assert all(block == blocks[0] for block in blocks[1:])
+
+    def test_the_truncation_counts_are_the_ones_the_readme_quotes(self):
+        for target, expected in TRUNCATED.items():
+            truncation = _report(target)["truncation"]
+            assert sum(truncation["per_variant_truncated"].values()) \
+                == expected, target
+            assert truncation["ok"] is True, target
+
+    def test_no_report_still_recommends_the_superseded_five_target_rerun(self):
+        # The drift --verify found in the filed reports: three of the four
+        # carried advice to rerun all five targets, which the registered
+        # tolerance does not ask for. qwen35_4b truncated nothing, so it had no
+        # warning to supersede.
+        for target in TARGETS:
+            warnings = _report(target)["warnings"]
+            assert not any("ALL FIVE" in w for w in warnings), target
+            if TRUNCATED[target]:
+                assert any("uniform-cap escalation is NOT triggered" in w
+                           for w in warnings), target
+            else:
+                assert warnings == [], target
