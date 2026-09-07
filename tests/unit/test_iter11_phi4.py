@@ -1153,6 +1153,19 @@ PHI4_SIZE = {
 }
 CROSS_MODAL = {"in": 709, "img": 545, "out": 92}
 TEXT_ONLY = {"in": 178, "img": 0, "out": 67}
+
+#: The smoke's two response digests, measured identically by the artifact at
+#: ``afebf85`` on cuda:3 (pre-shim) and by the one at ``13f7342`` on cuda:0
+#: (post-shim). Identical bytes across both a device change and the arrival of
+#: shim 9 is the measured form of "the repair is inert below the boundary":
+#: this smoke peaks at 709 + 1536 and so never reaches the 4096 switch, and a
+#: shim that changed behaviour here would appear as a different digest rather
+#: than as an argument.
+SMOKE_RESPONSE_SHA256 = {
+    "cross_modal": "1fc9b35e25d018d5adc389b914d690eaf623c389aff54f1ee22f2ead64add333",
+    "text_only": "ee0efc901ca461357af3cbb83bf5ee6f85b6d0671e453fd253d2d432fb23c951",
+}
+SMOKE_RESPONSE_CHARS = {"cross_modal": 473, "text_only": 333}
 TIED_SHAPE = [200064, 3072]
 TIED_NUMEL = 614596608
 BUFFER_RECONCILIATION = 160
@@ -1281,16 +1294,51 @@ class TestPhi4PreflightEvidence:
         joined = " ".join(phi4_report["runtime_metadata"]["phi4_shims"])
         for marker in ("flash_attention_2 -> sdpa", "_tied_weights_keys",
                        "prepare_inputs_for_generation",
+                       "LongRoPE cache invalidation",
                        "Cache.get_usable_length",
                        "vision tower _flash_attention_forward"):
             assert marker in joined, marker
 
+    def test_the_longrope_repair_is_named_with_the_failure_it_prevents(
+            self, phi4_report):
+        """The certification says the shim was live, in its own words.
+
+        Only the artifact regenerated at 13f7342 can say this: it is the first
+        phi4 preflight written by a producer carrying shim 9, so its shim list
+        is the only place a PREFLIGHT records the repair. The stronger evidence
+        that the shim was needed is the 11.6 panel -- 16 cells crossing 4096
+        total tokens, all completed -- and that is pinned by
+        :class:`TestPanelCrossedTheLongRopeBoundary`. This pins the other
+        half: that the preflight and the panel were produced by code that
+        applies the same repair, rather than one of them silently predating it.
+
+        The failure is named as well as the fix, because a shim line reading
+        only "patched prepare_inputs_for_generation" would survive the removal
+        of everything that makes it meaningful.
+        """
+        joined = " ".join(phi4_report["runtime_metadata"]["phi4_shims"])
+        assert "LongRoPE" in joined
+        assert "cache_position" in joined
+        # The boundary and the exact vendor failure at one token past it.
+        assert str(ROPE_SWITCH + 1) in joined
+        assert "'NoneType' object is not subscriptable" in joined
+
     def test_gpu_slot_is_recorded_from_the_weights_not_the_process(
             self, phi4_report, phi4_load):
+        # The SLOT is an operational fact and moves between rounds: the
+        # regeneration lane takes the emptiest device clearing the memory
+        # threshold, so this artifact has been written on cuda:3 and on cuda:0.
+        # Pinning a literal slot pinned the wrong thing and failed the moment
+        # the lane found a different free one. What has to hold is that the
+        # independent records of the slot agree with each other -- which is
+        # what separates a device read from where the weights were loaded from
+        # one read from the process default.
         hardware = phi4_report["runtime_metadata"]["hardware"]
-        assert hardware["requested_device"] == "cuda:3"
-        assert hardware["device_index"] == 3
-        assert phi4_load["device"] == "cuda:3"
+        requested = hardware["requested_device"]
+        assert requested.startswith("cuda:")
+        assert hardware["device_index"] == int(requested.split(":")[1])
+        assert phi4_report["device"] == requested
+        assert phi4_load["device"] == requested
         assert phi4_load["dtype"] == "torch.bfloat16"
 
     def test_vision_arm_ran_the_vision_adapter(self, phi4_smoke):
@@ -1353,6 +1401,15 @@ class TestPhi4PreflightEvidence:
         # Same image hash accounting as the other families: the vision arm
         # references exactly one image, the text arm none.
         assert len(vision["ordered_image_hashes"]) == 1
+
+    def test_the_smoke_responses_survived_the_shim_and_the_device_change(
+            self, phi4_smoke):
+        assert set(SMOKE_RESPONSE_SHA256) == set(phi4_smoke)
+        for variant, digest in SMOKE_RESPONSE_SHA256.items():
+            for attempt in phi4_smoke[variant]["attempts"]:
+                assert attempt["response_sha256"] == digest, variant
+                assert attempt["response_chars"] == \
+                    SMOKE_RESPONSE_CHARS[variant], variant
 
 
 @pytest.fixture(scope="module")

@@ -3572,19 +3572,64 @@ class TestCommittedPreflightArtifacts:
         # its recorded revision moving. EVERY form counts, not just the ones
         # naming a revision — a local-path editable install names none at
         # all and is the most mutable case.
-        if "third_party_editable_installs" not in environment:
-            pytest.skip(
-                f"{model_key}'s artifact predates the editable-install "
-                f"detection field (code_commit "
-                f"{artifact.get('code_commit', '?')[:12]}); regenerate it "
-                f"with scripts/iter11_model_preflight.py so the recorded "
-                f"evidence and the certifying code agree")
+        #
+        # This used to SKIP when the key was absent, because phi4_mm's
+        # artifact predated the detection field. It was regenerated at
+        # 13f7342, so no artifact predates it any more and a missing key is
+        # now a failure. A skip is indistinguishable from a pass in a summary
+        # line, and this is the field the environment certification is made
+        # of -- quietly skipping it is how a gap stays open.
+        assert "third_party_editable_installs" in environment, (
+            f"{model_key}'s artifact (code_commit "
+            f"{artifact.get('code_commit', '?')[:12]}) predates the "
+            f"editable-install detection field; regenerate it with "
+            f"scripts/iter11_model_preflight.py --model-key {model_key} "
+            f"--gpu-smoke --update-lock")
         assert environment["third_party_editable_installs"] == {}
         assert environment["third_party_editable_vcs"] == {}
         assert environment["excluded_self_distributions"]
         # Every frozen reference_version still holds in the dedicated env.
         assert environment["observed_versions"] \
             == environment["frozen_reference_versions"]
+
+    @pytest.mark.parametrize("model_key", MODEL_KEYS)
+    def test_a_passing_artifact_names_the_dependency_lock_it_certified(
+            self, model_key):
+        """The lock block is part of the certification, not an optional extra.
+
+        ``report["lock"]`` is initialised to None and populated only inside
+        the producer's ``--update-lock`` branch, so a regeneration that omits
+        the flag writes a PASS artifact with ``"lock": null`` -- no lock path,
+        no ``pip_freeze_sha256``, no editable-install audit in the lock block.
+        That happened: the first run of the phi4 regeneration lane produced
+        exactly that, and it was caught by reading the diff rather than by any
+        gate. The artifact still said PASS, which is the problem -- so the
+        invariant is pinned here instead of being left to inspection.
+        """
+        path = PREFLIGHT_ROOT / model_key / "preflight.json"
+        if not path.exists():
+            pytest.skip(f"{path} not present")
+        artifact = json.loads(path.read_text(encoding="utf-8"))
+        if artifact["status"] != "PASS":
+            pytest.skip(f"{model_key} is not a PASS artifact")
+        lock = artifact["lock"]
+        assert lock is not None, (
+            f"{model_key}'s PASS artifact records no dependency lock; "
+            f"iter11_model_preflight.py populates it only under "
+            f"--update-lock, so without that flag the artifact certifies an "
+            f"environment it does not name")
+        dependency = lock["dependency_lock"]
+        assert dependency["editable_installs"] == {}
+        assert dependency["editable_vcs_revisions"] == {}
+        # One environment, two records of it: what the process measured and
+        # what was written to the shared lock. If these ever disagree, the
+        # artifact is describing a different environment than the one the
+        # confirmatory fingerprint will bind.
+        environment = artifact["environment"]
+        for field in ("pip_freeze_sha256", "n_packages", "pyproject_sha256",
+                      "python_version", "excluded_self_distributions"):
+            assert dependency[field] == environment[field], field
+        assert lock["revision"] == artifact["resolved_revision"]
 
     @pytest.mark.parametrize("model_key", MODEL_KEYS)
     def test_an_environment_name_deviation_is_declared(self, model_key):

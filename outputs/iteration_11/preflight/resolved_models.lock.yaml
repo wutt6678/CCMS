@@ -43,7 +43,7 @@ models:
       unclassified_parameters: 0
       vision_parameters: 441550016
     processor_revision: 93f923e1a7727d1c4f446756212d9d3e8fcc5d81
-    resolved_at: '2026-09-05T10:43:14+00:00'
+    resolved_at: '2026-09-07T07:32:14+00:00'
     resolved_by: scripts/iter11_model_preflight.py
     revision: 93f923e1a7727d1c4f446756212d9d3e8fcc5d81
   qwen35_2b:
