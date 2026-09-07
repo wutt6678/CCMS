@@ -767,6 +767,20 @@ move a pinned revision without it. The five `LOCK_IDENTITY_FIELDS` that
 `resolved_run_fingerprint` hashes are unchanged, so no confirmatory run's
 fingerprint moved either.
 
+Regenerating one target on its own leaves the four artifacts naming two
+producer commits — three at `f5f7db1`, one at `13f7342` — so it is worth saying
+why they are still comparable. The preflight producer itself differs between
+those two commits only in comments. The one behavioural change in a module it
+calls is `e42e3f7`, which added `code_dirty_paths` to `code_tree_status`: a
+narrowed subset of the dirty paths, for a stage that has already imported its
+code and so gates on that subset at the *end* of a run. The preflight does not
+record that key, and every field it does record is computed identically by both
+versions on a clean tree — which all four attest to, with `git_dirty: false` and
+both `git_dirty_paths` and `git_untracked_paths` empty. Filtering an empty list
+is an empty list, so the two commits certify the same thing here. They would
+not be interchangeable on a dirty tree, and none of the four was written from
+one.
+
 **The first attempt at the regeneration is recorded because it found a defect
 in the lane.** It ran to `status PASS`, exit 0, from a clean tree, with both
 smokes repeat-stable — and wrote `"lock": null`. The lane omitted
