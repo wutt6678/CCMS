@@ -310,6 +310,12 @@ and [`outputs/families/scale_b_smoke`](outputs/families/scale_b_smoke/)
 with their human review inputs; Scale B additionally carries 41
 decided-but-ineligible negative controls.
 
+Iteration 11 introduces no new scale: it replays the SAME frozen Scale-C panel
+on four further checkpoints (600 trajectories each, 2,400 in total, under
+[`outputs/iteration_11/generations/`](outputs/iteration_11/generations/)), so
+the cross-model comparison shares one panel, one prompt and one cap with the
+sealed Qwen3.5-9B reference instead of restating it.
+
 ## Six Required Variants per Family
 
 All six variants share one canonical terminal query q\* (exact
@@ -363,9 +369,10 @@ strict subset needs behavioral validation (Iteration 6+).
 - [x] **Iteration 10** — 100-family preliminary experiment (COMPLETE —
       Scale-C evidence frozen; Phase 9 is an external-model confirmation,
       not a human audit)
-- [ ] **Iteration 11** — Cross-model scale & family transportability
-      (IN PROGRESS — 11.0 protocol freeze complete; 4 new targets:
-      Qwen3.5-2B/4B, Ministral-3-3B, Phi-4-multimodal)
+- [x] **Iteration 11** — Cross-model scale & family transportability
+      (COMPLETE — 11.0 protocol freeze through 11.8 cross-model analysis;
+      4 new targets: Qwen3.5-2B/4B, Ministral-3-3B, Phi-4-multimodal;
+      2,400 confirmatory outputs, 4 blinded judged arms, H1–H5 verdicts)
 
 ### Iteration 9 closeout (Scale B, frozen)
 
@@ -429,7 +436,7 @@ commit:path git blobs vs stored SHA-256 — without rewriting:
 `python3 scripts/scale_c_closeout_manifest.py --verify`. The replay
 evidence freeze commit is `0944de5`.
 
-### Iteration 11 (cross-model scale & family transportability, in progress)
+### Iteration 11 (cross-model scale & family transportability, complete)
 
 Iteration 11 extends the frozen Iteration 10 experiment from Qwen3.5-9B to
 four more open-weight MLLMs — Qwen3.5-2B, Qwen3.5-4B, Ministral-3-3B
@@ -591,7 +598,7 @@ same working tree, and the first embeds the repository's live HEAD — so
 hashing it made `dependency_lock_sha256` differ between invocations and move
 on every commit. Because `iteration11_run_fingerprint` binds that hash and
 gates resume on it, an unstable value would have rejected legitimate resumes
-during the 11.7 generation run. Nothing is lost: code identity is already
+during the 11.6 generation run. Nothing is lost: code identity is already
 bound separately and more precisely via `code_commit` / `git_dirty`, and the
 exclusion is reported by distribution *name* (recording the raw line would
 put the live HEAD back inside the hashed block). A **third-party** editable
@@ -968,18 +975,16 @@ processor would authorize a run whose chat template or image processor renders
 prompts differently without moving the model revision at all — eligibility
 does not transfer across processor revisions.
 
-Until 11.5 produces such a report at
-`outputs/iteration_11/eligibility/<model_key>/preflight_report.json`, every
-confirmatory `--model-key` run fails closed at the gate — which is the intent:
-technical eligibility must be signed off before the full 2,400-output run.
-
-Of 11.5–11.8, the **pre-registered selection is done and committed**: the
-recipe, its audit-trail artifact and the gate that re-derives it are all in
-place and verified against the real frozen panel. The 11.5 *producer* — the
-run that replays those 12 families against each of the four targets and signs
-the report — has not run yet, so no target is currently eligible and every
-confirmatory run still fails closed. 11.6 (full 2,400-output generation),
-11.7 (frozen judging) and 11.8 (cross-model analysis) remain roadmap-only.
+**11.5 has produced those reports, and all four targets are eligible.** Each
+`outputs/iteration_11/eligibility/<model_key>/preflight_report.json` carries
+`status: PASS` for the pre-registered 12 families × 6 variants
+(`n_expected_attempts = n_attempts = n_succeeded = 72`, 288 generations across
+the four targets) with all six gates COMPUTED from the run's own records and
+then re-validated by the same `validate_eligibility_report` the confirmatory
+gate applies. The fail-closed behaviour described above is what held before
+those reports existed and is unchanged: removing one still blocks that
+target's confirmatory run. 11.6, 11.7 and 11.8 are complete on top of it and
+are documented at the end of this section.
 
 **11.5 is a subset run, and a subset must not be able to pass as
 confirmatory.** `run_replay_stage` takes a `family_ids` argument: `input_dir`
@@ -1033,6 +1038,247 @@ from the repeat pass. The report is then validated with the SAME
 `validate_eligibility_report` the confirmatory gate will apply, *before* it is
 written, so a report this script could not satisfy is never filed as PASS and
 discovered invalid at 11.6 launch time.
+
+**11.6 (confirmatory generation, 2,400 outputs) is complete.** Each target
+replayed the FULL frozen 100-family panel under the frozen decoding — cap
+1536, greedy, thinking suppressed, immutable model and processor revisions —
+into
+`outputs/iteration_11/generations/<model_key>/confirmatory-100f-t1536-<model_key>/`,
+gated before loading by `enforce_confirmatory_protocol` and certified
+afterwards by `scripts/iter11_replay_checks.py --all`: **all four verdicts
+PASS** at 600/600 records, zero failed cells and zero media or terminal-query
+issues, with 49 confirmatory-gate checks re-validated per arm and the locked
+model and processor revisions, the system-prompt SHA-256 and the `code_commit`
+bound in each report. `truncation_evidence.json` additionally binds every arm's
+`replay_outputs.jsonl` by SHA-256, so the counts below can be recomputed
+against the exact bytes they were measured on.
+
+Twelve of the 2,400 cells reached the cap — `qwen35_2b` 7, `phi4_mm` 4,
+`ministral3_3b` 1, `qwen35_4b` 0 — and eleven of the twelve are repetition
+loops under the criterion registered in
+`outputs/iteration_11/diagnostics/truncation/truncation_evidence.json`: the
+cell's `repeat3` exceeds the maximum `repeat3` of the COMPLETE cells of the
+same arm, so it is more repetitive than anything that model produced when it
+was allowed to finish. Every arm is inside the pre-registered thresholds
+(overall rate ≤ 0.02, per-variant spread ≤ 0.05), so the uniform-cap STOP
+condition did **not** fire. That matters: raising the cap would have required
+replaying all five models including the sealed 9B reference, so the frozen 1536
+cap and the sealed reference both stand (longest complete 9B output 1291
+tokens, 0 of 600 truncated).
+
+Reaching that answer required fixing a real inconsistency between two frozen
+gates, documented in `outputs/iteration_11/diagnostics/truncation/README.md`.
+The 11.6 completion gate accepted a full panel at up to 2% truncation with a 5%
+variant spread; `evaluation/gate.py` required zero. Both were frozen, and
+nothing had ever compared them because the 9B reference truncated nothing, so
+every panel that had reached the evaluation gate satisfied both standards at
+once. Three of the four arms found out the hard way — each paid for two primary
+judges and a full adjudication pass before the check that refused it ran.
+
+One definition now lives in `causal_mllm/replay/truncation.py`: the counting
+rule (`hit_max_new_tokens` is true **or** `truncated` is true) and both
+thresholds. The Iteration 11 completion gate, the Scale-C gate and the
+evaluation panel gate all import it, `PanelReport.to_dict()` records the
+measurement it made, and there is no tolerance argument, no per-run override
+and no CLI flag, so one panel cannot be held to two standards. The 12-family
+eligibility gate still treats ANY truncation as a STOP — a subset run has no
+rate to speak of. `run_llm_judge_pipeline.py` now measures the panel and
+refuses it **before** it spends anything on judges, which is the ordering whose
+absence cost the three arms above. The artifact states explicitly that this was
+an internal gate inconsistency and NOT an amendment motivated by the affected
+cells' judge scores, and those scores are deliberately absent from it so they
+cannot be read back into the justification; the 0.02/0.05 pair predates every
+Iteration 11 target artifact (commit `6389df6`).
+
+Phi-4-multimodal needed one repair that is a generation defect rather than a
+truncation one. Its vendored `prepare_inputs_for_generation` switches LongRoPE
+regimes at `original_max_position_embeddings = 4096` by reading
+`cache_position[0]`, which transformers 5.x no longer passes, so the first cell
+to cross 4096 total tokens died with `'NoneType' object is not subscriptable`
+while every shorter cell was fine — the journal showed a cliff at 4096, not a
+short-response artifact, against `qwen35_2b` reaching 16753 on the same panel.
+Shim 9 in `replay/adapters/phi4_multimodal.py` realizes that cache
+invalidation in 5.x terms and is verified on the cell that failed
+(`CMST_779995/cross_modal`, `cuda:1`) by 7/7 checks in
+`outputs/iteration_11/diagnostics/phi4_longrope/shim_verification.json`:
+`inert_below_boundary` (the same cell returns the identical response with and
+without the shim while it stays under 4096), `before_failed_above` /
+`after_ok_above`, `deterministic`, `reached_full_cap`,
+`full_prefix_recompute_observed` and `recompute_at_boundary_and_once`. The
+diagnosis and its evidence were produced
+outside the repository while three 11.6 runs were still generating, because
+`provenance.code_dirty_paths` is computed when a report is written and editing
+`src/` mid-run would have failed runs that were otherwise perfect.
+
+**11.7 (frozen judging of all four arms) is complete.** The frozen ensemble
+judged all 2,400 outputs with target identity blinded: primary A `qwen3.8-max`
+(seed 42), primary B `glm-5.2` (seed 43), adjudicator `kimi-k3` (seed 99) on
+**all 1009 A/B disagreements** (`ministral3_3b` 299, `qwen35_2b` 269,
+`qwen35_4b` 243, `phi4_mm` 198), rubric v1.1 (`ce6c2005…`), temperature 0.
+Evidence is under `outputs/iteration_11/judge/<model_key>/`. Every primary
+output carries a `.fingerprint` sidecar and a `.manifest.json` binding the
+judgment file, the refusal sidecar and the fingerprint together and written
+last, so a half-written set is never mistaken for a complete one and a
+completed judge is skipped rather than re-judged. That resume contract held
+under a real re-run: after the truncation gate was unified, the three other
+arms were finalized again reusing every completed primary and all bound
+adjudicator records with **zero new gateway calls**, and `phi4_mm`'s finalize
+exercised the repair path in production (its completed output matched the
+current fingerprint while its sidecar did not yet bind it, so the run
+re-derived the refusal set from the 598 judgments present instead of
+re-judging).
+
+Blinding is measured, not asserted. `scripts/iter11_blinding_audit.py` reports
+**BLINDING PASS** over all four arms: 0 own-arm and 0 other-arm identity hits
+in 600 payloads per arm, 0 identity and 0 judge-identity hits in 20 rendered
+prompts per arm, 0 Iteration-10-rule violations, a mirror render identical to
+the pipeline's, one system prompt across the whole panel
+(`e51b41e6…`), and 0/600 responses self-identifying their model in every arm.
+Channel 4, which the first audit had to leave open, is measured: all four
+journals emit the same 600 `item_id`s over the same cells, which is precisely
+why the four sessions must stay separate — pooling them would collide every id
+four ways and merge distinct models' responses under one label.
+
+**One primary judge is vision-blind, and that is recorded rather than
+repaired.** The same instruction sent with and without the image, answered from
+the provider's own token accounting rather than from what the response claims
+(`outputs/iteration_11/diagnostics/judge_vision/identity_vision_capability.json`):
+`qwen3.8-max` 262 image tokens (prompt tokens 76 → 300), `kimi-k3` 371
+(100 → 476), `glm-5.2` none (27 → 27, and no `image_tokens` key at all) — the
+pixels are discarded before that model sees them. Judge B was therefore blind
+in this run and in the sealed Iteration 10 run before it, because the probe
+measures the identity and not the run, and the pre-flight gate that let it in
+asked "does it answer?" rather than "does it look?".
+
+Three consequences are pinned as evidence rather than argued. The arm is
+*labelled* blind wherever it is reported (`build_judge_arm_meta`, read by
+`finalize_ensemble` into `judge_sensitivity.json`); those labels are additive,
+so Iteration 10's sealed `judge_sensitivity.json` is NOT regenerated — it is
+sealed — and the correction is available for it only through
+`diagnostics/judge_vision/`. And no reported label is vision-blind: `kimi-k3`
+is sighted and resolves every one of the 1009 disagreements, so B never
+unilaterally determines a label the analysis rests on. What blindness does NOT
+explain is measured separately, holding model identity fixed and removing only
+the image over 299 image-bearing items with `prompt_sha256` asserted equal to
+the frozen judge-A record
+(`outputs/iteration_11/judge_vision_ablation/`): A-blind disagrees with B MORE
+than sighted A does (0.589 vs 0.502), while removing vision changes A's own
+judgment on about half of those cells (0.495). So the media carry real weight
+and the A/B divergence is a genuine model difference rather than an artifact of
+B's blindness (McNemar p ≈ 0.0008 against the blindness-as-cause explanation).
+Both directions are stated because they pull against each other: the divergence
+is not explained away by blindness, and the B arm still measures a
+vision-ablated judgment — which is why the ensemble's absolute compliance level
+is not the confirmatory quantity here, while the per-arm sign of ΔTV against a
+reference judged by the same ensemble is.
+
+**A provider refused three cells, and not the same three in every arm.**
+Judge A's gateway returns HTTP 400 `data_inspection_failed` on
+`CMST_795308/cross_modal` and `CMST_795308/shuffle` in all four arms (the
+trigger is the shared unsafe history every target was shown) and additionally
+on `CMST_456921/text_only` in `ministral3_3b` only. Judge B and the adjudicator
+return 200 on byte-identical payloads, so moderation here is per-identity, and
+the targeted re-probe in
+`outputs/iteration_11/diagnostics/judge_moderation/cell_probe_CMST_456921_text_only.json`
+localized the third cell's trigger to that arm's own REPLY — it is refused in
+one arm and served in three at the same moment, which the shared history cannot
+explain. This refuted the uniformity the first diagnostic scan had concluded,
+and the refutation is recorded beside the scan rather than by rewriting it.
+
+The response is a **union**: a cell any primary of ANY TARGET refused is
+dropped from EVERY arm, so all four analyses describe the same families
+(597/600 judged per arm). `judge_coverage.json` names, per cell, which identity
+refused it, the provider's own reason, and whether the exclusion originated in
+this arm or another — `ministral3_3b`'s own three, and
+`exclusion_origin=another_arm` with `refused_by=[]` for the cell the other
+three arms' providers did judge. The union is derived BEFORE phase 2 finalizes
+anything (`scripts/iter11_common_panel.py`, whose producer exits non-zero while
+any arm is incomplete, making phase 2 all-or-nothing over the group) and gated
+afterwards over the artifacts phase 2 actually wrote: `--verify` PASS, all four
+arms excluding the same three cells and analysing the same families, with
+`identical_across_targets: false` recorded because deriving it early caught
+`ministral3_3b` losing a cell the other three kept. Deriving it early is also
+what made it cheap — the alternative was three finalized arms and one arm's
+private exclusions, which is not a cross-model comparison. A refused judgment
+is never destroyed: it stays in that arm's completed primary output.
+
+Three counts are therefore true at once, about three different stages, and the
+artifacts keep them separate: **600** cells replayed over 100 families (the
+11.6 completion gate still certifies this, because the panel gate runs before
+the restriction, so a truncated replay can never pass as an exclusion);
+**597** labelled in every arm; **588** analysed over 98 families, because the
+frozen estimator needs all six variants of a family to produce any of its five
+estimands, so `CMST_456921` and `CMST_795308` go whole.
+
+**11.8 (cross-model analysis) is complete.**
+`scripts/iter11_cross_model_analysis.py` writes
+`outputs/iteration_11/analysis/cross_model/cross_model_analysis.json`, and its
+`--verify` re-derives the whole artifact from the committed judge evidence and
+compares it to 1e-12; each arm's sealed `evaluation_report.json` is reproduced
+before anything is analysed on top of it. The reference is restricted first:
+`reference_restriction.json` reproduces every published estimand and CI bound
+of the sealed Iteration 10 report within 1e-12 over 100 families, then
+restricts it to the same 98 the arms analyse, moving the reference ΔTV by
+−0.001204 (bootstrap mean +0.113670, CI [+0.0459, +0.1811]). Every verdict is
+against that restricted reference, not against the published 100-family number.
+
+ΔTV over 98 families, Holm–Bonferroni across the four confirmatory model tests
+at α = 0.05 with every raw interval preserved:
+
+| hypothesis | target | ΔTV mean | 95% CI | raw p | adj p | verdict |
+| --- | --- | --- | --- | --- | --- | --- |
+| H1 | `qwen35_2b` | −0.146633 | [−0.2179, −0.0764] | 0.00020 | 0.00080 | **REFUTED** |
+| H2 | `qwen35_4b` | +0.093878 | [+0.0133, +0.1725] | 0.02560 | 0.02720 | **CONFIRMED** |
+| H3 | `ministral3_3b` | −0.131020 | [−0.1895, −0.0742] | 0.00020 | 0.00080 | **REFUTED** |
+| H4 | `phi4_mm` | −0.051020 | [−0.0908, −0.0107] | 0.01360 | 0.02720 | **REFUTED** |
+| H5 | pooled (4 × 98) | −0.058699 | [−0.0970, −0.0205] | 0.00160 | not in the corrected family | sign does NOT match |
+
+One confirmed, three refuted, none inconclusive. The three refutations are not
+null results — each interval excludes zero on the OPPOSITE side from the
+reference, so the text×vision interaction reverses rather than attenuating in
+those three checkpoints. H2's confirmation is the narrowest thing in the set:
++0.0133 at the lower edge, adjusted p 0.02720 against α 0.05, and it is the
+only arm of the four whose sign matches the 9B. Within the Qwen scale arm the
+sign is therefore not monotone in scale (2B reverses, 4B reproduces, 9B
+positive), and at matched scale it does not transport across families
+(Ministral-3-3B reverses strongly, Phi-4-multimodal mildly). H5 pools
+cluster-preserving — the four models' family-level estimands averaged per
+family, then bootstrapped over FAMILIES by the frozen estimator — and is
+reported beside the corrected four, never inside them.
+
+The confirmatory test is the two-sided bootstrap p drawn from the SAME seed-42,
+5000-resample distribution that produces the frozen percentile CI (floored at
+1/n, capped at 1), so a p-value is never drawn from different resampling than
+the interval it sits beside. An exact two-sided binomial sign test over the
+family-level ΔTV values is reported next to each verdict as a sensitivity and
+never as the verdict: it agrees on the sign in all four cases, with no
+disagreements to report, and the agreement is on the sign rather than on
+significance — H2's sign test does not reach significance on its own (p 0.434)
+while its bootstrap interval excludes zero, which is exactly why the bootstrap
+is confirmatory here and the sign test is not. Two further sensitivities are in
+the artifact: dropping every family that holds a capped cell in ANY arm (98 →
+89 families) leaves all four signs unchanged with a maximum absolute shift of
+0.008500, and a differential-censoring sensitivity prices the family-set change
+using judge B alone (one consistent judge across arms, and explicitly not the
+ensemble, since B is vision-ablated). The primary results retain all cells,
+including the 12 capped ones — the only exclusion anywhere is the moderation
+union.
+
+The protocol's retention clause governs and is quoted in the artifact: *"All
+null, attenuated, heterogeneous, or sign-reversed results are retained and
+reported. No checkpoint is replaced because its scientific result is
+unfavorable."* Three of four are sign-reversed.
+
+Re-running any of it, read-only:
+
+```
+python3 scripts/iter11_replay_checks.py --all              # 11.6 completion gate, four targets
+python3 scripts/iter11_truncation_evidence.py --verify     # one truncation definition, both gates
+python3 scripts/iter11_blinding_audit.py --verify          # 11.7 identity-leak audit
+python3 scripts/iter11_common_panel.py --verify            # 11.7 cross-arm panel gate
+python3 scripts/iter11_reference_restriction.py --verify   # 11.8 reference, reproduced then restricted
+python3 scripts/iter11_cross_model_analysis.py --verify    # 11.8 verdicts, re-derived
+```
 
 ## Schema Reports
 
