@@ -1144,7 +1144,8 @@ replayed the FULL frozen 100-family panel under the frozen decoding — cap
 into
 `outputs/iteration_11/generations/<model_key>/confirmatory-100f-t1536-<model_key>/`,
 gated before loading by `enforce_confirmatory_protocol` and certified
-afterwards by `scripts/iter11_replay_checks.py --all`: **all four verdicts
+afterwards by `scripts/iter11_replay_checks.py --all --write-report`, and
+re-checked without writing by `--all --verify`: **all four verdicts
 PASS** at 600/600 records, zero failed cells and zero media or terminal-query
 issues, with 49 confirmatory-gate checks re-validated per arm and the locked
 model and processor revisions, the system-prompt SHA-256 and the `code_commit`
@@ -1368,16 +1369,45 @@ null, attenuated, heterogeneous, or sign-reversed results are retained and
 reported. No checkpoint is replaced because its scientific result is
 unfavorable."* Three of four are sign-reversed.
 
-Re-running any of it, read-only:
+Re-running any of it, read-only — every one of these compares and writes
+nothing:
 
 ```
-python3 scripts/iter11_replay_checks.py --all              # 11.6 completion gate, four targets
+python3 scripts/iter11_replay_checks.py --all --verify     # 11.6 completion gate, four targets
+python3 scripts/iter11_write_media_manifest.py --verify    # the media identity that gate checks against
 python3 scripts/iter11_truncation_evidence.py --verify     # one truncation definition, both gates
 python3 scripts/iter11_blinding_audit.py --verify          # 11.7 identity-leak audit
 python3 scripts/iter11_common_panel.py --verify            # 11.7 cross-arm panel gate
 python3 scripts/iter11_reference_restriction.py --verify   # 11.8 reference, reproduced then restricted
 python3 scripts/iter11_cross_model_analysis.py --verify    # 11.8 verdicts, re-derived
 ```
+
+`iter11_replay_checks.py` used to be the exception to that sentence, and finding
+out how cost four committed verdicts. It rewrote
+`iteration_11_replay_checks.json` in all four run directories on every
+invocation, including the one this block called read-only; and because
+`data/media` is gitignored apart from 20 individually negated source images, a
+fresh checkout holds 20 of the tree's 3,034 files and none of the 100 the panel
+references, so the media check reported 100 absences as failures and turned all
+four PASS reports into FAIL. Nothing had changed about the panel — the rewritten
+reports were describing the machine they ran on.
+
+Three things changed. Generation is behind an explicit `--write-report`, because
+a verification command that rewrites committed evidence turns a read into a
+mutation of the record it was asked to check. An image this checkout does not
+hold is recorded as `verifiable_here: false`, which makes the verdict
+`PASS_WITH_UNVERIFIED_SECTIONS` and the exit code 3 — not PASS, since a check
+that could not run is not a check that passed, and not FAIL, since nothing was
+found wrong — while an image that is present and differs from its bound digest
+still fails. And the media now have a committed identity,
+[`outputs/iteration_11/media_manifest.json`](outputs/iteration_11/media_manifest.json),
+which binds all 3,034 files by path, SHA-256 and size so "not present here" can
+be told apart from "present and different"; they are source photographs and
+rendered composites carried in from the dataset releases, so binding is the
+available option and deterministic materialization from a checkout is not.
+`--verify` skips a section this checkout cannot verify and names it instead of
+comparing it, and a genuine media failure is still caught because it lands in
+the top-level `verdict` and `failures`, which are never skipped.
 
 ## Schema Reports
 

@@ -507,7 +507,7 @@ class TestTheGateOverTheActualArtifacts:
         issues = common_panel.verify(
             group["root"], {"t1": group["targets"]["t1"],
                             "t2": group["targets"]["t2"]}, group["artifact"])
-        assert any("the derived common panel is" in i for i in issues)
+        assert any("the union re-derived from the" in i for i in issues)
 
     def test_an_analysis_still_carrying_a_dropped_family_fails(self, group):
         for target in ("t1", "t2"):
@@ -580,6 +580,155 @@ class TestTheGateOverTheActualArtifacts:
             ["--verify", "--profiles", str(group["profiles"]),
              "--out", str(group["artifact"])]) == 0
         assert "COMMON-PANEL GATE: PASS" in capsys.readouterr().out
+
+
+def _verify(group) -> list[str]:
+    return common_panel.verify(
+        group["root"], dict(sorted(group["targets"].items())),
+        group["artifact"])
+
+
+def _forge(group, union, targets=None) -> dict:
+    """Rewrite ONLY the stored artifacts, leaving the primary outputs alone.
+
+    This is the post-hoc edit the gate has to survive. Whoever makes it can
+    move ``common_panel.json``, every ``judge_coverage.json`` and every
+    analysis together, so all of them agree with each other perfectly and the
+    only thing that ever caught it was a human reading the refusal sidecars.
+    What cannot be moved is the eight primary outputs, which is where the union
+    has to come from.
+    """
+    families = sorted({cell.split("/", 1)[0] for cell in union})
+    artifact = json.loads(group["artifact"].read_text(encoding="utf-8"))
+    artifact["union_excluded_cells"] = list(union)
+    artifact["n_union_excluded_cells"] = len(union)
+    artifact["families_dropped"] = families
+    artifact["n_families_common"] = (artifact["n_families_in_panel"]
+                                     - len(families))
+    if targets is not None:
+        artifact["targets"] = list(targets)
+        artifact["n_targets"] = len(targets)
+    for name in artifact["per_target"]:
+        artifact["per_target"][name]["excluded_cells"] = list(union)
+        artifact["per_target"][name]["n_excluded"] = len(union)
+    artifact["cells_added_by_the_union"] = {
+        name: [] for name in artifact["per_target"]}
+    artifact["identical_across_targets"] = True
+    group["artifact"].write_text(json.dumps(artifact), encoding="utf-8")
+    for name in group["targets"]:
+        _coverage(group, name, union)
+        _analysed(group, name, dropped=union)
+    return artifact
+
+
+class TestTheGateReDerivesTheUnionItGatesOn:
+    """A stored union is a claim about eight files, so the gate reads the eight.
+
+    Before this, ``--verify`` checked that every downstream artifact agreed
+    with ``common_panel.json`` and never that ``common_panel.json`` agreed with
+    the primary outputs it summarises. The forgery below was reproduced against
+    the committed code: one real refusal, a second cell written into the stored
+    union and into both coverage artifacts and both analyses, and
+    ``verify() -> []``. An arbitrary extra family could be dropped post hoc and
+    the final gate would pass it.
+    """
+
+    def _honest(self, group):
+        for target in ("t1", "t2"):
+            _complete(group, target, refused=[REFUSED])
+        _derive(group)
+        for target in ("t1", "t2"):
+            _coverage(group, target, ["CMST_000001/cross_modal"])
+            _analysed(group, target, dropped=["CMST_000001/cross_modal"])
+
+    def test_an_honest_artifact_still_passes(self, group):
+        self._honest(group)
+        assert _verify(group) == []
+
+    def test_a_forged_extra_cell_no_longer_passes(self, group):
+        self._honest(group)
+        _forge(group, ["CMST_000001/cross_modal", "CMST_000002/shuffle"])
+        issues = _verify(group)
+        assert issues, "the forgery passed: an extra family was dropped and " \
+            "nothing tied the union back to the primary outputs"
+        # The forged cell is named, and named as one no provider refused -- a
+        # reader has to be able to see WHICH family vanished and why that is
+        # not authorized, not just that something disagreed.
+        assert any("CMST_000002/shuffle" in i and "no provider in any arm "
+                   "refused" in i for i in issues), issues
+        assert any("per_target excluded_cells" in i for i in issues)
+
+    def test_the_forged_cell_is_still_judged_by_every_primary(self, group):
+        # The point of the forgery: the cell is NOT missing from any output, so
+        # no per-arm consistency check can see it. Only re-derivation can.
+        self._honest(group)
+        _forge(group, ["CMST_000001/cross_modal", "CMST_000002/shuffle"])
+        for target in ("t1", "t2"):
+            for primary in common_panel.PRIMARIES:
+                out = group["targets"][target] / \
+                    f"llm_labels_judge_{primary}.json"
+                judged = {f"{j['family_id']}/{j['variant']}"
+                          for j in json.loads(out.read_text(encoding="utf-8"))}
+                assert "CMST_000002/shuffle" in judged
+
+    def test_coverage_is_gated_on_the_rederived_union(self, group):
+        # The forged coverage artifacts agree with the forged stored union
+        # exactly, so this only fires because the reference moved.
+        self._honest(group)
+        _forge(group, ["CMST_000001/cross_modal", "CMST_000002/shuffle"])
+        issues = _verify(group)
+        assert sum("the union re-derived from the" in i for i in issues) == 2
+
+    def test_a_stored_union_that_omits_a_real_refusal_is_caught(self, group):
+        # Forging in the other direction: a family the analysis kept but a
+        # provider refused, which would leave two arms on different panels
+        # while every stored artifact claimed one.
+        for target in ("t1", "t2"):
+            _complete(group, target, refused=[REFUSED])
+        _derive(group)
+        _forge(group, [])
+        issues = _verify(group)
+        assert any("omits" in i and "CMST_000001/cross_modal" in i
+                   for i in issues), issues
+
+    def test_a_target_leaving_the_stored_union_is_caught(self, group):
+        self._honest(group)
+        _forge(group, ["CMST_000001/cross_modal"], targets=["t1"])
+        issues = _verify(group)
+        assert any("names targets" in i for i in issues), issues
+        assert any("n_targets" in i for i in issues), issues
+
+    def test_the_dropped_family_set_must_match_the_rederivation(self, group):
+        self._honest(group)
+        artifact = _forge(group, ["CMST_000001/cross_modal"])
+        # The union is right but the family set it implies is not: the same
+        # hand edit, one field down.
+        artifact["families_dropped"] = ["CMST_000001", "CMST_000002"]
+        artifact["n_families_common"] = artifact["n_families_in_panel"] - 2
+        group["artifact"].write_text(json.dumps(artifact), encoding="utf-8")
+        issues = _verify(group)
+        assert any("families_dropped" in i for i in issues), issues
+        assert any("n_families_common" in i for i in issues), issues
+
+    def test_a_count_disagreeing_with_its_own_field_is_caught(self, group):
+        self._honest(group)
+        artifact = _forge(group, ["CMST_000001/cross_modal"])
+        artifact["n_union_excluded_cells"] = 2
+        group["artifact"].write_text(json.dumps(artifact), encoding="utf-8")
+        issues = _verify(group)
+        assert any("n_union_excluded_cells" in i for i in issues), issues
+
+    def test_an_arm_that_lost_a_primary_blocks_the_gate(self, group):
+        # The stored union cannot be checked against outputs that are no longer
+        # there. That is reported as a gate failure, not treated as a pass and
+        # not raised: a gate that dies cannot say what it found.
+        self._honest(group)
+        for suffix in (".json", ".json.fingerprint"):
+            (group["targets"]["t2"]
+             / f"llm_labels_judge_A{suffix}").unlink()
+        issues = _verify(group)
+        assert any("not 'derived'" in i or "cannot be re-derived" in i
+                   for i in issues), issues
 
 
 class TestTheProducerAndThePipelineDeriveTheSameThing:

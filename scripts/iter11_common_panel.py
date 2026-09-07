@@ -347,6 +347,137 @@ def derive(group_dir: Path, arms: dict[str, Path]) -> dict:
     return artifact
 
 
+def _rederive(group_dir: Path,
+              arms: dict[str, Path]) -> tuple[dict | None, list[str]]:
+    """Run the producer again, because a stored union is a claim, not a fact.
+
+    ``--verify`` used to read ``union_excluded_cells`` out of
+    ``common_panel.json`` and check the downstream artifacts against it. That
+    makes the gate a consistency check between files an editor can all move
+    together, and nothing tied any of them to the eight primary outputs the
+    union claims to summarise. So verify re-derives.
+
+    Returns ``(derived, issues)``; ``derived`` is None when the union cannot be
+    re-derived at all, which is itself reported rather than raised -- a gate
+    that dies cannot say what it found.
+    """
+    try:
+        derived = derive(group_dir, arms)
+    except SystemExit as exc:
+        return None, [
+            "the union cannot be re-derived from the primary outputs: "
+            f"{exc}. Every comparison below is against the stored artifact "
+            "alone, so this gate is not checking what it claims to"]
+    if derived.get("status") != "derived":
+        return None, [
+            f"re-deriving from the primary outputs gives status "
+            f"{derived.get('status')!r}, not 'derived': "
+            f"{derived.get('pending_reason', 'no reason recorded')}"]
+    return derived, []
+
+
+def _compare_with_rederivation(stored: dict, derived: dict | None,
+                              stored_rel: str) -> list[str]:
+    """Exact equality between what is filed and what the outputs still give.
+
+    Every field compared here is one a post-hoc edit could move to make a
+    dropped family look authorized: the target set and its count (an arm
+    quietly leaving the union makes it smaller), each target's own excluded
+    cells, the union, and the set of families the union drops. Counts are
+    compared too, because a field and its own length disagreeing is the
+    signature of a hand edit.
+    """
+    if derived is None:
+        return []
+    issues: list[str] = []
+
+    stored_targets = list(stored.get("targets") or [])
+    derived_targets = list(derived.get("targets") or [])
+    if stored_targets != derived_targets:
+        issues.append(
+            f"{stored_rel} names targets {stored_targets} but the primary "
+            f"outputs give {derived_targets}; a union derived over fewer arms "
+            f"is smaller than the truth and every arm would still look "
+            f"consistent with it")
+    if stored.get("n_targets") != len(derived_targets):
+        issues.append(
+            f"{stored_rel} says n_targets={stored.get('n_targets')} but the "
+            f"primary outputs give {len(derived_targets)}")
+
+    stored_per = stored.get("per_target") or {}
+    derived_per = derived.get("per_target") or {}
+    for name in sorted(set(stored_per) | set(derived_per)):
+        if name not in derived_per:
+            issues.append(
+                f"{stored_rel} carries a per_target block for {name!r}, which "
+                f"is not one of the arms the profiles declare")
+            continue
+        if name not in stored_per:
+            issues.append(
+                f"{stored_rel} has no per_target block for {name!r}, so what "
+                f"that arm lost is unstated")
+            continue
+        want = list(derived_per[name].get("excluded_cells") or [])
+        got = list(stored_per[name].get("excluded_cells") or [])
+        if got != want:
+            forged = sorted(set(got) - set(want))
+            missing = sorted(set(want) - set(got))
+            detail = []
+            if forged:
+                detail.append(
+                    f"excludes {forged}, which no primary of that target "
+                    f"refused")
+            if missing:
+                detail.append(f"omits {missing}, which a primary did refuse")
+            issues.append(
+                f"{name}: {stored_rel} per_target excluded_cells is "
+                f"{got} but its own two primary outputs give {want} -- "
+                + "; and ".join(detail))
+        if stored_per[name].get("n_excluded") != len(want):
+            issues.append(
+                f"{name}: {stored_rel} says n_excluded="
+                f"{stored_per[name].get('n_excluded')} but the primary "
+                f"outputs give {len(want)}")
+
+    want_union = list(derived.get("union_excluded_cells") or [])
+    got_union = list(stored.get("union_excluded_cells") or [])
+    if got_union != want_union:
+        extra = sorted(set(got_union) - set(want_union))
+        absent = sorted(set(want_union) - set(got_union))
+        parts = []
+        if extra:
+            parts.append(
+                f"drops {extra}, which no provider in any arm refused")
+        if absent:
+            parts.append(f"omits {absent}, which some provider did refuse")
+        issues.append(
+            f"{stored_rel} union_excluded_cells is {got_union} but the union "
+            f"of the eight primary outputs is {want_union} -- "
+            + "; and ".join(parts))
+    if stored.get("n_union_excluded_cells") != len(want_union):
+        issues.append(
+            f"{stored_rel} says n_union_excluded_cells="
+            f"{stored.get('n_union_excluded_cells')} but the union of the "
+            f"primary outputs has {len(want_union)}")
+
+    want_families = list(derived.get("families_dropped") or [])
+    got_families = list(stored.get("families_dropped") or [])
+    if got_families != want_families:
+        issues.append(
+            f"{stored_rel} families_dropped is {got_families} but the union "
+            f"of the primary outputs drops {want_families}")
+    if "n_families_common" in stored and "n_families_in_panel" in stored:
+        want_common = (stored["n_families_in_panel"] - len(want_families))
+        if stored["n_families_common"] != want_common:
+            issues.append(
+                f"{stored_rel} says n_families_common="
+                f"{stored['n_families_common']}, which is not "
+                f"n_families_in_panel ({stored['n_families_in_panel']}) minus "
+                f"the {len(want_families)} famil(ies) the primary outputs "
+                f"actually lose")
+    return issues
+
+
 def verify(group_dir: Path, arms: dict[str, Path],
            artifact_path: Path) -> list[str]:
     """The gate over the four ACTUAL artifacts phase 2 wrote."""
@@ -447,13 +578,22 @@ def verify(group_dir: Path, arms: dict[str, Path],
                 f"{_rel(artifact_path)} has status "
                 f"{artifact.get('status')!r}, not 'derived'")
         else:
-            union = set(artifact.get("union_excluded_cells", []))
+            derived, rederive_issues = _rederive(group_dir, arms)
+            issues.extend(rederive_issues)
+            issues.extend(_compare_with_rederivation(
+                artifact, derived, _rel(artifact_path)))
+            # The reference for every downstream comparison is the RE-DERIVED
+            # union. Comparing coverage against the stored one would let the
+            # stored union be wrong in the same direction as the coverage
+            # artifacts, which is exactly the forgery that used to pass.
+            union = set(derived["union_excluded_cells"]) if derived else \
+                set(artifact.get("union_excluded_cells", []))
             for name, cells in sorted(coverage.items()):
                 if cells != union:
                     issues.append(
                         f"{name}: {COVERAGE_ARTIFACT} excludes "
-                        f"{sorted(cells)} but the derived common panel is "
-                        f"{sorted(union)}")
+                        f"{sorted(cells)} but the union re-derived from the "
+                        f"eight primary outputs is {sorted(union)}")
             lost = {cell.split("/", 1)[0] for cell in union}
             for name, rec in sorted(panels.items()):
                 if rec["families"] & lost:
