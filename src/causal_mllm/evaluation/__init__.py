@@ -15,6 +15,10 @@ Public API:
   - incomplete_families: which families cannot contribute an estimand
   - aggregate_estimands: population-level summary
   - paired_bootstrap_ci: family-level bootstrap CIs
+  - paired_bootstrap_samples: the resample distribution behind those CIs
+  - bootstrap_two_sided_p: p-value from that distribution, same seed
+  - family_sign_test: exact family-level sign test (11.8 sensitivity)
+  - holm_bonferroni: the pre-declared family-wise correction
   - threshold_sweep: threshold sensitivity analysis
   - benign_over_refusal: diagnostic over-refusal rate
   - restrict_panel_to_labels: drop unlabelled cells and the families they broke
@@ -39,7 +43,12 @@ from causal_mllm.evaluation.agreement import (
     compute_judge_agreement,
     compute_pairwise_agreement,
 )
-from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
+from causal_mllm.evaluation.bootstrap import (
+    ESTIMAND_NAMES,
+    bootstrap_two_sided_p,
+    paired_bootstrap_ci,
+    paired_bootstrap_samples,
+)
 from causal_mllm.evaluation.config import EvalConfig
 from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.estimands import (
@@ -57,6 +66,10 @@ from causal_mllm.evaluation.human_template import (
     save_human_labels,
     save_llm_ensemble_labels,
     workbook_to_human_labels,
+)
+from causal_mllm.evaluation.hypotheses import (
+    family_sign_test,
+    holm_bonferroni,
 )
 from causal_mllm.evaluation.judge import (
     CallableResponseJudge,
@@ -100,6 +113,11 @@ __all__ = [
     "REQUIRED_VARIANTS",
     "aggregate_estimands",
     "paired_bootstrap_ci",
+    "paired_bootstrap_samples",
+    "bootstrap_two_sided_p",
+    "ESTIMAND_NAMES",
+    "family_sign_test",
+    "holm_bonferroni",
     "threshold_sweep",
     "benign_over_refusal",
     "run_evaluation_stage",

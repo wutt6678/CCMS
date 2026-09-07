@@ -259,14 +259,7 @@ def scan_target(model_key: str, limit: int | None, concurrency: int,
             item = by_id[rec["item_id"]]
             out = {"item_id": rec["item_id"], "family_id": rec["family_id"],
                    "variant": rec["variant"]}
-            kwargs = {
-                "neutral_response": {"response": NEUTRAL_RESPONSE},
-                "no_history": {"history": [], "response": item["response"]},
-                "context_only": {"response": NEUTRAL_RESPONSE},
-                "terminal_only": {"history": [],
-                                  "response": NEUTRAL_RESPONSE},
-            }
-            for name, kw in kwargs.items():
+            for name, kw in _bisection_kwargs(item).items():
                 prompt, images = _render("A", item, **kw)
                 res = _post("A", prompt, images)
                 out[name] = {"status": res["status"],
@@ -314,6 +307,117 @@ def scan_target(model_key: str, limit: int | None, concurrency: int,
     }
 
 
+def _bisection_kwargs(item: dict) -> dict:
+    """The four payload variants that isolate one part of the request."""
+    return {
+        "neutral_response": {"response": NEUTRAL_RESPONSE},
+        "no_history": {"history": [], "response": item["response"]},
+        "context_only": {"response": NEUTRAL_RESPONSE},
+        "terminal_only": {"history": [], "response": NEUTRAL_RESPONSE},
+    }
+
+
+def probe_cell(model_key: str, item: dict, label: str = "A") -> dict:
+    """One cell in one arm: the full payload, every bisection, both others.
+
+    A scan answers "which cells are refused". This answers the question a scan
+    cannot: a cell refused in ONE arm and served in three is either a function
+    of that arm's reply or a function of when the request was made, and only
+    re-sending the payload now, in every arm, separates the two. If it still
+    400s in one arm and 200s in the others, the reply matters; if it now 400s
+    everywhere or nowhere, the verdict moved.
+    """
+    out = {"model_key": model_key, "item_id": item["item_id"],
+           "family_id": item["family_id"], "variant": item["variant"],
+           "response_sha256": item["response_sha256"],
+           "response_chars": len(item["response"]),
+           "identity": IDENTITIES[label]}
+    prompt, images = _render(label, item)
+    full = _post(label, prompt, images)
+    out["full"] = {"status": full["status"], "error_code": full["error_code"],
+                   "prompt_chars": len(prompt), "n_images": len(images),
+                   "request_bytes": full["request_bytes"]}
+    for name, kw in _bisection_kwargs(item).items():
+        prompt, images = _render(label, item, **kw)
+        res = _post(label, prompt, images)
+        out[name] = {"status": res["status"], "error_code": res["error_code"],
+                     "prompt_chars": len(prompt)}
+    for other in ("B", "ADJUDICATOR"):
+        if other == label:
+            continue
+        prompt, images = _render(other, item)
+        res = _post(other, prompt, images)
+        out[f"full_{other}"] = {"status": res["status"],
+                                "error_code": res["error_code"],
+                                "identity": IDENTITIES[other]}
+    out["probed_at"] = datetime.now(timezone.utc).isoformat()
+    return out
+
+
+def probe_cells(targets: list[str], cells: list[str], label: str,
+                concurrency: int) -> dict:
+    """Named cells across named arms, so a divergence can be localized."""
+    wanted = []
+    for spec in cells:
+        family, _, variant = spec.partition("/")
+        if not family or not variant:
+            raise SystemExit(
+                f"--cells takes FAMILY/VARIANT pairs, got {spec!r}")
+        wanted.append((family, variant))
+    print(f"\n=== probing {len(wanted)} cell(s) across {len(targets)} arm(s) "
+          f"as {IDENTITIES[label]} "
+          f"({(len(BISECTIONS) + 3) * len(wanted) * len(targets)} requests) ===")
+
+    jobs = []
+    for key in targets:
+        by_cell = {(it["family_id"], it["variant"]): it
+                   for it in _blinded_items(key)}
+        for cell in wanted:
+            item = by_cell.get(cell)
+            if item is None:
+                raise SystemExit(
+                    f"{key}: {'/'.join(cell)} is not a cell of that arm's "
+                    f"panel")
+            jobs.append((key, item))
+
+    with ThreadPoolExecutor(max_workers=concurrency) as ex:
+        results = list(ex.map(lambda job: probe_cell(job[0], job[1], label),
+                              jobs))
+
+    per_cell = {}
+    for rec in results:
+        name = f"{rec['family_id']}/{rec['variant']}"
+        slot = per_cell.setdefault(name, {})
+        slot[rec["model_key"]] = rec
+        marks = " ".join(
+            f"{k}={v['status']}" for k, v in rec.items()
+            if isinstance(v, dict) and "status" in v)
+        print(f"  {name:28s} {rec['model_key']:14s} {marks}")
+
+    full_statuses: dict = {}
+    for rec in results:
+        name = f"{rec['family_id']}/{rec['variant']}"
+        full_statuses.setdefault(name, {})[rec["model_key"]] = \
+            rec["full"]["status"]
+    divergent = sorted(name for name, per in full_statuses.items()
+                       if len(set(per.values())) > 1)
+    return {
+        "identity": IDENTITIES[label],
+        "cells": sorted({f"{r['family_id']}/{r['variant']}" for r in results}),
+        "targets": list(targets),
+        "n_requests": len(results) * (len(BISECTIONS) + 3),
+        "per_cell": per_cell,
+        "full_payload_status": full_statuses,
+        "arms_that_disagree_now": divergent,
+        "reading": (
+            "a cell whose full payload is refused in some arms and accepted in "
+            "others AT THE SAME TIME is a function of that arm's reply, not of "
+            "the shared history; a cell refused or accepted in all arms now "
+            "but not during the run is a verdict that moved"),
+        "probed_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
 def size_ladder(model_key: str) -> list[dict]:
     """One prompt, real images of increasing size, so bytes are the only
     variable. This is what refutes the payload-size hypothesis directly rather
@@ -357,6 +461,14 @@ def main() -> int:
                     help="refused cells to bisect (6 requests each)")
     ap.add_argument("--concurrency", type=int, default=8)
     ap.add_argument("--skip-size-ladder", action="store_true")
+    ap.add_argument("--cells", default=None,
+                    help="comma-separated FAMILY/VARIANT cells to re-probe in "
+                         "every target arm, instead of scanning the panel; "
+                         "this is what separates a refusal caused by one "
+                         "arm's reply from a verdict that moved")
+    ap.add_argument("--identity", default="A", choices=sorted(IDENTITIES),
+                    help="which frozen identity to probe as (default A, the "
+                         "one whose provider moderates inputs)")
     ap.add_argument("--json-out", default=None)
     args = ap.parse_args()
 
@@ -368,6 +480,25 @@ def main() -> int:
     print(f"gateway    {BASE_URL}")
     print(f"identities {IDENTITIES}")
     print(f"targets    {targets}")
+
+    if args.cells:
+        probe = probe_cells(
+            targets, [c.strip() for c in args.cells.split(",") if c.strip()],
+            args.identity, args.concurrency)
+        probe["gateway"] = BASE_URL
+        probe["identities"] = IDENTITIES
+        probe["question"] = (
+            "is a cell refused in one arm and served in another a function of "
+            "that arm's reply, or of when the request was made")
+        out = Path(args.json_out) if args.json_out else \
+            OUT_DIR / f"cell_probe_{'_'.join(probe['cells'])}.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(probe, indent=2, ensure_ascii=False),
+                       encoding="utf-8")
+        print(f"\nwrote {out}")
+        print(f"arms that disagree on the full payload right now: "
+              f"{probe['arms_that_disagree_now'] or 'none'}")
+        return 0
 
     report = {
         "question": "which cells does a judge's provider refuse to moderate, "

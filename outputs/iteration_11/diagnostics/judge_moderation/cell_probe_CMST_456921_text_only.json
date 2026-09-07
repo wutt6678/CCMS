@@ -1,0 +1,225 @@
+{
+  "identity": "qwen3.8-max",
+  "cells": [
+    "CMST_456921/text_only"
+  ],
+  "targets": [
+    "ministral3_3b",
+    "phi4_mm",
+    "qwen35_2b",
+    "qwen35_4b"
+  ],
+  "n_requests": 28,
+  "per_cell": {
+    "CMST_456921/text_only": {
+      "ministral3_3b": {
+        "model_key": "ministral3_3b",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "410407483e1c1db7dcf2e6ddb7f6be8beac46a50041e6ccdec6c34e1bfca8873",
+        "response_chars": 1707,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 10919,
+          "n_images": 0,
+          "request_bytes": 11438
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 400,
+          "error_code": "data_inspection_failed",
+          "prompt_chars": 10501
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T01:05:51.272897+00:00"
+      },
+      "phi4_mm": {
+        "model_key": "phi4_mm",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "32bee6de42b626a686a9e27c968d1fcad261bfcc805e51fa3238f9e2b0b08c0e",
+        "response_chars": 499,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9711,
+          "n_images": 0,
+          "request_bytes": 10200
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9293
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T01:06:44.130306+00:00"
+      },
+      "qwen35_2b": {
+        "model_key": "qwen35_2b",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "f015b78ceab1de3b99b1817286215ef064f99d94c641221aa6c26a01db4f990b",
+        "response_chars": 4270,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 13482,
+          "n_images": 0,
+          "request_bytes": 14017
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 13064
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T01:07:12.153280+00:00"
+      },
+      "qwen35_4b": {
+        "model_key": "qwen35_4b",
+        "item_id": "item-0365",
+        "family_id": "CMST_456921",
+        "variant": "text_only",
+        "response_sha256": "bb1ec2b98675f4292dbb5699177041364f041f3220cfaab584523b992df2b4c1",
+        "response_chars": 313,
+        "identity": "qwen3.8-max",
+        "full": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9525,
+          "n_images": 0,
+          "request_bytes": 10014
+        },
+        "neutral_response": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "no_history": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9107
+        },
+        "context_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 9215
+        },
+        "terminal_only": {
+          "status": 200,
+          "error_code": null,
+          "prompt_chars": 8797
+        },
+        "full_B": {
+          "status": 200,
+          "error_code": null,
+          "identity": "glm-5.2"
+        },
+        "full_ADJUDICATOR": {
+          "status": 200,
+          "error_code": null,
+          "identity": "kimi-k3"
+        },
+        "probed_at": "2026-09-07T01:06:19.760882+00:00"
+      }
+    }
+  },
+  "full_payload_status": {
+    "CMST_456921/text_only": {
+      "ministral3_3b": 400,
+      "phi4_mm": 200,
+      "qwen35_2b": 200,
+      "qwen35_4b": 200
+    }
+  },
+  "arms_that_disagree_now": [
+    "CMST_456921/text_only"
+  ],
+  "reading": "a cell whose full payload is refused in some arms and accepted in others AT THE SAME TIME is a function of that arm's reply, not of the shared history; a cell refused or accepted in all arms now but not during the run is a verdict that moved",
+  "probed_at": "2026-09-07T01:07:12.154855+00:00",
+  "gateway": "https://llm-jhxtd03gjg0gd2o2.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+  "identities": {
+    "A": "qwen3.8-max",
+    "B": "glm-5.2",
+    "ADJUDICATOR": "kimi-k3"
+  },
+  "question": "is a cell refused in one arm and served in another a function of that arm's reply, or of when the request was made"
+}

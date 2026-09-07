@@ -1,7 +1,7 @@
 """Iteration 11.8: restricting the frozen reference to the families in play.
 
-The comparison is between four arms that analysed 99 families and a reference
-published over 100, so the reference has to be recomputed over the same 99 --
+The comparison is between four arms that analysed 98 families and a reference
+published over 100, so the reference has to be recomputed over the same 98 --
 and before that means anything, the recomputation has to prove it reproduces
 the published 100. Both halves are tested here: the reproduction check against
 the real sealed reference, and the restriction logic against synthetic target
@@ -10,8 +10,12 @@ reports, because the real ones do not exist until phase 2 finalizes.
 The restriction is read from each target's own ``panel_restriction`` and
 INTERSECTED, which is the part that is easy to get wrong: the provider's
 moderation verdict is not stable over time and the four arms reach a given cell
-minutes apart, so one target could lose a family another kept. The union of
-what the arms lost is the complement of the intersection of what they analysed.
+minutes apart, so one target could lose a family another kept. That is not
+hypothetical -- the confirmatory run refused ``CMST_456921/text_only`` in one
+arm and served it in three -- which is why phase 2 takes the union up front
+(``scripts/iter11_common_panel.py``) and why this script still refuses to
+assume the arms agree. The union of what the arms lost is the complement of the
+intersection of what they analysed.
 """
 
 from __future__ import annotations
@@ -21,6 +25,12 @@ import json
 from pathlib import Path
 
 import pytest
+
+from causal_mllm.evaluation.bootstrap import (
+    bootstrap_two_sided_p,
+    paired_bootstrap_ci,
+    paired_bootstrap_samples,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 VARIANTS = ("neutral", "text_only", "vision_only", "cross_modal", "shuffle",
@@ -96,6 +106,41 @@ class TestTheReproductionCheckAgainstTheSealedReference:
         del partial["estimands"]["bootstrap_ci"]["order_effect"]
         assert any("publishes no CI" in i
                    for i in mod.check_reproduction(recomputed, partial))
+
+    def test_the_resample_refactor_left_the_published_floats_bit_identical(
+            self, sealed_reference):
+        # ``paired_bootstrap_ci`` was split so 11.8 can put a p-value beside
+        # the frozen interval, and the split had to leave the rng consumption
+        # order untouched: these are the exact floats the sealed Iteration 10
+        # report publishes, and H1-H5 test their sign. A refactor that moved
+        # the loop would reproduce the interval to four decimals and still
+        # silently change the evidence.
+        _, _, config, family_estimands = sealed_reference
+        ci = paired_bootstrap_ci(
+            family_estimands, n_bootstrap=config["n_bootstrap"],
+            ci_level=config["ci_level"], seed=config["seed"])
+        assert ci["Delta_TV"]["mean"] == 0.11506760000000027
+        assert ci["Delta_TV"]["CI_lower"] == 0.0495
+        assert ci["Delta_TV"]["CI_upper"] == 0.17999999999999997
+        samples = paired_bootstrap_samples(
+            family_estimands, n_bootstrap=config["n_bootstrap"],
+            seed=config["seed"])
+        ordered = sorted(samples["Delta_TV"])
+        assert sum(ordered) / len(ordered) == ci["Delta_TV"]["mean"]
+
+    def test_the_reference_sign_is_resolved_by_its_own_resamples(
+            self, sealed_reference):
+        # The sign H1-H4 are tested against is not a coin flip: every one of
+        # the 5000 resamples of the reference Delta_TV is above zero, so the
+        # bootstrap p-value is at its floor.
+        _, _, config, family_estimands = sealed_reference
+        samples = paired_bootstrap_samples(
+            family_estimands, n_bootstrap=config["n_bootstrap"],
+            seed=config["seed"])
+        ordered = sorted(samples["Delta_TV"])
+        assert ordered[0] > 0.0
+        assert bootstrap_two_sided_p(ordered) == \
+            pytest.approx(1.0 / config["n_bootstrap"])
 
 
 @pytest.fixture
@@ -191,9 +236,10 @@ class TestTheRestrictionIsReadFromTheArms:
 
     def test_arms_that_lost_different_families_are_restricted_to_the_union(
             self, synthetic):
-        # The case the time-varying moderation verdict makes possible: t1
-        # refused a cell t2 was served. Comparing them over different family
-        # sets is not a cross-model comparison, so the reference gives up both.
+        # The case the confirmatory run actually produced: judge A refused
+        # CMST_456921/text_only in one arm and served it in three. Comparing
+        # them over different family sets is not a cross-model comparison, so
+        # the reference gives up both.
         _write_target_report(synthetic, "t1", [DROPPED_FAMILY])
         _write_target_report(synthetic, "t2", ["CMST_000001"])
         dropped, _, issues = mod.analysed_family_set()

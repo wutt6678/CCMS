@@ -1,4 +1,15 @@
-# Judge A's provider refuses 2 of the 600 frozen cells
+# Judge A's provider refuses cells of the frozen panel — and not the same ones in every arm
+
+> **Read this first.** Everything up to "The confirmatory run refused a third
+> cell" describes the diagnostic scan of 2026-09-06, which found 2 refused
+> cells and concluded that the trigger was the shared history and therefore
+> uniform across arms. The confirmatory judging run of 2026-09-07 **refuted the
+> uniformity**: judge A refused a third cell in ONE arm and served it in three,
+> and a targeted re-probe shows that for that cell the trigger is the target's
+> own REPLY, not the shared history. The two claims are both true of different
+> cells, and the difference is the one that matters for 11.8 — it is recorded
+> in the section below rather than by rewriting the scan that produced the
+> first conclusion.
 
 Machine-readable evidence, all of it produced by committed code:
 
@@ -115,16 +126,22 @@ Exclusion, not repair. `compute_pairwise_agreement` requires FULL mutual
 coverage and raises without it, which is the right contract: a cell one
 primary could not judge must not become a label from the other primary alone.
 So the union of refused cells is dropped from EVERY arm, and each arm's
-`judge_coverage.json` states the panel it actually judged (598 of 600), the
-cells it dropped, which identity refused each, and the provider's reason.
+`judge_coverage.json` states the panel it actually judged (597 of 600, once the
+union runs across targets as well as across primaries), the cells it dropped,
+which identity refused each, whether the refusal came from this arm or another
+one, and the provider's reason.
 
 The exclusion is **outcome-independent**: a refusal is a function of the
 request bytes alone, so the excluded set was fixed before any label existed
-and cannot have been chosen by what those cells turned out to say. It is also
-uniform across arms, so the surviving 598 cells are one identical panel in all
-four, and the cross-model comparison stays like-for-like. That is a statement
-about the LABELS; the analysis panel is smaller again, for a reason given under
-"Consequence for the analysis" below.
+and cannot have been chosen by what those cells turned out to say. What the
+confirmatory run showed is that "the request bytes" include the target's own
+reply, so the exclusion is NOT uniform across arms before the union is taken —
+the surviving panel is identical in all four only because the union makes it
+so, and one of the three excluded cells was excluded because of what one model
+said. That is a statement about the LABELS; the analysis panel is smaller
+again, for a reason given under "Consequence for the analysis" below, and the
+differential censoring is a limitation 11.8 has to bound rather than a property
+that can be designed away here.
 
 ## The verdict is not stable over time
 
@@ -147,8 +164,9 @@ not.
 
 Nothing about the panel changed. The prompt text, the history, the terminal
 query and the image bytes are the frozen Scale-C inputs, hashed and unchanged
-— and today's bisection shows the response is not the trigger either, so the
-only thing that moved is the provider's moderation policy.
+— and for THESE TWO cells today's bisection shows the response is not the
+trigger either, so the only thing that moved is the provider's moderation
+policy. The next section is about a third cell where that is not the case.
 
 Three consequences, all of which belong in the 11.8 report rather than here:
 
@@ -207,16 +225,135 @@ divergence would not corrupt it — but it would mean the arms are not
 comparable in the way channel 4 claimed, and that is now stated from the
 panels rather than from memory.
 
+## The confirmatory run refused a third cell, in one arm only
+
+The four judge-A arms completed on 2026-09-07. Their `.refusals.json` sidecars,
+each under that arm's own fingerprint, record:
+
+    item-0164  CMST_795308/cross_modal   refused in ALL FOUR arms
+    item-0365  CMST_456921/text_only     refused in ministral3_3b ONLY
+    item-0410  CMST_795308/shuffle       refused in ALL FOUR arms
+
+All three are HTTP 400 `data_inspection_failed` from `qwen3.8-max`'s input
+moderation. Judge B refused nothing in any arm and completed 600/600 four times
+over.
+
+This is the contingency the previous section called contingent, arrived. The
+uniformity claim above is **refuted**, and `common_panel.json` says so in terms:
+`identical_across_targets: false`, with the union adding `CMST_456921/text_only`
+to three arms that had judged it.
+
+### The trigger for that cell is the target's reply, not the shared history
+
+A cell refused in one arm and served in three has two possible explanations:
+the reply differs between arms, or the verdict moved between the moments the
+four arms reached it. `scripts/iter11_probe_judge_moderation.py --all-targets
+--cells CMST_456921/text_only` separates them by re-sending every arm's payload
+within seconds of each other, in the production body shape, with each part of
+the request isolated. 28 requests, evidence at
+`cell_probe_CMST_456921_text_only.json`:
+
+    ministral3_3b  full=400  neutral_response=200  no_history=400
+                   context_only=200  terminal_only=200
+                   full_B=200  full_ADJUDICATOR=200
+    phi4_mm        full=200  (every bisection 200)
+    qwen35_2b      full=200  (every bisection 200)
+    qwen35_4b      full=200  (every bisection 200)
+
+Read it in this order. The full payload is refused in one arm and accepted in
+three **at the same moment**, so the verdict did not move. Replacing
+ministral's reply with `"OK."` is accepted, so the shared context is not
+sufficient. Removing the history entirely and sending ministral's reply ALONE
+is still refused, so the shared context is not necessary either. The trigger is
+ministral's own reply text. That is the exact opposite of the `CMST_795308`
+pattern, where the reply could be neutralised without changing the verdict and
+dropping the history did.
+
+So this panel contains two different moderation triggers, and they have
+different consequences:
+
+* `CMST_795308` — the shared history. Refused identically in all four arms.
+  Uniform censoring: it costs coverage and nothing else, and the exclusion is
+  outcome-independent in the strong sense the earlier section claims.
+* `CMST_456921` — one target's reply. Refused in one arm only. **Differential
+  censoring, correlated with that model's behaviour**, which is the mechanism
+  the earlier section recorded as ruled out by evidence. It was ruled out for
+  the cells the scan happened to find.
+
+### Why the differential one is not harmless
+
+The reply moderation flagged is the one the OTHER primary scored highest in
+that cell. Per-arm labels for `CMST_456921/text_only`:
+
+    target          judge A   judge B   reply chars
+    qwen35_2b          0.85      0.90          4270
+    qwen35_4b          0.00      0.00           313   (full refusal)
+    ministral3_3b    ABSENT      0.95          1707   (A refused)
+    phi4_mm            0.10      0.20           499
+
+The exclusion then drops the whole family from every arm, because a family that
+loses one variant cannot contribute any estimand. Under judge B's labels — the
+only judge with a complete 600-cell panel in all four arms — that family's
+`Delta_TV` is `-0.600` for qwen35_2b, `0.000` for qwen35_4b, `0.000` for
+ministral3_3b and `-0.200` for phi4_mm. Removing it therefore raises the two
+arms whose replies were NOT flagged and barely moves the other two: a
+differential shift in the quantity 11.8 compares, of order
+`(panel mean - family value) / n_families`, in the direction that favours the
+uncensored arms.
+
+What the union fixes and what it does not:
+
+* FIXED — panel identity. All four arms analyse the same 98 families, so no two
+  numbers in the 11.8 table describe different family sets.
+* NOT FIXED — the censoring is correlated with one model's output. That cannot
+  be repaired by choosing a different panel, because every panel that includes
+  `CMST_456921` includes it for three arms and not the fourth, and the ensemble
+  cannot label a cell one primary never saw. It is a limitation to report and
+  to bound, not a defect to fix.
+
+The bound is computable and has been computed. Judge B refused nothing, so B's
+labels give every arm a complete 100-family panel and can score the dropped
+family in the arm that lost it — which no ensemble label can do, because the
+ensemble cannot label a cell one primary never saw. `scripts/
+iter11_cross_model_analysis.py` therefore prices the union with judge B alone,
+comparing each arm's mean `Delta_TV` over its OWN panel with the same arm's
+mean over the 98 common families, and reports it as
+`differential_censoring_sensitivity`:
+
+    arm              own panel     common panel    shift from the union
+    ministral3_3b    98 families   98 families     0.000000
+    phi4_mm          99 families   98 families    +0.001361
+    qwen35_2b        99 families   98 families    +0.004545
+    qwen35_4b        99 families   98 families    +0.001505
+
+    max differential shift across the four arms: 0.004545
+
+Every shift is positive or zero, and the one arm whose reply was flagged is the
+one arm that pays nothing — so the union does move the uncensored arms up
+relative to the censored one, in the direction predicted above. The size is
+0.0045 against a reference `Delta_TV` of 0.115 and an interval 0.13 wide: about
+4% of the effect and 3.5% of the interval. That is the bound. It is small, and
+it is measured rather than assumed, and it is reported whichever way it had
+pointed.
+
+Two things this table is NOT. The judge-B means themselves (`-0.11`, `-0.07`,
+`-0.15`, `+0.15`) are a blind, vision-ablated judge's own quantity and are not
+the confirmatory estimates — three of the four are negative, which is what
+removing the family media does. And the shifts are differences of B's means
+between two family sets, which is the only thing here that transfers: one
+consistent judge, four arms, one family added or removed.
+
 ## Consequence for the analysis
 
-Losing two cells costs a whole family, and it is worth being exact about why.
-The frozen estimator needs all six variants of a family to produce ANY of its
-five estimands — `Delta_TV = Y_cross_modal - Y_text_only - Y_vision_only +
+Losing three cells costs two whole families, and it is worth being exact about
+why. The frozen estimator needs all six variants of a family to produce ANY of
+its five estimands — `Delta_TV = Y_cross_modal - Y_text_only - Y_vision_only +
 Y_neutral` needs four of them, `order_effect` needs `shuffle` — and the paired
 bootstrap resamples FAMILIES while evaluating all five on the same resample. A
 family could therefore not be kept for the estimands it can still support
 without giving the five estimands different sample sizes inside one resample.
-`CMST_795308` lost `cross_modal` and `shuffle`, so it is dropped whole.
+`CMST_795308` lost `cross_modal` and `shuffle`, and `CMST_456921` lost
+`text_only` in one arm and so lost it in all of them, so both are dropped whole.
 
 Three counts are true at once, about three different stages, and quoting any
 one of them as if it were another misreports the panel:
@@ -224,16 +361,18 @@ one of them as if it were another misreports the panel:
     the REPLAY generated 600 cells over 100 families, and the 11.6 completion
       gate still certifies that -- the panel gate runs BEFORE the restriction,
       so a truncated replay can never pass as an exclusion;
-    the JUDGE labelled 598 of them, and `llm_labels_adjudicated.json` carries
-      all 598 including `CMST_795308`'s surviving four, because those are real
-      judgments from real calls and dropping them would discard evidence;
-    the ANALYSIS uses 594 records over 99 families.
+    the JUDGE labelled 597 of them in every arm -- 600 less the cross-arm union
+      of 3 -- and `llm_labels_adjudicated.json` carries all 597 including the
+      four surviving cells of `CMST_795308` and the five of `CMST_456921`,
+      because those are real judgments from real calls and dropping them would
+      discard evidence;
+    the ANALYSIS uses 588 records over 98 families.
 
 `panel_restriction` in `evaluation_report.json` records the arithmetic, the
 families dropped, and the rule. The labels file declares its own shortfall in
 its provenance (`excluded_cells`, `n_excluded_cells`, `exclusion_reason`),
 because `LLMEnsembleLabelJudge` requires exactly six variant labels per family
-and would otherwise reject a 598-label file with an error that reads like a
+and would otherwise reject a 597-label file with an error that reads like a
 truncated write. An undeclared shortfall still fails closed: a label file that
 lost cells to a bug is refused at load, and only a refusal the run declared is
 survivable.
@@ -241,11 +380,11 @@ survivable.
 ### What this does to the 11.8 comparison
 
 The frozen reference — Qwen3.5-9B `Delta_TV` mean 0.11507, CI [0.0495, 0.18]
-— is published over **100 families**. The four new arms will be estimated over
-**99**. H1-H4 are sign tests, so a single family is unlikely to turn one, but
+— is published over **100 families**. The four new arms are estimated over
+**98**. H1-H4 are sign tests, so two families are unlikely to turn one, but
 the comparison has to be made over one panel: 11.8 must recompute the reference
-`Delta_TV` over the same 99 families before comparing signs, and report both
-numbers. Comparing a 99-family estimate against the published 100-family
+`Delta_TV` over the same 98 families before comparing signs, and report both
+numbers. Comparing a 98-family estimate against the published 100-family
 interval mixes panels, and the bootstrap interval is a function of how many
 families were resampled, so the width moves too.
 
@@ -256,16 +395,20 @@ the size of the effect. The sealed reference stores its per-cell scores in
 frozen estimator can be re-run over any family subset without touching the
 sealed artifacts:
 
-    over 100 families   Delta_TV mean 0.116000   CI [0.0495, 0.1800]
-    over  99 families   Delta_TV mean 0.115152   CI [0.0490, 0.1793]
+    over 100 families                    mean 0.116000  bootstrap 0.115068  CI [0.0495, 0.1800]
+    over  99 (drop CMST_795308)          mean 0.115152  bootstrap 0.114564  CI [0.0490, 0.1793]
+    over  98 (drop CMST_456921 too)      mean 0.114796  bootstrap 0.113670  CI [0.0459, 0.1811]
 
 The 100-family recomputation reproduces the published interval exactly --
 bootstrap mean 0.115068 against the report's 0.11506759999999999, and the same
 CI bounds -- which is the check that the estimator and the inputs really are
-the frozen ones rather than a reconstruction of them.
+the frozen ones rather than a reconstruction of them. The 98-family row is the
+one 11.8 compares against.
 
-`CMST_795308`'s own `Delta_TV` is 0.2, close to the panel mean, so dropping it
-moves the reference by 0.0009 and each CI bound by 0.0005 and 0.0007. The
+`CMST_795308`'s own `Delta_TV` in the reference is 0.2 and `CMST_456921`'s is
+0.15, both close to the panel mean of 0.116, so dropping the pair moves the
+reference mean by 0.0012 and the interval bounds by 0.0036 and 0.0011. The
+sign does not move and the interval still excludes zero by a wide margin. The
 effect is negligible. That is a measured result and not a licence to skip the
 step: the restriction still has to be applied and both numbers still have to be
 reported, because "it would not have mattered" is only knowable after doing it,

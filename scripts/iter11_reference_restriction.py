@@ -3,11 +3,13 @@
 
 The cross-model comparison is between the four Iteration 11 arms and the frozen
 Qwen3.5-9B reference. Those have to be estimated over the SAME families, and
-they are not by default: aliyun's input moderation refuses 2 of the 600 cells
-for judge A, the exclusion drops them from every arm, and the frozen estimator
-needs all six variants of a family to produce any of its five estimands -- so
-family CMST_795308 goes whole and the arms analyse 99 families while the
-reference was published over 100. See
+they are not by default: aliyun's input moderation refuses cells of the panel
+for judge A, the cross-arm union in ``common_panel.json`` drops them from every
+arm, and the frozen estimator needs all six variants of a family to produce any
+of its five estimands -- so each family that lost a cell goes whole. The
+confirmatory run lost three cells across two families, so the arms analyse 98
+families while the reference was published over 100. How many that is, is read
+from the arms rather than hardcoded here. See
 ``outputs/iteration_11/diagnostics/judge_moderation/``.
 
 This script recomputes the reference over whatever family set the arms actually
@@ -19,7 +21,7 @@ A restricted estimate is only meaningful if the unrestricted one is the frozen
 one. So before reporting anything over a subset, this recomputes all five
 estimands over ALL of the reference's families and compares them to the CI
 published in the sealed report. If that fails, the estimator or the inputs are
-not the frozen ones, and a number computed over 99 families would be a
+not the frozen ones, and a number computed over a subset would be a
 reconstruction wearing the reference's name. The check fails closed.
 
 The comparison uses a tolerance rather than equality. The two agree to about
@@ -190,8 +192,8 @@ def analysed_family_set() -> tuple[set | None, dict, list[str]]:
     here, and INTERSECTED across targets. The intersection matters because the
     provider's moderation verdict is not stable over time and the four arms
     reach a given cell minutes apart: one target could lose a family another
-    kept, and comparing a 99-family arm with a 98-family arm is not a
-    cross-model comparison over one panel.
+    kept, and comparing arms that analysed different numbers of families is
+    not a cross-model comparison over one panel.
 
     Returns ``(family_ids or None, per_target, issues)``. ``None`` means the
     arms have not been evaluated yet, which is a state to report rather than
