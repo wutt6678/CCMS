@@ -61,6 +61,11 @@ from causal_mllm.replay.registry import (  # noqa: E402
     resolve_model,
 )
 from causal_mllm.replay.selection import derive_frozen_selection  # noqa: E402
+from causal_mllm.replay.truncation import (  # noqa: E402
+    MAX_TRUNCATION_RATE,
+    MAX_VARIANT_SPREAD,
+    is_truncated,
+)
 
 PROTOCOL_PATH = REPO_ROOT / "outputs" / "iteration_11" / "protocol" \
     / "iteration_11_protocol.json"
@@ -75,12 +80,16 @@ CHECKS_FILE = "iteration_11_replay_checks.json"
 OUTPUTS_FILE = "replay_outputs.jsonl"
 REPORT_FILE = "replay_report.json"
 
-#: Truncation tolerance, identical to the Iteration 10 rule so the two panels
-#: are held to the same standard. "Near-zero" overall, and no material
-#: difference BETWEEN variants — condition-dependent truncation is the failure
-#: that would let one variant's responses be systematically cut short.
-MAX_TRUNCATION_RATE = 0.02
-MAX_VARIANT_SPREAD = 0.05
+#: The truncation tolerance is NOT defined here. It lives in
+#: ``causal_mllm.replay.truncation`` and the evaluation panel gate imports the
+#: same two constants, so one standard governs a panel from the moment it is
+#: replayed to the moment it is evaluated. This file used to carry its own
+#: copy of 0.02/0.05 while ``evaluation/gate.py`` required zero; the frozen 9B
+#: reference truncated nothing so the two never disagreed, and Iteration 11's
+#: smaller checkpoints were the first panels to expose the contradiction.
+#: "Near-zero" overall, and no material difference BETWEEN variants —
+#: condition-dependent truncation is the failure that would let one variant's
+#: responses be systematically cut short.
 
 EXPECTED_N_FAMILIES = 100
 
@@ -430,7 +439,7 @@ def check(model_key: str, run_dir: Path, lock_path: Path) -> dict:
         n_by_variant[variant] += 1
         tokens_by_variant[variant].append(
             record.get("output_token_count") or 0)
-        if record.get("hit_max_new_tokens") or record.get("truncated"):
+        if is_truncated(record):
             truncated_by_variant[variant] += 1
     rates = {v: truncated_by_variant[v] / n_by_variant[v]
              for v in n_by_variant if n_by_variant[v]}
@@ -458,12 +467,29 @@ def check(model_key: str, run_dir: Path, lock_path: Path) -> dict:
                        "max_variant_spread": MAX_VARIANT_SPREAD},
         "issues": trunc_issues, "ok": not trunc_issues}
     failures.extend(f"truncation: {i}" for i in trunc_issues)
-    if overall > 0:
+    if trunc_issues:
+        # A registered threshold was exceeded, so the uniform-cap remedy fires.
+        # It has to be uniform: raising the cap for one variant or one
+        # checkpoint would make the arms incomparable.
         warnings.append(
-            f"{sum(truncated_by_variant.values())} truncated record(s); the "
-            f"frozen uniform_cap_rule forbids raising the cap for one variant "
-            f"or checkpoint — choose a new UNIFORM cap and rerun ALL FIVE "
-            f"targets including Qwen3.5-9B, retaining this evidence")
+            f"{sum(truncated_by_variant.values())} truncated record(s) exceed "
+            f"a registered threshold; the frozen uniform_cap_rule forbids "
+            f"raising the cap for one variant or checkpoint — choose a new "
+            f"UNIFORM cap and rerun ALL FIVE targets including Qwen3.5-9B, "
+            f"retaining this evidence")
+    elif overall > 0:
+        # Within tolerance, so the remedy does NOT fire. Saying so explicitly
+        # matters: this warning used to recommend a five-model rerun whenever a
+        # single record was truncated, which is not what the registered
+        # thresholds say, and under greedy decoding a repetition loop runs to
+        # any cap so "escalate until nothing truncates" has no termination
+        # criterion. The cells are still named for the record.
+        warnings.append(
+            f"{sum(truncated_by_variant.values())} truncated record(s), "
+            f"within the registered tolerance (rate {overall:.4f} <= "
+            f"{MAX_TRUNCATION_RATE}, variant spread {spread:.4f} <= "
+            f"{MAX_VARIANT_SPREAD}); uniform-cap escalation is NOT triggered "
+            f"and the panel is accepted with all its cells")
 
     # ---- cross-target prompt uniformity (reported, not per-target fatal) --
     result["verdict"] = "PASS" if not failures else "FAIL"

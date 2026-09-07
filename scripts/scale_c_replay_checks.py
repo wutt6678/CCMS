@@ -34,6 +34,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
+from causal_mllm.replay.truncation import (  # noqa: E402
+    MAX_TRUNCATION_RATE,
+    MAX_VARIANT_SPREAD,
+    is_truncated,
+)
+
 PROTOCOL = json.loads(
     (Path(__file__).parent.parent
      / "configs/experiments/scale_c_protocol.json").read_text())
@@ -42,10 +48,13 @@ FROZEN_PROMPT_SHA = PROTOCOL["replay"]["system_prompt_sha256"]
 FROZEN_VARIANTS = PROTOCOL["dataset"]["variants"]
 PANEL_PATH = Path("outputs/scale_c/families_panel/validated_families.jsonl")
 
-# Truncation tolerance: "near-zero". Preflight uses the same rule.
-MAX_TRUNCATION_RATE = 0.02
-# Largest acceptable absolute truncation-rate spread across variants.
-MAX_VARIANT_SPREAD = 0.05
+# The truncation tolerance is imported, not restated: the same two constants
+# govern this Scale-C gate, the Iteration 11 completion gate and the
+# evaluation panel gate, so a panel cannot be accepted by one and refused by
+# another. "Near-zero" overall, and no material difference between variants.
+# The values are unchanged from the ones this file was sealed with, and every
+# archived Scale-C panel has zero truncated records, so re-running this gate
+# over sealed evidence returns the verdict it always returned.
 
 
 def sha256_file(path: str | Path) -> str:
@@ -63,9 +72,9 @@ def main() -> None:
     warnings: list[str] = []
     report: dict = {"run_dir": str(run_dir)}
 
-    outputs = [json.loads(l) for l in
+    outputs = [json.loads(line) for line in
                (run_dir / "replay_outputs.jsonl").read_text().splitlines()
-               if l.strip()]
+               if line.strip()]
     run_report = json.loads((run_dir / "replay_report.json").read_text())
 
     # ---- coverage -------------------------------------------------------
@@ -193,7 +202,7 @@ def main() -> None:
         v = r["variant"]
         n_by_variant[v] += 1
         out_tokens_by_variant[v].append(r.get("output_token_count", 0))
-        if r.get("hit_max_new_tokens"):
+        if is_truncated(r):
             trunc_by_variant[v] += 1
     rates = {v: trunc_by_variant[v] / n_by_variant[v]
              for v in n_by_variant if n_by_variant[v]}

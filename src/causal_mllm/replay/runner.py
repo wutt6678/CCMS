@@ -63,6 +63,7 @@ from causal_mllm.replay.registry import (
 # contract rather than re-implemented, so the subset bound into a run
 # fingerprint is the same value the confirmatory gate compares against.
 from causal_mllm.replay.selection import selected_families_sha256
+from causal_mllm.replay.truncation import is_truncated
 from causal_mllm.seeds import (
     code_tree_status,
     get_git_commit,
@@ -865,11 +866,13 @@ def run_replay_stage(
 
     # Truncation BY VARIANT: a global rate can hide condition-specific
     # imbalance (refusals are short, compliant answers are long), so
-    # P(truncated | H11) vs P(truncated | H10) must be visible.
+    # P(truncated | H11) vs P(truncated | H10) must be visible. Counted with
+    # the shared predicate, so the number written here is the number the
+    # completion gate and the evaluation panel gate will both read.
     truncation_by_variant: dict[str, dict] = {}
     for variant in ALL_VARIANT_NAMES:
         records = [r for r in outputs if r["variant"] == variant]
-        truncated = [r for r in records if r["hit_max_new_tokens"] is True]
+        truncated = [r for r in records if is_truncated(r)]
         truncation_by_variant[variant] = {
             "n": len(records),
             "n_truncated": len(truncated),

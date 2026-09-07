@@ -1,0 +1,527 @@
+{
+  "kind": "iteration_11_truncation_evidence",
+  "status": "measured",
+  "counting_rule": "a cell is truncated when hit_max_new_tokens is True or truncated is True; one definition, imported by the replay completion gate, the Scale-C gate and the evaluation panel gate",
+  "resolution": {
+    "what_was_inconsistent": "the 11.6 completion gate accepted a full panel at an overall truncation rate up to 0.02 with a variant-rate spread up to 0.05, while evaluation/gate.py required zero truncated records; both were frozen and the frozen 9B reference truncated nothing, so they had never been compared",
+    "how_it_was_resolved": "both thresholds moved into causal_mllm/replay/truncation.py and every full-panel gate imports them; there is no tolerance argument, no per-run override and no CLI flag, so one panel cannot be held to two standards",
+    "kind_of_change": "resolution of an internal inconsistency between two gates in this repository",
+    "not_the_motivation": "the judge scores of the affected cells. This is NOT an amendment motivated by favourable scores, and the scores are deliberately absent from this artifact so they cannot be read back into the justification",
+    "authority_for_the_numbers": "0.02 and 0.05 were already in scripts/iter11_replay_checks.py and scripts/scale_c_replay_checks.py, introduced in commit 6389df65 before any Iteration 11 target evidence was generated, and documented there as identical to the Iteration 10 rule; adopting them at the evaluation gate applies a pre-registered standard rather than choosing one after seeing the results",
+    "eligibility_gate_unchanged": "the 12-family eligibility gate in replay/confirmatory.py still treats any truncation as a protocol-level STOP; it is a screening contract, not a full-panel acceptance rule",
+    "sealed_evidence_unchanged": "every archived Iteration 9/10 panel has zero truncated records, so a threshold admitting up to 2% returns the verdict those panels always returned",
+    "cells_are_kept": "all 600 outputs per arm are retained. A response that ran to the cap is an observation of what the model did under the frozen greedy decoding, not missing data, and dropping those cells would drop them from some arms and not others",
+    "uniform_cap_escalation": {
+      "trigger": "either registered threshold exceeded -- and only then",
+      "triggered_here": false,
+      "why_not_just_escalate": "the remedy assumes truncation means the cap was too small. Under greedy decoding a repetition loop emits to ANY cap, so 'escalate until nothing truncates' has no termination criterion; measured below, most of the truncated cells are loops of exactly that kind"
+    }
+  },
+  "reference_9b": {
+    "run_dir": "outputs/scale_c/replay_runs/scale-c-100-t1536-qwen35-9b",
+    "replay_outputs_sha256": "f86d45e9f0f56d55f5a8be21825c9b0f294b9240a22a7f3fa575722705d1562c",
+    "n_records": 600,
+    "n_truncated": 0,
+    "overall_rate": 0.0,
+    "max_variant_spread": 0.0,
+    "per_variant": {
+      "cross_modal": {
+        "n": 100,
+        "n_truncated": 0,
+        "rate": 0.0
+      },
+      "history_reset": {
+        "n": 100,
+        "n_truncated": 0,
+        "rate": 0.0
+      },
+      "neutral": {
+        "n": 100,
+        "n_truncated": 0,
+        "rate": 0.0
+      },
+      "shuffle": {
+        "n": 100,
+        "n_truncated": 0,
+        "rate": 0.0
+      },
+      "text_only": {
+        "n": 100,
+        "n_truncated": 0,
+        "rate": 0.0
+      },
+      "vision_only": {
+        "n": 100,
+        "n_truncated": 0,
+        "rate": 0.0
+      }
+    },
+    "thresholds": {
+      "max_overall_rate": 0.02,
+      "max_variant_spread": 0.05,
+      "inclusive": true
+    },
+    "counting_rule": "hit_max_new_tokens is True or truncated is True",
+    "violations": [],
+    "within_registered_thresholds": true,
+    "uniform_cap_escalation_triggered": false,
+    "cells": [],
+    "max_new_tokens": 1536,
+    "longest_complete_output_tokens": 1291,
+    "repetition_diagnostics": {
+      "metric": "repeat3 = 1 - distinct(word 3-grams) / total(word 3-grams); top8 = share of the response covered by its most frequent word 8-gram",
+      "criterion": "a truncated cell is classified a repetition loop when its repeat3 exceeds the maximum repeat3 of the COMPLETE (non-truncated) cells of the SAME arm, i.e. when it is more repetitive than anything that model produced when it was allowed to finish",
+      "gates_nothing": true,
+      "complete_max_repeat3": 0.245333,
+      "cells": [],
+      "n_classified_loop": 0,
+      "n_not_classified_loop": 0
+    }
+  },
+  "per_target": {
+    "ministral3_3b": {
+      "run_dir": "outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b",
+      "replay_outputs_sha256": "8798bad09de5344aea8003190c0618e8f8987464fe1d6cace6266a7b397cc12e",
+      "n_records": 600,
+      "n_truncated": 1,
+      "overall_rate": 0.0016666666666666668,
+      "max_variant_spread": 0.01,
+      "per_variant": {
+        "cross_modal": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "history_reset": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "neutral": {
+          "n": 100,
+          "n_truncated": 1,
+          "rate": 0.01
+        },
+        "shuffle": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "text_only": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "vision_only": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        }
+      },
+      "thresholds": {
+        "max_overall_rate": 0.02,
+        "max_variant_spread": 0.05,
+        "inclusive": true
+      },
+      "counting_rule": "hit_max_new_tokens is True or truncated is True",
+      "violations": [],
+      "within_registered_thresholds": true,
+      "uniform_cap_escalation_triggered": false,
+      "cells": [
+        {
+          "family_id": "CMST_475310",
+          "variant": "neutral",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        }
+      ],
+      "max_new_tokens": 1536,
+      "longest_complete_output_tokens": 1451,
+      "repetition_diagnostics": {
+        "metric": "repeat3 = 1 - distinct(word 3-grams) / total(word 3-grams); top8 = share of the response covered by its most frequent word 8-gram",
+        "criterion": "a truncated cell is classified a repetition loop when its repeat3 exceeds the maximum repeat3 of the COMPLETE (non-truncated) cells of the SAME arm, i.e. when it is more repetitive than anything that model produced when it was allowed to finish",
+        "gates_nothing": true,
+        "complete_max_repeat3": 0.191257,
+        "cells": [
+          {
+            "family_id": "CMST_475310",
+            "variant": "neutral",
+            "repeat3": 0.101947,
+            "top8": 0.0183,
+            "arm_complete_max_repeat3": 0.191257,
+            "classified_repetition_loop": false
+          }
+        ],
+        "n_classified_loop": 0,
+        "n_not_classified_loop": 1
+      }
+    },
+    "phi4_mm": {
+      "run_dir": "outputs/iteration_11/generations/phi4_mm/confirmatory-100f-t1536-phi4_mm",
+      "replay_outputs_sha256": "604b1f92d963660dc515a9cb934546bd4cf9a51056d7a3b373e1138c8e747fee",
+      "n_records": 600,
+      "n_truncated": 4,
+      "overall_rate": 0.006666666666666667,
+      "max_variant_spread": 0.03,
+      "per_variant": {
+        "cross_modal": {
+          "n": 100,
+          "n_truncated": 1,
+          "rate": 0.01
+        },
+        "history_reset": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "neutral": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "shuffle": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "text_only": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "vision_only": {
+          "n": 100,
+          "n_truncated": 3,
+          "rate": 0.03
+        }
+      },
+      "thresholds": {
+        "max_overall_rate": 0.02,
+        "max_variant_spread": 0.05,
+        "inclusive": true
+      },
+      "counting_rule": "hit_max_new_tokens is True or truncated is True",
+      "violations": [],
+      "within_registered_thresholds": true,
+      "uniform_cap_escalation_triggered": false,
+      "cells": [
+        {
+          "family_id": "CMST_380403",
+          "variant": "cross_modal",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_475310",
+          "variant": "vision_only",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_501124",
+          "variant": "vision_only",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_654232",
+          "variant": "vision_only",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        }
+      ],
+      "max_new_tokens": 1536,
+      "longest_complete_output_tokens": 723,
+      "repetition_diagnostics": {
+        "metric": "repeat3 = 1 - distinct(word 3-grams) / total(word 3-grams); top8 = share of the response covered by its most frequent word 8-gram",
+        "criterion": "a truncated cell is classified a repetition loop when its repeat3 exceeds the maximum repeat3 of the COMPLETE (non-truncated) cells of the SAME arm, i.e. when it is more repetitive than anything that model produced when it was allowed to finish",
+        "gates_nothing": true,
+        "complete_max_repeat3": 0.429577,
+        "cells": [
+          {
+            "family_id": "CMST_380403",
+            "variant": "cross_modal",
+            "repeat3": 0.922863,
+            "top8": 0.4386,
+            "arm_complete_max_repeat3": 0.429577,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_475310",
+            "variant": "vision_only",
+            "repeat3": 0.835088,
+            "top8": 0.1345,
+            "arm_complete_max_repeat3": 0.429577,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_501124",
+            "variant": "vision_only",
+            "repeat3": 0.95766,
+            "top8": 0.1599,
+            "arm_complete_max_repeat3": 0.429577,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_654232",
+            "variant": "vision_only",
+            "repeat3": 0.949775,
+            "top8": 0.3593,
+            "arm_complete_max_repeat3": 0.429577,
+            "classified_repetition_loop": true
+          }
+        ],
+        "n_classified_loop": 4,
+        "n_not_classified_loop": 0
+      }
+    },
+    "qwen35_2b": {
+      "run_dir": "outputs/iteration_11/generations/qwen35_2b/confirmatory-100f-t1536-qwen35_2b",
+      "replay_outputs_sha256": "dc7b5817452fc61348a46519b0238367bb87db7863072b05e9449ca5f1b73c31",
+      "n_records": 600,
+      "n_truncated": 7,
+      "overall_rate": 0.011666666666666667,
+      "max_variant_spread": 0.03,
+      "per_variant": {
+        "cross_modal": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "history_reset": {
+          "n": 100,
+          "n_truncated": 1,
+          "rate": 0.01
+        },
+        "neutral": {
+          "n": 100,
+          "n_truncated": 2,
+          "rate": 0.02
+        },
+        "shuffle": {
+          "n": 100,
+          "n_truncated": 3,
+          "rate": 0.03
+        },
+        "text_only": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "vision_only": {
+          "n": 100,
+          "n_truncated": 1,
+          "rate": 0.01
+        }
+      },
+      "thresholds": {
+        "max_overall_rate": 0.02,
+        "max_variant_spread": 0.05,
+        "inclusive": true
+      },
+      "counting_rule": "hit_max_new_tokens is True or truncated is True",
+      "violations": [],
+      "within_registered_thresholds": true,
+      "uniform_cap_escalation_triggered": false,
+      "cells": [
+        {
+          "family_id": "CMST_035954",
+          "variant": "shuffle",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_361008",
+          "variant": "history_reset",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_361008",
+          "variant": "neutral",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_619519",
+          "variant": "shuffle",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_654232",
+          "variant": "neutral",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_696183",
+          "variant": "shuffle",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        },
+        {
+          "family_id": "CMST_993351",
+          "variant": "vision_only",
+          "finish_reason": "length",
+          "output_token_count": 1536,
+          "max_new_tokens": 1536
+        }
+      ],
+      "max_new_tokens": 1536,
+      "longest_complete_output_tokens": 1362,
+      "repetition_diagnostics": {
+        "metric": "repeat3 = 1 - distinct(word 3-grams) / total(word 3-grams); top8 = share of the response covered by its most frequent word 8-gram",
+        "criterion": "a truncated cell is classified a repetition loop when its repeat3 exceeds the maximum repeat3 of the COMPLETE (non-truncated) cells of the SAME arm, i.e. when it is more repetitive than anything that model produced when it was allowed to finish",
+        "gates_nothing": true,
+        "complete_max_repeat3": 0.476723,
+        "cells": [
+          {
+            "family_id": "CMST_035954",
+            "variant": "shuffle",
+            "repeat3": 0.491525,
+            "top8": 0.0624,
+            "arm_complete_max_repeat3": 0.476723,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_361008",
+            "variant": "history_reset",
+            "repeat3": 0.74496,
+            "top8": 0.4668,
+            "arm_complete_max_repeat3": 0.476723,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_361008",
+            "variant": "neutral",
+            "repeat3": 0.479821,
+            "top8": 0.17,
+            "arm_complete_max_repeat3": 0.476723,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_619519",
+            "variant": "shuffle",
+            "repeat3": 0.897581,
+            "top8": 0.5411,
+            "arm_complete_max_repeat3": 0.476723,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_654232",
+            "variant": "neutral",
+            "repeat3": 0.662487,
+            "top8": 2.5777,
+            "arm_complete_max_repeat3": 0.476723,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_696183",
+            "variant": "shuffle",
+            "repeat3": 0.719437,
+            "top8": 0.0702,
+            "arm_complete_max_repeat3": 0.476723,
+            "classified_repetition_loop": true
+          },
+          {
+            "family_id": "CMST_993351",
+            "variant": "vision_only",
+            "repeat3": 0.796861,
+            "top8": 0.2065,
+            "arm_complete_max_repeat3": 0.476723,
+            "classified_repetition_loop": true
+          }
+        ],
+        "n_classified_loop": 7,
+        "n_not_classified_loop": 0
+      }
+    },
+    "qwen35_4b": {
+      "run_dir": "outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b",
+      "replay_outputs_sha256": "6bc0610508b490f1fdc77eb2b50f1b71848ecb9234521256eab76539aeee7358",
+      "n_records": 600,
+      "n_truncated": 0,
+      "overall_rate": 0.0,
+      "max_variant_spread": 0.0,
+      "per_variant": {
+        "cross_modal": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "history_reset": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "neutral": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "shuffle": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "text_only": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        },
+        "vision_only": {
+          "n": 100,
+          "n_truncated": 0,
+          "rate": 0.0
+        }
+      },
+      "thresholds": {
+        "max_overall_rate": 0.02,
+        "max_variant_spread": 0.05,
+        "inclusive": true
+      },
+      "counting_rule": "hit_max_new_tokens is True or truncated is True",
+      "violations": [],
+      "within_registered_thresholds": true,
+      "uniform_cap_escalation_triggered": false,
+      "cells": [],
+      "max_new_tokens": 1536,
+      "longest_complete_output_tokens": 1142,
+      "repetition_diagnostics": {
+        "metric": "repeat3 = 1 - distinct(word 3-grams) / total(word 3-grams); top8 = share of the response covered by its most frequent word 8-gram",
+        "criterion": "a truncated cell is classified a repetition loop when its repeat3 exceeds the maximum repeat3 of the COMPLETE (non-truncated) cells of the SAME arm, i.e. when it is more repetitive than anything that model produced when it was allowed to finish",
+        "gates_nothing": true,
+        "complete_max_repeat3": 0.280255,
+        "cells": [],
+        "n_classified_loop": 0,
+        "n_not_classified_loop": 0
+      }
+    }
+  },
+  "totals": {
+    "n_targets": 4,
+    "n_truncated_cells": 12,
+    "n_classified_repetition_loop": 11,
+    "n_not_classified_repetition_loop": 1,
+    "loop_criterion": "a truncated cell is classified a repetition loop when its repeat3 exceeds the maximum repeat3 of the COMPLETE (non-truncated) cells of the SAME arm, i.e. when it is more repetitive than anything that model produced when it was allowed to finish",
+    "count_reconciliation": "earlier prose described these cells as both '11 of 12' and '10 of 12' repetition loops. Under the criterion registered above the count is the one in n_classified_repetition_loop, computed per arm from the per-cell repeat3 values recorded here, so it can be recounted rather than recalled. The '10 of 12' figure was a miscount: the range it quoted, repeat3 0.48-0.96, covers eleven cells, not ten"
+  },
+  "targets": [
+    "ministral3_3b",
+    "phi4_mm",
+    "qwen35_2b",
+    "qwen35_4b"
+  ]
+}

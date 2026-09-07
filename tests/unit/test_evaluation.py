@@ -207,8 +207,13 @@ class TestPanelGate:
             validate_panel(run_dir)
 
     def test_truncation_fails(self, tmp_path):
+        # Every cell truncated, so the panel is far outside the registered
+        # tolerance this gate shares with the replay completion gate
+        # (causal_mllm.replay.truncation). The inclusive boundary and the
+        # one-cell-past-it cases are pinned in test_truncation_policy.py.
         run_dir = _make_replay_run(tmp_path, truncation=True)
-        with pytest.raises(EvaluationError, match="zero truncation required"):
+        with pytest.raises(EvaluationError,
+                           match="exceeds the registered maximum"):
             validate_panel(run_dir)
 
     def test_unpinned_fails(self, tmp_path):

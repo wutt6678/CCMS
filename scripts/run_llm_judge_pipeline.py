@@ -40,6 +40,7 @@ from causal_mllm.evaluation.errors import (
     EvaluationError,
     ProviderRejectedRequest,
 )
+from causal_mllm.evaluation.gate import validate_panel
 from causal_mllm.evaluation.human_template import (
     _build_anonymization_map,
     _extract_conversation_context,
@@ -926,6 +927,42 @@ def main():
     print("Loading validated families...")
     families = load_families()
     print(f"  Loaded {len(families)} families")
+
+    # Gate the panel BEFORE anything is spent on it.
+    #
+    # gate.py's contract is that "a panel that fails the gate is NEVER judged",
+    # but its only call site used to be inside run_evaluation_stage, which runs
+    # at the END of the ensemble. So the contract was false in practice: three
+    # Iteration 11 arms each paid for two primaries and a full adjudication
+    # pass -- roughly nine hours of gateway budget apiece -- and were then
+    # refused at evaluation. Validating here costs one read of the replay
+    # outputs and makes the contract true, which matters most in split mode,
+    # where the process that would have failed is the one holding the budget.
+    print("\nValidating the replay panel before any judging...")
+    try:
+        panel, _ = validate_panel(FINAL_PANEL_RUN,
+                                  expected_n_families=len(families))
+    except EvaluationError as exc:
+        print(f"\nFATAL: the replay panel failed the gate, so no judge is "
+              f"called and nothing is spent:\n{exc}", file=sys.stderr)
+        raise SystemExit(1)
+    truncation = panel.truncation
+    limits = truncation["thresholds"]
+    print(f"  panel gate PASSED: {panel.n_records} records over "
+          f"{panel.n_families} families")
+    print(f"  truncation: {truncation['n_truncated']} of "
+          f"{truncation['n_records']} cell(s) reached the cap "
+          f"(rate {truncation['overall_rate']:.4f} <= "
+          f"{limits['max_overall_rate']}, variant spread "
+          f"{truncation['max_variant_spread']:.4f} <= "
+          f"{limits['max_variant_spread']})")
+    for cell in truncation["cells"]:
+        # Named at the point of acceptance rather than discovered later: a
+        # capped cell is kept as an observation of the model, not dropped, so
+        # the log has to say which ones were kept.
+        print(f"    capped, kept: {cell['family_id']}/{cell['variant']} "
+              f"finish_reason={cell['finish_reason']} "
+              f"output_tokens={cell['output_token_count']}")
 
     # Prepare blinded items
     print("\nPreparing blinded items...")

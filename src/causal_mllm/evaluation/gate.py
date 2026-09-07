@@ -2,11 +2,31 @@
 
 Before any judging begins, the replay panel must pass a strict gate:
 exactly N families × 6 variants records (N declared by the caller —
-Scale-B 20, Scale-C 100), zero failures, zero truncation, pinned
-revision, and all finish reasons in {eos, stop}.
+Scale-B 20, Scale-C 100), zero failures, truncation within the registered
+panel tolerance, pinned revision, and every finish reason either a natural
+termination or the cap on a record that says it reached the cap.
 
 A panel that fails the gate is NEVER judged — EvaluationError halts
 the evaluation stage.
+
+TRUNCATION: ONE STANDARD, DEFINED ELSEWHERE
+This gate used to require zero truncated records while the Iteration 11
+completion gate accepted up to 2% overall with a 5-point variant spread. The
+frozen Qwen3.5-9B reference truncated nothing, so both standards had always
+agreed and nothing compared them. Iteration 11 replayed four smaller
+checkpoints under the same frozen cap: three passed the completion gate and
+were then refused here, after the judging budget had been spent.
+
+Both thresholds now live in :mod:`causal_mllm.replay.truncation` and this gate
+imports them rather than restating its own, so a panel is held to the same
+standard from the moment it is replayed to the moment it is evaluated. There
+is deliberately no argument here to loosen it: no tolerance parameter, no
+per-run override, no CLI flag. The 12-family ELIGIBILITY gate stays at zero
+truncation and is a separate screening contract in ``replay.confirmatory``.
+
+Every report this gate returns carries what it measured -- thresholds, counts,
+rates, spread and the affected cells -- so a reader can see the truncation a
+panel was accepted with instead of inferring that it had none.
 """
 
 from __future__ import annotations
@@ -18,6 +38,13 @@ from pathlib import Path
 from causal_mllm.construction.readiness import ALL_VARIANT_NAMES
 from causal_mllm.data.io import read_jsonl
 from causal_mllm.evaluation.errors import EvaluationError
+from causal_mllm.replay.truncation import (
+    MAX_TRUNCATION_RATE,
+    MAX_VARIANT_SPREAD,
+    NATURAL_FINISH_REASONS,
+    finish_reason_violations,
+    measure_truncation,
+)
 
 REPLAY_OUTPUTS_FILE = "replay_outputs.jsonl"
 REPLAY_FAILURES_FILE = "replay_failures.jsonl"
@@ -28,7 +55,10 @@ REPLAY_REPORT_FILE = "replay_report.json"
 EXPECTED_N_FAMILIES = 20
 EXPECTED_N_VARIANTS = len(ALL_VARIANT_NAMES)  # 6
 EXPECTED_N_RECORDS = EXPECTED_N_FAMILIES * EXPECTED_N_VARIANTS  # 120
-VALID_FINISH_REASONS = {"eos", "stop"}
+
+#: Derived, not restated: a natural termination is defined once, in the module
+#: that also defines what a truncated record is.
+VALID_FINISH_REASONS = set(NATURAL_FINISH_REASONS)
 
 
 @dataclass(frozen=True)
@@ -40,6 +70,10 @@ class PanelReport:
     n_families: int
     n_records: int
     provenance: dict = field(default_factory=dict)
+    #: What the gate measured about truncation, thresholds included. Present
+    #: even when nothing was truncated, because "the check ran and found none"
+    #: and "the check did not run" have to be distinguishable in a report.
+    truncation: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
         return {
@@ -48,6 +82,7 @@ class PanelReport:
             "n_families": self.n_families,
             "n_records": self.n_records,
             "provenance": dict(self.provenance),
+            "truncation": dict(self.truncation),
         }
 
 
@@ -131,13 +166,23 @@ def validate_panel(
         if "hit_max_new_tokens" not in rec:
             errors.append(f"record {i}: missing hit_max_new_tokens")
 
-    # --- Zero truncation ---
-    truncated = [r for r in records
-                 if r.get("hit_max_new_tokens") is True]
-    if truncated:
+    # --- Truncation, measured once and recorded pass or fail ---
+    # The measurement is taken here and reused below, so the count a report
+    # states is the count the gate decided on. Zero truncation still passes:
+    # the thresholds admit up to MAX_TRUNCATION_RATE overall with a variant
+    # spread up to MAX_VARIANT_SPREAD, and a panel with none is inside both.
+    truncation = measure_truncation(records)
+    errors.extend(truncation["violations"])
+    if (truncation["thresholds"]["max_overall_rate"] != MAX_TRUNCATION_RATE
+            or truncation["thresholds"]["max_variant_spread"]
+            != MAX_VARIANT_SPREAD):
+        # Fail closed on our own wiring rather than publish a report whose
+        # advertised tolerance is not the one that was applied.
         errors.append(
-            f"zero truncation required, got {len(truncated)} "
-            f"truncated response(s)")
+            f"internal error: the truncation measurement applied thresholds "
+            f"{truncation['thresholds']} but this gate imported "
+            f"{MAX_TRUNCATION_RATE}/{MAX_VARIANT_SPREAD}, so one panel would "
+            f"be judged against two different standards")
 
     # --- Pinned revision ---
     provenance = report.get("provenance", {})
@@ -209,15 +254,10 @@ def validate_panel(
             f"empty response(s)")
 
     # --- Finish reasons ---
-    bad_finish = [
-        r for r in records
-        if r.get("finish_reason") not in VALID_FINISH_REASONS
-    ]
-    if bad_finish:
-        reasons = {r.get("finish_reason") for r in bad_finish}
-        errors.append(
-            f"all finish_reason must be in {VALID_FINISH_REASONS}, "
-            f"got {len(bad_finish)} record(s) with: {reasons}")
+    # A natural termination always passes; the cap passes only on a record
+    # counted as truncated above, so the two provenance flags cannot
+    # contradict each other without the panel being refused.
+    errors.extend(finish_reason_violations(records))
 
     # --- Fail-closed ---
     if errors:
@@ -230,5 +270,6 @@ def validate_panel(
         n_families=len(unique_families),
         n_records=len(records),
         provenance=provenance,
+        truncation=truncation,
     )
     return panel, records
