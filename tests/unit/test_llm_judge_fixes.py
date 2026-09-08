@@ -2,10 +2,13 @@
 
 These tests invoke the PRODUCTION functions (not reimplemented logic):
 - enforce_coherence / adjudicate_deterministic / validate_llm_judgment_fields
-- MultimodalLLMJudge._build_prompt (missing-image fatal, MIME detection)
+- MultimodalLLMJudge._build_prompt (missing-image fatal, MIME detection, and
+  manifest-backed rendering on a checkout that does not hold the media)
 - MultimodalLLMJudge rubric selection + version extraction
 - _icc standard two-way ANOVA (Shrout & Fleiss Case 3)
 """
+
+import hashlib
 
 import pytest
 
@@ -162,7 +165,22 @@ class TestRubricSelection:
 
 
 class TestMissingImageFatal:
-    """Tests that missing images raise (not silently skip)."""
+    """A missing image raises, unless something committed identifies it.
+
+    ``data/media`` is gitignored apart from 20 individually negated source
+    images, so a fresh clone holds 20 of 3,034. The blinding audit rendered
+    every prompt through this method, so on such a clone it collected 12
+    "prompt_render_errors" per arm and exited 1 -- a report about the machine,
+    filed as a finding about the panel. The identity map is what separates the
+    two: with it, an absent image is still identified by the digest the panel
+    was generated under, and without it the absence is still fatal.
+    """
+
+    @staticmethod
+    def _history(path: str) -> list[dict]:
+        return [{"role": "user", "content": [
+            {"type": "text", "text": "look at this"},
+            {"type": "image", "image": path}]}]
 
     def test_missing_image_raises(self):
         judge = MultimodalLLMJudge(_make_config(), judge_id="test")
@@ -172,6 +190,113 @@ class TestMissingImageFatal:
             judge._build_prompt(
                 system_prompt="sys", history_messages=history,
                 terminal_query="q", response="r")
+
+    def test_an_identity_map_that_does_not_bind_the_path_changes_nothing(self):
+        # A map is a licence to render an image whose digest it holds, not a
+        # licence to render any absent image.
+        judge = MultimodalLLMJudge(_make_config(), judge_id="test")
+        with pytest.raises(EvaluationError,
+                           match="does not bind it either"):
+            judge._build_prompt(
+                system_prompt="sys", terminal_query="q", response="r",
+                history_messages=self._history("/nonexistent/path/img.png"),
+                image_identity={"data/media/some_other_image.png": "a" * 64})
+
+    def test_a_bound_image_renders_from_its_committed_digest(self):
+        judge = MultimodalLLMJudge(_make_config(), judge_id="test")
+        path = "/nonexistent/path/img.png"
+        resolution = []
+        prompt, contents, hashes = judge._build_prompt(
+            system_prompt="sys", terminal_query="q", response="r",
+            history_messages=self._history(path),
+            image_identity={path: "a" * 64}, image_resolution=resolution)
+        assert hashes == ["a" * 64]
+        assert contents == [None], (
+            "no payload was built because there were no bytes to build one "
+            "from, and a fabricated one would make the request hash describe "
+            "an image nobody has")
+        assert "[Image: img.png]" in prompt
+        assert resolution == [{"path": path, "sha256": "a" * 64,
+                               "source": "the committed media manifest",
+                               "payload_built": False}]
+
+    def test_the_prompt_text_does_not_depend_on_holding_the_bytes(
+            self, tmp_path):
+        """The property the whole affordance rests on.
+
+        The blinding question is whether a target model's identity reaches the
+        prompt TEXT. If the text differed between a checkout that held the
+        image and one that did not, an audit run on a fresh clone would be
+        auditing a different prompt from the one the panel was judged with, and
+        its answer would be about nothing.
+        """
+        path = tmp_path / "img.png"
+        payload = b"\x89PNG\r\n\x1a\n" + b"0" * 64
+        path.write_bytes(payload)
+        digest = hashlib.sha256(payload).hexdigest()
+        judge = MultimodalLLMJudge(_make_config(), judge_id="test")
+        from_bytes = judge._build_prompt(
+            system_prompt="sys", terminal_query="q", response="r",
+            history_messages=self._history(str(path)),
+            image_identity={str(path): digest})
+        path.unlink()
+        from_manifest = judge._build_prompt(
+            system_prompt="sys", terminal_query="q", response="r",
+            history_messages=self._history(str(path)),
+            image_identity={str(path): digest})
+        assert from_bytes[0] == from_manifest[0]
+        assert from_bytes[2] == from_manifest[2] == [digest]
+        assert hashlib.sha256(from_bytes[0].encode()).hexdigest() \
+            == hashlib.sha256(from_manifest[0].encode()).hexdigest()
+
+    def test_a_present_image_that_disagrees_with_the_manifest_is_fatal(
+            self, tmp_path):
+        # Supplying the map makes this method STRICTER where it can be: bytes
+        # that are present are hashed and cross-checked, so a checkout holding
+        # a different image than the panel was generated from is caught here
+        # rather than being rendered as though it were the same file.
+        path = tmp_path / "img.png"
+        path.write_bytes(b"not the bytes the panel was generated from")
+        judge = MultimodalLLMJudge(_make_config(), judge_id="test")
+        with pytest.raises(EvaluationError,
+                           match="not the bytes the panel was generated from"):
+            judge._build_prompt(
+                system_prompt="sys", terminal_query="q", response="r",
+                history_messages=self._history(str(path)),
+                image_identity={str(path): "a" * 64})
+
+    def test_a_present_image_that_agrees_is_encoded_and_says_so(
+            self, tmp_path):
+        path = tmp_path / "img.png"
+        payload = b"\x89PNG\r\n\x1a\n" + b"1" * 32
+        path.write_bytes(payload)
+        digest = hashlib.sha256(payload).hexdigest()
+        judge = MultimodalLLMJudge(_make_config(), judge_id="test")
+        resolution = []
+        _prompt, contents, hashes = judge._build_prompt(
+            system_prompt="sys", terminal_query="q", response="r",
+            history_messages=self._history(str(path)),
+            image_identity={str(path): digest}, image_resolution=resolution)
+        assert hashes == [digest]
+        assert contents[0]["image_url"]["url"].startswith("data:image/png")
+        assert resolution[0]["source"] == "bytes"
+        assert resolution[0]["payload_built"] is True
+
+    def test_judging_refuses_a_prompt_whose_payload_was_not_built(self,
+                                                                 monkeypatch):
+        """The affordance is for verification, and it stops at the gateway.
+
+        ``judge`` never passes an identity map, so this is unreachable in a
+        judging run; it is refused rather than left to the provider because a
+        request whose image payload was taken from a manifest is not a request
+        this repository's evidence describes.
+        """
+        judge = MultimodalLLMJudge(_make_config(), judge_id="test")
+        monkeypatch.setattr(
+            judge, "_build_prompt",
+            lambda *a, **k: ("prompt", [None], ["a" * 64]))
+        with pytest.raises(EvaluationError, match="without image bytes"):
+            judge.judge("sys", [], "q", "r")
 
 
 class TestMIMEDetection:

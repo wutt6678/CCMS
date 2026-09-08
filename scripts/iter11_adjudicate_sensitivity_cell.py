@@ -71,13 +71,25 @@ Usage:
     python3 scripts/iter11_adjudicate_sensitivity_cell.py --write
     python3 scripts/iter11_adjudicate_sensitivity_cell.py --write --fresh-calls
     python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify
+    python3 scripts/iter11_adjudicate_sensitivity_cell.py --write-call-receipt
+
+``--write-call-receipt`` commits the preserved evidence of the calls this
+artifact's labels came from, once. It exists because a re-file used to cite the
+previous version of the artifact itself as the source of a reused call, and that
+version was overwritten by the re-file and never committed: the citation named a
+sha256 and a commit that resolve to nothing, and ``--verify`` asked only whether
+the sha256 was a string. The receipt is written once and refused thereafter, is
+committed before anything cites it, and ``--verify`` resolves it out of the git
+object store, hashes what it resolves, and compares that hash with the cited one.
 
 Exit codes: 0 verified / written; 1 a disagreement with the frozen rule, a
 missing primary label where one is required, a filed label that does not answer
-the request the frozen rule would send, or a frozen label file that moved; 2 no
-artifact to verify against, or --write needing a call it has no credentials for
-(nothing is written, so a failed call cannot overwrite a filed one); 3 the
-adjudicator refused a cell, so the label could not be produced here.
+the request the frozen rule would send, a frozen label file that moved, a reuse
+citation that does not resolve to the bytes it names or that no commit holds, or
+an attempt to overwrite the receipt; 2 no artifact to verify against, or --write
+needing a call it has no credentials for (nothing is written, so a failed call
+cannot overwrite a filed one); 3 the adjudicator refused a cell, so the label
+could not be produced here.
 """
 
 from __future__ import annotations
@@ -103,11 +115,28 @@ from causal_mllm.evaluation.censoring import (  # noqa: E402
     DIFFERENTIAL_CELL,
     DIFFERENTIAL_TARGET,
 )
-from causal_mllm.seeds import code_tree_status, get_git_commit  # noqa: E402
+from causal_mllm.seeds import (  # noqa: E402
+    code_tree_status,
+    get_git_commit,
+    sha256_bytes,
+)
 
 JUDGE_ROOT = REPO_ROOT / "outputs" / "iteration_11" / "judge"
 OUT_PATH = REPO_ROOT / "outputs" / "iteration_11" / "analysis" \
     / "differential_censoring" / "labels_adjudicated.sensitivity_99f.json"
+
+#: The immutable receipt for the two adjudicator calls this artifact's labels
+#: come from. It exists because a re-file used to cite the PREVIOUS VERSION OF
+#: THE ARTIFACT ITSELF as the source of a reused call -- sha256 2d00760c..., filed
+#: at commit fe455929.... That commit was amended before it was pushed and the
+#: bytes it cited were never committed at all, so the pointer resolved to
+#: nothing: the blob is absent from the object store, the commit is reachable
+#: from no ref, and its tree never held the path. A citation a reviewer cannot
+#: resolve is not provenance. The receipt is committed beside the artifact, is
+#: written once and refused thereafter, and ``--verify`` resolves it out of the
+#: object store and hashes what it resolves.
+RECEIPT_PATH = REPO_ROOT / "outputs" / "iteration_11" / "analysis" \
+    / "differential_censoring" / "call_receipts.sensitivity_99f.json"
 
 ARMS = ("ministral3_3b", "phi4_mm", "qwen35_2b", "qwen35_4b")
 FAMILY, VARIANT = DIFFERENTIAL_CELL.split("/")
@@ -195,6 +224,66 @@ def sha256_file(path: Path) -> str | None:
 
 def load_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _git(*args: str) -> tuple[int, bytes]:
+    """``(returncode, stdout or stderr)`` for one git plumbing call."""
+    import subprocess
+    try:
+        proc = subprocess.run(["git", *args], cwd=REPO_ROOT,
+                              capture_output=True, timeout=120)
+    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
+        return 1, f"{type(exc).__name__}: {exc}".encode("utf-8")
+    return proc.returncode, (proc.stdout if proc.returncode == 0
+                             else proc.stderr)
+
+
+def resolve_evidence(path: Path) -> dict:
+    """Resolve a cited artifact out of the object store, not off this disk.
+
+    Hashing the working-tree copy of a file proves only that this machine has a
+    file, which is exactly the claim that failed: the reused calls cited a
+    sha256 nothing could resolve. Resolving ``HEAD:<path>`` and reading that blob
+    proves the bytes are reachable from the commit, so any clone can perform the
+    same check and get the same answer. An untracked file falls back to the
+    working tree and SAYS SO, because "resolved" and "resolved from the commit"
+    are different statements and the difference is the whole point.
+    """
+    rel = _rel(path)
+    out: dict = {
+        "path": rel,
+        "exists_on_disk": path.exists(),
+        "working_tree_sha256": sha256_file(path),
+        "resolved_from": None,
+        "bytes_sha256": None,
+        "git_blob_sha1": None,
+        "head_commit": None,
+        "why_not": None,
+    }
+    code, head = _git("rev-parse", "HEAD")
+    if code == 0:
+        out["head_commit"] = head.decode("utf-8", "replace").strip()
+    code, blob = _git("rev-parse", f"HEAD:{rel}")
+    if code == 0:
+        blob_sha = blob.decode("utf-8", "replace").strip()
+        code, content = _git("cat-file", "blob", blob_sha)
+        if code == 0:
+            out["resolved_from"] = "the blob HEAD holds at this path"
+            out["bytes_sha256"] = sha256_bytes(content)
+            out["git_blob_sha1"] = blob_sha
+            return out
+        out["why_not"] = (f"HEAD names blob {blob_sha} for {rel} but it cannot "
+                          f"be read: "
+                          f"{content.decode('utf-8', 'replace').strip()[:200]}")
+    else:
+        out["why_not"] = (
+            f"no commit reachable from HEAD holds {rel}: "
+            f"{blob.decode('utf-8', 'replace').strip()[:200]}")
+    if path.exists():
+        out["resolved_from"] = ("the working tree, which no commit reachable "
+                                "from HEAD holds")
+        out["bytes_sha256"] = out["working_tree_sha256"]
+    return out
 
 
 def arm_paths(arm: str) -> dict[str, Path]:
@@ -495,7 +584,9 @@ def sealed_label_sets() -> dict:
 
 
 def reusable_call(arm: str, state: dict, filed_entry: dict | None,
-                  expected: dict) -> tuple[dict | None, str | None]:
+                  expected: dict,
+                  source_path: Path | None = None
+                  ) -> tuple[dict | None, str | None]:
     """A filed call this re-file may reuse, or the reason it may not.
 
     Reuse is bound by everything that determines the request -- the response
@@ -507,7 +598,8 @@ def reusable_call(arm: str, state: dict, filed_entry: dict | None,
     made instead.
     """
     if not filed_entry:
-        return None, "no artifact was on disk to reuse a call from"
+        return None, (f"{_rel(source_path or RECEIPT_PATH)} preserves no call "
+                      f"for this arm, so there is nothing to reuse")
     if filed_entry.get("call_failed"):
         return None, ("the filed call failed"
                       f" ({filed_entry.get('call_failed')}), so there is no "
@@ -663,14 +755,249 @@ def filed_artifact(path: Path | None = None) -> tuple[dict | None, str | None]:
     return load_json(path), sha256_file(path)
 
 
+#: What a reuse is bound by, and therefore what the receipt has to preserve for
+#: each arm. These are exactly the fields :func:`reusable_call` compares, plus
+#: the identity of the call itself, so a re-file drawing on the receipt is bound
+#: by the same evidence a re-file drawing on the artifact was.
+RECEIPT_CALL_FIELDS = (
+    "item_id", "response_sha256", "ensemble_label_status", "differing_fields",
+    "primary_A_judgment", "primary_B_judgment", "primary_A_model_id",
+    "primary_B_model_id", "presentation_order", "ensemble_label",
+    "adjudicated_by", "adjudicator", "call_provenance",
+    "request_the_frozen_rule_would_send",
+)
+
+#: The citation this receipt replaces. Kept as constants rather than read back
+#: out of the artifact, because the artifact no longer carries them: filing what
+#: could not be resolved is the only record that it was ever claimed.
+SUPERSEDED_CITATION_SHA256 = (
+    "2d00760c5035d9049d571a6517b2ffd7505d557ac630bf805c46a69d9bed268c")
+SUPERSEDED_CITATION_COMMIT = "fe455929575382e5e57e2346b271d095085d39ee"
+SUPERSEDED_CITATION_GENERATED_AT = "2026-09-08T11:04:10+00:00"
+
+
+def committed_versions_of(rel_path: str) -> list[dict]:
+    """Every blob any reachable commit holds at ``rel_path``, hashed.
+
+    This is how "the bytes a citation names were never committed" is MEASURED
+    rather than asserted: a sha256 of file content is not a git object id, so
+    asking git for it proves nothing, while enumerating the committed versions of
+    the path and hashing each one answers the question that was actually asked.
+    """
+    code, out = _git("log", "--all", "--format=%H", "--", rel_path)
+    commits = out.decode("utf-8", "replace").split() if code == 0 else []
+    versions = []
+    for commit in commits:
+        code, blob = _git("rev-parse", f"{commit}:{rel_path}")
+        if code != 0:
+            continue
+        blob_sha = blob.decode("utf-8", "replace").strip()
+        code, content = _git("cat-file", "blob", blob_sha)
+        if code != 0:
+            continue
+        versions.append({"commit": commit, "git_blob_sha1": blob_sha,
+                         "sha256": sha256_bytes(content)})
+    return versions
+
+
+def superseded_citation() -> dict:
+    """What the unusable citation pointed at, and the measurements that say so."""
+    rel = _rel(OUT_PATH)
+    versions = committed_versions_of(rel)
+    matching = [v for v in versions
+                if v["sha256"] == SUPERSEDED_CITATION_SHA256]
+    code, _ = _git("cat-file", "-e", f"{SUPERSEDED_CITATION_COMMIT}^{{commit}}")
+    exists_here = code == 0
+    code, _ = _git("merge-base", "--is-ancestor", SUPERSEDED_CITATION_COMMIT,
+                   "HEAD")
+    reachable = code == 0
+    held_the_path = False
+    if exists_here:
+        code, _ = _git("rev-parse", f"{SUPERSEDED_CITATION_COMMIT}:{rel}")
+        held_the_path = code == 0
+    return {
+        "the_citation_that_could_not_be_resolved": {
+            "path": rel,
+            "sha256": SUPERSEDED_CITATION_SHA256,
+            "code_commit": SUPERSEDED_CITATION_COMMIT,
+            "generated_at": SUPERSEDED_CITATION_GENERATED_AT,
+            "where_it_appeared": "per_arm.<arm>.call_reused_from, in the "
+                                 "re-file of this artifact that cited the "
+                                 "previous version of the artifact itself",
+        },
+        "measured": {
+            "n_committed_versions_of_that_path": len(versions),
+            "committed_versions": versions,
+            "n_of_them_hashing_to_the_cited_sha256": len(matching),
+            "the_cited_commit_is_in_this_object_store": exists_here,
+            "the_cited_commit_is_reachable_from_head": reachable,
+            "the_cited_commit_holds_that_path_in_its_tree": held_the_path,
+        },
+        "what_it_shows": (
+            "no committed version of the artifact hashes to the cited sha256, "
+            "and the commit named beside it is reachable from no ref and holds "
+            "no such path in its tree, so the two calls' source evidence was "
+            "resolvable nowhere: not by a reviewer, not by a clone, and not by "
+            "--verify, which required only that the sha256 be a string. The "
+            "bytes themselves were overwritten by the re-file that cited them "
+            "and are not recoverable; what IS recoverable is the calls' "
+            "preserved provenance, which the re-file carried forward, and that "
+            "is what this receipt commits"),
+        "what_this_receipt_does_about_it": (
+            "it holds the preserved evidence of each call in a file of its own, "
+            "committed beside the artifact, written once and refused "
+            "thereafter, and --verify resolves it out of the object store and "
+            "hashes what it resolves rather than trusting a string"),
+    }
+
+
+def call_receipt(source: Path | None = None) -> dict:
+    """The preserved evidence of every call this artifact's labels rest on.
+
+    Extracted from the artifact that is committed and reachable, not from the
+    version that was neither. A receipt is a historical record, so it is verified
+    by resolution and hash rather than re-derived: re-deriving it would mean
+    re-asking a gateway that has already been shown to move.
+    """
+    source = OUT_PATH if source is None else Path(source)
+    if not source.exists():
+        fatal(f"there is no artifact at {_rel(source)} to preserve call "
+              f"evidence from", 2)
+    artifact = load_json(source)
+    per_arm = artifact.get("per_arm") or {}
+    calls = {}
+    for arm in ARMS:
+        entry = per_arm.get(arm) or {}
+        made_a_call = entry.get("call_provenance") is not None
+        calls[arm] = {
+            "a_call_was_made": made_a_call,
+            "ensemble_label_status": entry.get("ensemble_label_status"),
+            "why_no_call_was_made": None if made_a_call else (
+                "the frozen routing rule resolves this cell without a call"
+                if entry.get("ensemble_label_status")
+                == "derived_from_primary_agreement"
+                else "no ensemble label exists or can be produced for this "
+                     "cell in this arm, so there was never a call to make"),
+            "preserved": {field: entry.get(field)
+                          for field in RECEIPT_CALL_FIELDS},
+        }
+    resolution = resolve_evidence(source)
+    tree = code_tree_status(exclude_prefixes=OWN_OUTPUT_PREFIXES)
+    return {
+        "question": "what were the adjudicator calls behind these labels, and "
+                    "can a reviewer resolve them",
+        "produced_by": "scripts/iter11_adjudicate_sensitivity_cell.py "
+                       "--write-call-receipt",
+        "kind": "iteration_11_adjudicator_call_receipt_v1",
+        "immutable": True,
+        "code_commit": get_git_commit(),
+        "git_dirty": tree["dirty"],
+        "code_dirty_paths": tree["code_dirty_paths"],
+        "untracked_code_paths": tree["untracked_paths"],
+        "excluded_own_outputs": tree["excluded_own_outputs"],
+        "excluded_cache_paths": tree["excluded_cache_paths"],
+        "generated_at": datetime.now(timezone.utc).isoformat(
+            timespec="seconds"),
+        "cell": DIFFERENTIAL_CELL, "family": FAMILY, "variant": VARIANT,
+        "item_id": ITEM_ID,
+        "n_arms": len(ARMS),
+        "n_calls_preserved": sum(1 for c in calls.values()
+                                 if c["a_call_was_made"]),
+        "adjudicator_identity": artifact.get("adjudicator_identity"),
+        "source_of_the_preserved_evidence": {
+            "path": resolution["path"],
+            "sha256": resolution["bytes_sha256"],
+            "resolved_from": resolution["resolved_from"],
+            "git_blob_sha1": resolution["git_blob_sha1"],
+            "head_commit": resolution["head_commit"],
+            "the_artifact_files_its_own_code_commit_as":
+                artifact.get("code_commit"),
+            "why": "the calls' provenance survives in this artifact because a "
+                   "re-file rewrites the provenance block and not the "
+                   "evidence, so the artifact is a faithful source -- but it is "
+                   "rewritten on every re-file, and a receipt has to stop "
+                   "moving",
+        },
+        "supersedes": superseded_citation(),
+        "per_arm": calls,
+        "how_it_is_verified": (
+            "--verify resolves this file out of the object store, hashes what it "
+            "resolves, requires that hash to equal the one the artifact cites, "
+            "requires every reused arm's label and call provenance to be the "
+            "ones this receipt holds, and recomputes each request hash offline "
+            "through the production call path with the transport stubbed"),
+        "what_this_does_not_do": (
+            "it does not make the two calls again, and it does not recover the "
+            "bytes the superseded citation named: those were overwritten and "
+            "were never committed. It commits what survived"),
+    }
+
+
+def write_call_receipt(source: Path | None = None) -> int:
+    """Write the receipt once. A second attempt is refused, not reconciled."""
+    if RECEIPT_PATH.exists():
+        existing = sha256_file(RECEIPT_PATH)
+        print(f"REFUSING to overwrite {_rel(RECEIPT_PATH)} (sha256 {existing}). "
+              f"A receipt is a record of what happened, written once: rewriting "
+              f"it would make the sha256 the artifact cites mean something "
+              f"else, which is the failure this receipt exists to prevent. If "
+              f"the evidence it preserves has genuinely changed, that is a "
+              f"different receipt and belongs beside this one.",
+              file=sys.stderr)
+        return 1
+    receipt = call_receipt(source)
+    RECEIPT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    RECEIPT_PATH.write_text(
+        json.dumps(receipt, indent=2, ensure_ascii=False) + "\n",
+        encoding="utf-8")
+    print(f"wrote {_rel(RECEIPT_PATH)}")
+    print(f"  calls preserved  {receipt['n_calls_preserved']} of "
+          f"{receipt['n_arms']} arms")
+    print(f"  source           {receipt['source_of_the_preserved_evidence']['path']}")
+    print(f"  resolved from    "
+          f"{receipt['source_of_the_preserved_evidence']['resolved_from']}")
+    print(f"  sha256           {sha256_file(RECEIPT_PATH)}")
+    return 0
+
+
+def reuse_source(explicit: Path | None = None) -> tuple[dict, str | None, dict]:
+    """``({arm: preserved call evidence}, sha256, document)`` to reuse from.
+
+    The RECEIPT, by default and by preference. A re-file used to draw on the
+    previous version of the artifact itself, which is rewritten by the very
+    re-file doing the drawing, so the sha256 it cited named bytes that stopped
+    existing at the moment of citation. The receipt is written once, refused
+    thereafter, and committed beside the artifact, so what a re-file cites is
+    something a reviewer can resolve.
+
+    ``--reuse-from`` still accepts an artifact as well as a receipt: the two
+    shapes are told apart by whether the arm entry carries ``preserved``, and an
+    artifact is accepted because refusing it would make the flag useless on the
+    one file everybody has. What is NOT accepted is citing an artifact by
+    default.
+    """
+    path = RECEIPT_PATH if explicit is None else Path(explicit)
+    if not path.exists():
+        return {}, None, {}
+    doc = load_json(path)
+    per_arm = {}
+    for arm, entry in (doc.get("per_arm") or {}).items():
+        if not isinstance(entry, dict):
+            continue
+        per_arm[arm] = (entry.get("preserved")
+                        if isinstance(entry.get("preserved"), dict)
+                        else entry)
+    return per_arm, sha256_file(path), doc
+
+
 def build(fresh_calls: bool = False,
           reuse_from: Path | None = None) -> dict:
     states = {arm: arm_state(arm) for arm in ARMS}
     before = {arm: states[arm]["frozen_labels_sha256"] for arm in ARMS}
     sealed = sealed_label_sets()
     rubric = rubric_identity()
-    filed, filed_sha = filed_artifact(reuse_from)
-    filed_per_arm = (filed or {}).get("per_arm") or {}
+    reuse_path = RECEIPT_PATH if reuse_from is None else Path(reuse_from)
+    reuse_per_arm, reuse_sha, reuse_doc = reuse_source(reuse_from)
 
     # First pass: what the frozen rule says, what request it would send, and
     # which arms therefore still owe a call. Deciding that before any call is
@@ -715,19 +1042,25 @@ def build(fresh_calls: bool = False,
                 reuse, why_not = None, "--fresh-calls was given"
             else:
                 reuse, why_not = reusable_call(
-                    arm, state, filed_per_arm.get(arm),
-                    entry["request_the_frozen_rule_would_send"])
+                    arm, state, reuse_per_arm.get(arm),
+                    entry["request_the_frozen_rule_would_send"],
+                    reuse_path)
             if reuse is not None:
                 entry["ensemble_label"] = reuse["judgment"]
                 entry["adjudicated_by"] = ADJUDICATOR_MODEL_ID
                 entry["adjudicator"] = reuse["adjudicator"]
                 entry["call_provenance"] = reuse["call_provenance"]
                 entry["call_reused_from"] = {
-                    "path": _rel(reuse_from or OUT_PATH),
-                    "sha256": filed_sha,
-                    "generated_at": (filed or {}).get("generated_at"),
-                    "code_commit": (filed or {}).get("code_commit"),
-                    "git_dirty_when_filed": (filed or {}).get("git_dirty"),
+                    "path": _rel(reuse_path),
+                    "sha256": reuse_sha,
+                    "it_is_a_receipt": reuse_path == RECEIPT_PATH,
+                    "receipt_generated_at": reuse_doc.get("generated_at"),
+                    "receipt_code_commit": reuse_doc.get("code_commit"),
+                    "n_calls_the_receipt_preserves":
+                        reuse_doc.get("n_calls_preserved"),
+                    "extracted_from": (
+                        reuse_doc.get("source_of_the_preserved_evidence")
+                        or {}).get("path"),
                     "request_hash": reuse["call_provenance"].get("request_hash"),
                     "provider_response_id":
                         reuse["call_provenance"].get("provider_response_id"),
@@ -735,6 +1068,16 @@ def build(fresh_calls: bool = False,
                                 "committed blinded item and the two committed "
                                 "primary judgments, with the transport "
                                 "stubbed and nothing sent",
+                    "how_the_citation_is_checked": (
+                        "--verify resolves this path out of the git object "
+                        "store, hashes what it resolves, and requires that "
+                        "hash to equal the sha256 filed here. Which copy it "
+                        "resolved -- the blob a commit holds, or a working "
+                        "tree no commit holds yet -- is reported at "
+                        "verification time and deliberately NOT filed: a "
+                        "filed resolution goes stale the moment the file is "
+                        "committed, and a stale provenance statement is the "
+                        "defect this receipt exists to repair"),
                 }
             else:
                 entry["call_reuse_refused"] = why_not
@@ -811,6 +1154,20 @@ def build(fresh_calls: bool = False,
                    "label answered",
             "bound_by": "request_hash, recomputed offline through the "
                         "production call path with the transport stubbed",
+            "drawn_from": {
+                "path": _rel(reuse_path),
+                "sha256": reuse_sha,
+                "it_is_a_receipt": reuse_path == RECEIPT_PATH,
+                "on_disk_when_filed": reuse_path.exists(),
+                "why_a_receipt_and_not_the_previous_artifact": (
+                    "the previous version of this artifact is overwritten by "
+                    "the re-file that cites it, so a citation to it names bytes "
+                    "that stop existing at the moment of citation -- which is "
+                    "what happened, and the sha256 it produced resolves to "
+                    "nothing. A receipt is written once, refused thereafter, "
+                    "and committed before anything cites it, so the citation "
+                    "can be resolved by anyone"),
+            },
             "refusals": {arm: per_arm[arm]["call_reuse_refused"]
                          for arm in ARMS
                          if per_arm[arm].get("call_reuse_refused")},
@@ -862,6 +1219,151 @@ def build(fresh_calls: bool = False,
     }
 
 
+def source_shape(doc: dict) -> str:
+    """``"receipt"``, ``"artifact"``, or ``"unrecognised"``.
+
+    :func:`reuse_source` accepts either shape as the thing a re-file draws on,
+    so the check that follows a citation has to accept either shape too --
+    otherwise ``--reuse-from`` on the one file everybody has would produce an
+    artifact its own ``--verify`` refuses, which is a trap rather than a rule.
+    The two are told apart by the wrapper: a receipt holds each arm's evidence
+    under ``preserved`` and counts its calls, an artifact holds the evidence as
+    the arm entry itself.
+    """
+    if doc.get("kind") == "iteration_11_adjudicator_call_receipt_v1":
+        return "receipt"
+    per_arm = doc.get("per_arm") or {}
+    if any(isinstance(entry, dict) and isinstance(entry.get("preserved"), dict)
+           for entry in per_arm.values()):
+        return "receipt"
+    if any(isinstance(entry, dict) and "ensemble_label_status" in entry
+           for entry in per_arm.values()):
+        return "artifact"
+    return "unrecognised"
+
+
+def check_the_reuse_citations(
+        doc: dict,
+        under_verification: Path | None = None) -> tuple[list[str], dict]:
+    """Resolve every source a reused call cites, out of the git object store.
+
+    The check this replaces asked only whether the cited ``sha256`` was a
+    non-empty string, which is how an artifact came to cite bytes that exist
+    nowhere: the sha256 of a file that was overwritten before it was ever
+    committed is still a perfectly formed 64-character string. Resolving the
+    cited path in git, hashing what comes back, and comparing that hash to the
+    cited one is the difference between a citation and a claim.
+
+    A citation that resolves only in the working tree is refused as well. It is
+    not a reviewer-resolvable citation, and accepting it would leave the receipt
+    free to be exactly as unreachable as the pointer it replaced -- so the
+    receipt is committed before anything cites it.
+    """
+    issues: list[str] = []
+    citations: dict[str, dict] = {}
+    for arm in ARMS:
+        reused = ((doc.get("per_arm") or {}).get(arm)
+                  or {}).get("call_reused_from")
+        if not reused:
+            continue
+        path = reused.get("path")
+        if not path:
+            issues.append(f"{arm}: the reused call cites no path at all, so "
+                          f"there is nothing to resolve")
+            continue
+        entry = citations.setdefault(
+            path, {"sha256": reused.get("sha256"), "arms": [],
+                   "claims_receipt": reused.get("it_is_a_receipt")})
+        entry["arms"].append(arm)
+        if entry["sha256"] != reused.get("sha256"):
+            issues.append(
+                f"{arm}: the reused call cites {path} at sha256 "
+                f"{str(reused.get('sha256'))[:16]} while another arm cites the "
+                f"same path at {str(entry['sha256'])[:16]}")
+
+    resolved: dict[str, dict] = {}
+    self_paths = {OUT_PATH.resolve()}
+    if under_verification is not None:
+        self_paths.add(Path(under_verification).resolve())
+    for path, cited in sorted(citations.items()):
+        arms = ", ".join(cited["arms"])
+        target = REPO_ROOT / path
+        if target.resolve() in self_paths:
+            issues.append(
+                f"{arms}: the reused call cites {path}, this artifact itself. A "
+                f"re-file overwrites the bytes it cites, so the sha256 names a "
+                f"version that stops existing at the moment of citation -- "
+                f"which is what the superseded citation did, and why the "
+                f"receipt exists. Cite {_rel(RECEIPT_PATH)}")
+            continue
+        resolution = resolve_evidence(target)
+        resolved[path] = resolution
+        if resolution["bytes_sha256"] is None:
+            issues.append(
+                f"{arms}: the reused call cites {path} at sha256 "
+                f"{str(cited['sha256'])[:16]} but nothing resolves there -- "
+                f"{resolution['why_not'] or 'the file is not on disk either'}")
+            continue
+        if cited["sha256"] != resolution["bytes_sha256"]:
+            issues.append(
+                f"{arms}: the reused call cites {path} at sha256 "
+                f"{str(cited['sha256'])[:16]} but the bytes that resolve there "
+                f"hash to {str(resolution['bytes_sha256'])[:16]}")
+        if resolution["git_blob_sha1"] is None:
+            issues.append(
+                f"{arms}: {path} resolves only from "
+                f"{resolution['resolved_from']}, so no clone can repeat this "
+                f"check; commit it beside the artifact that cites it")
+        if cited["claims_receipt"] and target != RECEIPT_PATH:
+            issues.append(
+                f"{arms}: the reuse block says it cites the receipt but names "
+                f"{path}, not {_rel(RECEIPT_PATH)}")
+        if not target.exists():
+            continue
+        source = load_json(target)
+        shape = source_shape(source)
+        if shape == "unrecognised":
+            issues.append(
+                f"{arms}: {path} is neither a call receipt nor a sensitivity "
+                f"artifact, so there is no preserved call in it to compare "
+                f"these labels against")
+            continue
+        held_per_arm = source.get("per_arm") or {}
+        for arm in cited["arms"]:
+            block = held_per_arm.get(arm)
+            held = None
+            if isinstance(block, dict):
+                held = (block.get("preserved") if shape == "receipt"
+                        else block)
+            if not isinstance(held, dict):
+                issues.append(
+                    f"{arm}: {path} preserves no call for this arm, so the "
+                    f"label filed here is not the one the citation holds")
+                continue
+            filed_entry = (doc.get("per_arm") or {}).get(arm) or {}
+            for field in RECEIPT_CALL_FIELDS:
+                if held.get(field) != filed_entry.get(field):
+                    issues.append(
+                        f"{arm}: {path} preserves a different {field} from the "
+                        f"one filed beside the citation, so the artifact and "
+                        f"its own source of evidence disagree")
+        if shape == "receipt":
+            claimed_calls = sum(
+                1 for entry in held_per_arm.values()
+                if isinstance(entry, dict) and entry.get("a_call_was_made"))
+            if source.get("n_calls_preserved") != claimed_calls:
+                issues.append(
+                    f"{path} files n_calls_preserved="
+                    f"{source.get('n_calls_preserved')} while holding "
+                    f"{claimed_calls} arm(s) with a call")
+            citing = len(cited["arms"])
+            if claimed_calls != citing:
+                issues.append(
+                    f"{path} preserves {claimed_calls} call(s) but {citing} "
+                    f"arm(s) cite it as their source")
+    return issues, resolved
+
+
 def verify(path: Path | None = None) -> tuple[int, list[str]]:
     """Check the artifact without calling anything, and without credentials."""
     path = OUT_PATH if path is None else path
@@ -891,6 +1393,11 @@ def verify(path: Path | None = None) -> tuple[int, list[str]]:
     if sorted(per_arm) != sorted(ARMS):
         issues.append(f"the artifact covers {sorted(per_arm)}, not the four "
                       f"arms {sorted(ARMS)}")
+
+    # Where the reused calls say they came from, resolved rather than believed.
+    citation_issues, citations = check_the_reuse_citations(
+        doc, under_verification=path)
+    issues.extend(citation_issues)
 
     # The cost of regenerating the sealed sets, re-read from those sets. The
     # artifact quotes a number here, and a quoted number that nothing
@@ -1041,11 +1548,6 @@ def verify(path: Path | None = None) -> tuple[int, list[str]]:
                             f"{str(reused.get('request_hash'))[:16]} but the "
                             f"label filed beside it answers "
                             f"{str(prov.get('request_hash'))[:16]}")
-                    if not reused.get("sha256"):
-                        issues.append(
-                            f"{arm}: the reused call does not name the hash of "
-                            f"the artifact it was reused from, so the reuse "
-                            f"cannot be traced")
                 if entry.get("request_hash_recomputation_matches_the_call") \
                         is False:
                     issues.append(
@@ -1103,6 +1605,21 @@ def verify(path: Path | None = None) -> tuple[int, list[str]]:
     return 0, []
 
 
+def citation_resolutions(path: Path) -> dict:
+    """Where each cited source of a reused call resolves from, for printing."""
+    if not path.exists():
+        return {}
+    doc = load_json(path)
+    out: dict[str, dict] = {}
+    for arm in ARMS:
+        reused = ((doc.get("per_arm") or {}).get(arm)
+                  or {}).get("call_reused_from")
+        if reused and reused.get("path"):
+            out.setdefault(reused["path"],
+                           resolve_evidence(REPO_ROOT / reused["path"]))
+    return out
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     mode = parser.add_mutually_exclusive_group()
@@ -1114,18 +1631,28 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--verify", action="store_true",
                       help="check the filed artifact, making no call and "
                            "needing no credentials")
+    mode.add_argument("--write-call-receipt", action="store_true",
+                      help=f"commit the preserved evidence of the calls to "
+                           f"{_rel(RECEIPT_PATH)}, once. Refused if the "
+                           f"receipt already exists: a receipt is a record of "
+                           f"what happened, and rewriting it would change what "
+                           f"every sha256 citing it means")
     parser.add_argument("--fresh-calls", action="store_true",
-                        help="with --write: ignore every filed call and make "
+                        help="with --write: ignore every preserved call and make "
                              "the adjudicator calls again. Off by default "
                              "because a re-file is not a second measurement")
     parser.add_argument("--reuse-from", type=Path, default=None,
-                        help="with --write: the artifact to reuse filed calls "
-                             "from (default: the one at --out)")
+                        help="with --write: the receipt or artifact to reuse "
+                             "preserved calls from (default: the receipt at "
+                             f"{_rel(RECEIPT_PATH)})")
     parser.add_argument("--out", type=Path, default=OUT_PATH)
     args = parser.parse_args(argv)
 
     if args.fresh_calls and not args.write:
         parser.error("--fresh-calls only means something with --write")
+
+    if args.write_call_receipt:
+        return write_call_receipt(args.out)
 
     if args.verify or not args.write:
         code, issues = verify(args.out)
@@ -1134,6 +1661,12 @@ def main(argv: list[str] | None = None) -> int:
                   "gives what was filed, every filed label still answers the "
                   "request the frozen rule would send, and the sealed label "
                   "sets are untouched")
+            for cited, resolution in sorted(
+                    citation_resolutions(args.out).items()):
+                print(f"  cited source  {cited}")
+                print(f"                sha256 "
+                      f"{str(resolution['bytes_sha256'])[:16]} resolved from "
+                      f"{resolution['resolved_from']}")
             return 0
         if code == 2:
             print(f"\nSENSITIVITY LABELS: NOT FILED — {issues[0]}")
@@ -1149,7 +1682,7 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     doc = build(fresh_calls=args.fresh_calls,
-                reuse_from=args.reuse_from or args.out)
+                reuse_from=args.reuse_from)
     args.out.parent.mkdir(parents=True, exist_ok=True)
     args.out.write_text(
         json.dumps(doc, indent=2, ensure_ascii=False) + "\n",
@@ -1159,7 +1692,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  cell            {DIFFERENTIAL_CELL} ({ITEM_ID})")
     print(f"  live calls      {doc['n_live_calls']}")
     print(f"  reused calls    {doc['n_reused_calls']}"
-          + ("  (--fresh-calls)" if args.fresh_calls else ""))
+          + ("  (--fresh-calls)" if args.fresh_calls else "")
+          + (f"  from {_rel(args.reuse_from)}" if args.reuse_from
+             else f"  from {_rel(RECEIPT_PATH)}"))
     for arm in ARMS:
         entry = doc["per_arm"][arm]
         label = entry.get("ensemble_label")

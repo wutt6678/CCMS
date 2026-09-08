@@ -42,6 +42,17 @@ differs from its bound digest is a failure. A run whose media could not be hashe
 here takes the verdict ``PASS_WITH_UNVERIFIED_SECTIONS`` and exit code 3 -- never
 a bare PASS, because a check that could not run is not a check that passed.
 
+A note explaining WHY a section could not be checked here is filed under that
+section's own name in ``unverifiable_section_notes`` and kept out of the flat
+``warnings`` list. It used to go into ``warnings``, and ``warnings`` is compared
+against the committed report, so a fresh checkout holding 20 of 3,034 images
+produced one extra warning per target and ``--all --verify`` reported that four
+committed reports "no longer reproduce" -- exit 1, a contradiction, for a
+checkout that had done nothing to the panel and whose own verdict for every
+target was already ``PASS_WITH_UNVERIFIED_SECTIONS`` with zero failures. The
+routing is by section rather than by text, so it holds for any section that opts
+in with ``verifiable_here: false`` and not only for the media.
+
 Usage:
     python3 scripts/iter11_replay_checks.py --all --verify        # compare, write nothing
     python3 scripts/iter11_replay_checks.py --model-key qwen35_2b # check, write nothing
@@ -109,6 +120,36 @@ MEDIA_MANIFEST_PATH = REPO_ROOT / "outputs" / "iteration_11" \
 #: Sections whose evidence lives outside the repository and so may be
 #: unverifiable in a given checkout. Reported, never silently dropped.
 MEDIA_SECTION = "media"
+
+#: Top-level keys that are statements about the MACHINE running the check rather
+#: than about the panel being checked. Both differ between checkouts by design,
+#: and both are skipped by :func:`diff_reports` whichever side carries them, so a
+#: report filed by a checkout that could not hash the media and re-read by one
+#: that can is not a difference either.
+MACHINE_STATEMENT_KEYS = frozenset({
+    "unverifiable_sections",
+    "unverifiable_section_notes",
+})
+
+
+def route_notes(section_notes: dict, warnings: list, section: str,
+                notes: list[str], block: dict) -> None:
+    """Send a section's notes to the panel's list or to the machine's own.
+
+    A note from a section that was checked is a statement about the panel and
+    belongs in ``warnings``, which the committed report is compared on. A note
+    from a section this checkout could NOT check is a statement about the
+    checkout, and putting it in ``warnings`` makes the absence of evidence look
+    like a change in the evidence -- so it is filed under the section's own name
+    instead, where the tag is the structure rather than a prefix to be parsed out
+    of a sentence.
+    """
+    if not notes:
+        return
+    if block.get("verifiable_here") is False:
+        section_notes.setdefault(section, []).extend(notes)
+    else:
+        warnings.extend(notes)
 
 
 def load_media_manifest(path: Path = MEDIA_MANIFEST_PATH) -> dict | None:
@@ -586,10 +627,12 @@ def check(model_key: str, run_dir: Path, lock_path: Path) -> dict:
     failures.extend(f"terminal: {i}" for i in term_issues)
 
     # ---- media identity -------------------------------------------------
+    section_notes: dict[str, list[str]] = {}
     result[MEDIA_SECTION], media_notes = media_section(
         by_family, panel_families(), load_media_manifest())
     failures.extend(f"media: {i}" for i in result[MEDIA_SECTION]["issues"])
-    warnings.extend(media_notes)
+    route_notes(section_notes, warnings, MEDIA_SECTION, media_notes,
+                result[MEDIA_SECTION])
 
     # ---- truncation -----------------------------------------------------
     truncated_by_variant: dict[str, int] = defaultdict(int)
@@ -655,6 +698,7 @@ def check(model_key: str, run_dir: Path, lock_path: Path) -> dict:
     # ---- verdict --------------------------------------------------------
     result["failures"] = failures
     result["warnings"] = warnings
+    result["unverifiable_section_notes"] = section_notes
     result["verdict"], result["unverifiable_sections"] = verdict_for(result)
     return result
 
@@ -705,13 +749,19 @@ def diff_reports(fresh: dict, committed: dict) -> tuple[list[str], list[str]]:
     ``verdict`` being compared through :func:`comparable_verdict` so that only a
     real disagreement counts.
 
-    ``unverifiable_sections`` is the one key compared by neither rule. It is a
-    statement about the machine, so it differs between checkouts by design, and
-    listing it as a difference would put the blind spot back into the answer.
-    Whichever side declares the blind spot, the section is not comparable: a
-    report filed by a checkout that could not hash the media and re-read by one
-    that can is the mirror image of the usual case, and the panel is no more
-    contradicted by it.
+    ``unverifiable_sections`` and ``unverifiable_section_notes`` are compared by
+    neither rule. They are statements about the machine, so they differ between
+    checkouts by design, and listing either as a difference would put the blind
+    spot back into the answer. Whichever side declares the blind spot, the
+    section is not comparable: a report filed by a checkout that could not hash
+    the media and re-read by one that can is the mirror image of the usual case,
+    and the panel is no more contradicted by it.
+
+    The notes key exists because the flat ``warnings`` list is compared, and a
+    warning explaining that a section could not be checked HERE used to live in
+    it. That made ``--all --verify`` exit 1 on a fresh checkout with the message
+    that four committed reports no longer reproduce, when every target's own
+    verdict was ``PASS_WITH_UNVERIFIED_SECTIONS`` with zero failures.
     """
     unverifiable = (set(fresh.get("unverifiable_sections") or [])
                     | set(committed.get("unverifiable_sections") or []))
@@ -719,7 +769,7 @@ def diff_reports(fresh: dict, committed: dict) -> tuple[list[str], list[str]]:
     for key in sorted(set(fresh) | set(committed)):
         if key in unverifiable:
             skipped.append(key)
-        elif key == "unverifiable_sections":
+        elif key in MACHINE_STATEMENT_KEYS:
             continue
         elif key == "verdict":
             if comparable_verdict(fresh) != comparable_verdict(committed):
@@ -799,6 +849,10 @@ def main() -> int:
               f"({len(result['failures'])} failure(s))")
         for warning in result["warnings"]:
             print(f"  note: {warning[:300]}")
+        for section, notes in sorted(
+                result.get("unverifiable_section_notes", {}).items()):
+            for note in notes:
+                print(f"  not verifiable here ({section}): {note[:300]}")
 
         out_path = run_dir / CHECKS_FILE
         if args.verify:

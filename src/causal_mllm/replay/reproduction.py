@@ -112,7 +112,36 @@ P_VALUE_FIELD_NAMES = frozenset({
     "sensitivity_p",
     "p_value",
     "two_sided_p",
+    # The differential-censoring bound's p-values. Added as a group rather than
+    # one at a time as each one failed: a name is either a p-value or it is not,
+    # and which interpreter happened to move it is not evidence about that. Note
+    # what is deliberately ABSENT -- ``worst_p_at_x``, ``best_p_at_x`` and
+    # ``smallest_x_whose_p_exceeds_alpha`` are SCORES at which a p-value is
+    # attained, not p-values, and matching them on a substring of ``worst_p``
+    # would hand a continuous quantity a 0.0064 slack. Membership is by exact
+    # name for that reason.
+    "best_p",
+    "worst_p",
+    "closed_form_p",
+    "closed_form_worst_p",
+    "frozen_estimator_p",
+    "worst_p_on_the_grid",
+    "p_difference",
+    "p_range_over_those_scores",
+    "filed_raw_p",
+    "filed_adjusted_p",
+    "raw_p_at_99_families",
+    "nearest_breakpoint_p",
+    "nearest_endpoint_p",
 })
+
+#: Fields holding a p-value's MOVEMENT counted in resample steps instead of in
+#: p-units. Their tolerance is :data:`P_VALUE_TOLERANCE_STEPS` -- the same
+#: quantity, in the units the field is expressed in. Classifying one of these as
+#: a p-value would license 0.0064 of a field whose unit is 1 step, which is 320
+#: times too tight, and classifying it as continuous would license 1e-12 of it,
+#: which is not a tolerance at all.
+P_VALUE_STEP_FIELD_SUFFIX = "_in_resample_steps"
 
 
 def p_value_tolerance(n_bootstrap: int = DEFAULT_N_BOOTSTRAP) -> float:
@@ -127,6 +156,12 @@ def is_p_value_path(path: str) -> bool:
     parts = [part for part in
              path.replace("[", ".").replace("]", "").split(".") if part]
     return any(part in P_VALUE_FIELD_NAMES for part in parts[-2:])
+
+
+def is_p_step_path(path: str) -> bool:
+    """Whether a path holds a p-value's movement measured in resample steps."""
+    leaf = path.rsplit(".", 1)[-1].rstrip("]0123456789[")
+    return leaf.endswith(P_VALUE_STEP_FIELD_SUFFIX)
 
 
 def differing_leaves(filed: Any, fresh: Any,
@@ -181,6 +216,9 @@ def compare(filed: dict, fresh: dict, *, tolerate_numerics: bool,
             # integer, so tolerance here would only hide a changed family set.
             within = False
             kind = "count"
+        elif is_p_step_path(path):
+            within = abs(a - b) <= P_VALUE_TOLERANCE_STEPS
+            kind = "p_value_in_resample_steps"
         elif is_p_value_path(path):
             within = abs(a - b) <= p_tolerance
             kind = "p_value"
@@ -195,6 +233,8 @@ def compare(filed: dict, fresh: dict, *, tolerate_numerics: bool,
         })
     continuous = [d for d in numeric if d["kind"] == "continuous"]
     p_values = [d for d in numeric if d["kind"] == "p_value"]
+    p_steps = [d for d in numeric
+               if d["kind"] == "p_value_in_resample_steps"]
     counts = [d for d in numeric if d["kind"] == "count"]
     outside = [d for d in numeric if not d["within_tolerance"]]
     equal = not nonnumeric and not outside and not (
@@ -218,6 +258,12 @@ def compare(filed: dict, fresh: dict, *, tolerate_numerics: bool,
         "worst_p_value_movement_in_resample_steps": int(round(
             max((d["absolute_difference"] for d in p_values), default=0.0)
             / (2.0 / n_bootstrap))) if p_values else 0,
+        # Reported apart from the p-value roll-up on purpose: these differences
+        # are already in step units, so folding them into an absolute p-value
+        # maximum would read 1 step as 1.0 of p, which is 2,500 steps.
+        "n_p_step_differences": len(p_steps),
+        "worst_p_step_difference_in_resample_steps": max(
+            (d["absolute_difference"] for d in p_steps), default=0.0),
         "n_count_differences": len(counts),
         "float_tolerance": FLOAT_TOLERANCE,
         "p_value_tolerance": p_tolerance,

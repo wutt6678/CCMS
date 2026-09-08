@@ -1424,7 +1424,53 @@ do. `--verify` skips a section this checkout cannot verify and names it instead
 of comparing it, and a genuine media failure is still caught because it lands in
 the top-level `verdict` and `failures`, which are never skipped.
 
-### The environment can now be rebuilt, not only recognised
+The note explaining that skip used to leak back out through a different door.
+It was appended to the flat `warnings` list, which `--verify` compares, so a
+fresh checkout still exited 1 with the message that four committed reports no
+longer reproduce — while every target's own verdict read
+`PASS_WITH_UNVERIFIED_SECTIONS` with zero failures. Notes are now tagged with
+the section they came from, in `unverifiable_section_notes`: one from a section
+that was checked is a statement about the panel and is compared, one from a
+section this checkout could not reach is a statement about the checkout and is
+not. `iter11_blinding_audit.py` had the same confusion in the other direction —
+it rendered every prompt through `MultimodalLLMJudge._build_prompt`, which
+loads the images, so a fresh clone collected 12 `prompt_render_errors` per arm
+and reported a BLINDING FAIL. The prompt text carries an image's file name and
+never its contents, so the blinding question is answerable without the bytes:
+the render now takes the committed manifest's digests for images this checkout
+does not hold, and how much of the media it did hold is filed in
+`media_identity_here`.
+
+### What an exit code from any of these means
+
+Every command in that block answers in one of four codes, and they are the same
+four codes everywhere:
+
+| code | meaning | what it says |
+|---|---|---|
+| 0 | verified | everything this checkout could check reproduced what is committed |
+| 1 | contradiction | something the panel filed no longer holds. This is a finding |
+| 2 | nothing to verify against | the artifact is not committed here, so there was nothing to compare |
+| 3 | incomplete | nothing failed, and something could not be checked on this machine |
+
+Three is the code that took the longest to earn, because both of its neighbours
+are wrong and one of them is flattering. It is not a soft 1: nothing was found
+wrong, and reporting a checkout's blind spot as a defect in the evidence tells a
+reader to go looking in the panel for something that is not there. It is not a
+soft 0 either: a check that could not run is not a check that passed, and
+exiting 0 would let a machine that holds none of the media claim to have
+verified the media's identity.
+
+Two things reach it. A section whose evidence lives outside the repository —
+`data/media`, which is gitignored apart from 20 individually negated source
+images — is recorded as `verifiable_here: false` and named. And a numeric
+comparison that needed the documented tolerance exits 3 and names the deviation
+that licensed it, rather than exiting 0 and looking like the stronger claim.
+What never reaches it is a genuine failure: a finding outranks incompleteness,
+because a checkout without the media can still find a leak in a payload or a
+prompt, and reporting that as merely incomplete would bury it.
+
+### The freeze's preimage is committed, which is not the same as a rebuild
 
 `dependency_lock_snapshot()` recorded `pip_freeze_sha256` and `n_packages`: a
 hash with no committed preimage. Another machine could find out whether it
@@ -1455,6 +1501,28 @@ because torch's build decides whether a checkpoint loads at all.
 `packages_whose_freeze_line_omits_a_local_version_segment` names the gap, and
 `recreate_caveat` says the CUDA build has to come from the index it came from
 before the rest of the freeze is applied.
+
+The gate used to print the opposite of that. `--verify` exited 0 saying the
+certified environment is reconstructible, having just read a report that filed
+`reconstructible_from_the_freeze_alone: false` a few keys earlier, and printed
+the caveat explaining why underneath the headline. Both statements were true of
+different things — the freeze IS the preimage of the recorded hash, and it
+CANNOT rebuild the CUDA build of torch the evidence was made in — but only the
+first one was in the claim, so the gate certified more than the artifact said.
+It now prints what it actually checks, `DEPENDENCY LOCK: freeze preimage
+AUTHENTICATED`, and keeps the caveat underneath it. `reconstruction_claims()`
+makes the contradiction structurally unavailable rather than merely unlikely:
+the boolean is compared against the report's own gap list, the caveat is
+required to name every package in that list, and each gap's build is required to
+equal the one the four committed preflights record. The same split is in
+`causal_mllm.replay.registry.verify_committed_freeze`, which returned one
+boolean called `reconstructs_the_certified_environment` and now returns
+`freeze_preimage_authenticated` beside a `reconstructible_from_the_freeze_alone`
+that is `false` everywhere — not because this checkout could not manage it, but
+because `name==version` is the whole of what `pip freeze` can say. The exit code
+stays 0: a permanent property of the file format is not an incompleteness of
+this machine, and 3 would send a reader looking for a checkout that can do
+better.
 
 [`dependency_lock_reconstruction.json`](outputs/iteration_11/preflight/dependency_lock_reconstruction.json)
 says what the text cannot, since a comment inside it would move the hash: which
@@ -1541,6 +1609,71 @@ needs only `sys.version`, it is the field that decides how `sum` behaves, and a
 difference in it is itself the demonstrated deviation — reported with
 `package_set_comparable: false`. Denying the tolerance to a machine with no pip
 would deny it to exactly the machine that needs it.
+
+### The portability contract
+
+Two rules, and which one applies depends on which side of a comparison a
+quantity sits on.
+
+**Anything a verifier derives is portable by construction.** The
+differential-censoring bound's closed form sums through an explicit
+left-to-right loop, `_portable_sum`, and never through the builtin, so an
+intercept, a breakpoint, a tail count, a p-value and the count of evaluated
+breakpoints are bit-identical under CPython 3.10 and 3.12 and need no tolerance
+at all. Which portable sum was a real choice: `math.fsum` is portable too and
+more accurate, but the frozen estimator sums left to right, so switching to it
+would have moved the p-values that are already filed in order to make portable
+the ones that are not. Both summations of the same committed column are filed
+beside each other under `decomposition.summation`, with the count of resample
+intercepts they disagree on, and the interpreter difference is reproducible with
+a one-line command that a test EXECUTES rather than one a reader is asked to
+trust. `tests/unit/test_iter11_differential_censoring.py` covers the version
+axis without needing a second interpreter: it substitutes 3.12's Neumaier
+summation, and `math.fsum`, for the builtin and requires that nothing the bound
+files moves — which fails on ANY dependence on the builtin's bits, not only on
+the one difference 3.12 happens to introduce.
+
+**Anything sealed is compared, not rebuilt.**
+[`src/causal_mllm/evaluation/bootstrap.py`](src/causal_mllm/evaluation/bootstrap.py)
+keeps its own builtin `sum` and is deliberately not changed: the sealed
+98-family analysis was produced by it, so making it portable would mean
+re-deriving sealed evidence and every number filed against it. Comparisons
+against it are tolerance-based, and each quantity is held to the tolerance
+documented for its kind rather than to a float epsilon — a count is exact,
+because there is no summation order in an integer; a continuous float is exact
+to `FLOAT_TOLERANCE`; a p-value is compared in resample steps; a p-value's
+MOVEMENT where the field is already expressed in steps is compared in those
+steps and rolled up apart, since folding `..._in_resample_steps` into an
+absolute p maximum would read 1 step as 1.0 of p, which is 2,500 steps; and
+everything non-numeric — a verdict, a sign, a name, a boolean — is exact in
+every environment. Membership is by exact leaf name, so `worst_p` is a p-value
+and `worst_p_at_score`, the SCORE at which it is attained, is not: matching the
+second on a substring of the first would hand a rubric score 16 bootstrap steps
+of slack.
+
+Which leaves the rule that cost the most to learn: **no exactness booleans over
+floats.** `check_the_closed_form()` used to file `mean_exact` and `p_exact`,
+both decided by `<= 1e-12`. For a mean that is a float tolerance. For a p-value
+it is not a tolerance at all — a bootstrap p can only move in steps of 2/n, which
+at 5,000 resamples is 0.0004, so that comparison demanded an agreement eight
+orders of magnitude tighter than the quantity's own granularity and could pass
+only where two float paths to the same number happened to land on the same side
+of every zero crossing. An exactness boolean has no headroom, so the last bit of
+a float decides it and the interpreter that summed the float decides the last
+bit: under 3.12.13 those booleans flipped, `phi4_mm`'s breakpoint count moved by
+one, and H2's 99-family p moved one step, 0.0224 → 0.0220, with all four verdicts
+and every sign unchanged. Each quantity now files its difference beside its
+tolerance and a boolean decided by the arithmetic
+(`mean_difference`/`mean_tolerance`/`mean_agrees_within_that_tolerance`,
+`p_difference`/`p_tolerance_licensed`/`p_agrees_within_the_licensed_tolerance`),
+under `no_exactness_booleans`. The margins that decide the breakpoint count are
+filed in `breakpoint_margins` rather than quoted in prose, because on this
+evidence they are narrower than `FLOAT_TOLERANCE`: the count is exactly
+reproducible, since every float behind it is one portable summation of a
+committed column, but it is not ROBUST — it would move by one if that column
+moved. The p at the breakpoint nearest a range endpoint is filed beside the p at
+that endpoint, in resample steps, so a reader can see rather than be told that
+no verdict reads the membership decision.
 
 ### The exclusion is label-blind, which is not the claim the metadata made
 
@@ -1661,6 +1794,33 @@ would leave the sensitivity unregenerable at the committed state. `--fresh-calls
 re-calls unconditionally; where a call is genuinely needed and no credentials exist the
 script exits 2 **having written nothing**, so a failed re-file cannot overwrite a good
 one.
+
+**A reused call cites evidence a reviewer can resolve.** It did not. Both
+`call_reused_from` blocks named SHA-256 `2d00760c…` under commit `fe455929…`,
+which was the previous version of the artifact itself — the file the re-file was
+in the middle of overwriting. That commit had been amended before it was pushed
+and the bytes it cited were never committed at all, so the pointer resolved to
+nothing: the blob is absent from the object store, the commit is reachable from
+no ref, and its tree never held the path. `--verify` asked only that the cited
+`sha256` be a non-empty string, and the hash of a file that was overwritten
+before it was ever committed is still a perfectly formed 64-character string.
+
+No new calls were needed and none were made.
+[`call_receipts.sensitivity_99f.json`](outputs/iteration_11/analysis/differential_censoring/call_receipts.sensitivity_99f.json)
+holds the preserved evidence of both calls — every field a reuse is bound by,
+plus the adjudicator's identity and the request the frozen rule would send —
+extracted from the artifact that IS committed and reachable. It is written once
+by `--write-call-receipt` and refused thereafter, because a receipt that can be
+rewritten is not a receipt: the sha256 an artifact cites would come to mean
+something else. It is committed before anything cites it, and `--verify` now
+resolves a citation out of the object store — `git rev-parse HEAD:<path>`,
+`git cat-file blob`, hash what comes back — and requires that hash to equal the
+cited one. A source that resolves only from the working tree is refused with the
+reason named, so the receipt cannot become as unreachable as the pointer it
+replaced; a citation to the artifact itself is refused by shape whatever its
+hash; and the receipt files `supersedes`, which MEASURES the unreachability of
+the citation it replaces rather than asserting it, by enumerating every
+committed version of that path and hashing each one.
 
 **The bound is exact rather than searched.** `paired_bootstrap_samples` draws its
 resample indices from `Random(seed)` as a function of the seed and the family count

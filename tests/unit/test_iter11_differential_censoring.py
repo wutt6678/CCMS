@@ -40,9 +40,13 @@ is exercised through a stub.
 
 from __future__ import annotations
 
+import builtins
 import copy
+import functools
 import importlib.util
 import json
+import math
+import operator
 import sys
 from pathlib import Path
 
@@ -303,6 +307,167 @@ class TestTheFastTailCountsAreTheSlowOnes:
         assert bound.ties_at(dec, crossing) >= 1
         assert bound.ties_at(dec, crossing, band=0.0) <= bound.ties_at(
             dec, crossing)
+
+
+def _neumaier_sum(values) -> float:
+    """CPython 3.12's float summation, in shape rather than in every detail.
+
+    3.12 changed the builtin ``sum`` to compensate with the Neumaier variant of
+    Kahan summation, so ``sum`` over the same floats returns different bits
+    under 3.10 and 3.12. This reproduces the arithmetic that matters -- a
+    running total, a compensation term, and a final addition of the two --
+    without the C code's infinity and overflow special cases, which cannot
+    arise on a column of rubric scores.
+    """
+    total = 0.0
+    compensation = 0.0
+    for value in values:
+        nxt = total + value
+        if abs(total) >= abs(value):
+            compensation += (total - nxt) + value
+        else:
+            compensation += (value - nxt) + total
+        total = nxt
+    return total + compensation
+
+
+def _naive_sum(values) -> float:
+    """The left-to-right sum, written the only two ways that agree everywhere."""
+    return functools.reduce(operator.add, values, 0.0)
+
+
+class TestTheBoundDoesNotDependOnWhichInterpreterSummedIt:
+    """The portability finding, tested on the interpreter CI actually runs.
+
+    Under CPython 3.12 the filed artifact came back with ten differences: two
+    exactness booleans flipped, a breakpoint count moved by one, and H2's
+    99-family p moved a single bootstrap step, 0.0224 to 0.0220. No verdict
+    moved. The cause was not the data and not NumPy -- the family-estimand
+    column is bit-identical under both interpreters -- but the builtin ``sum``,
+    whose float result 3.12 changed.
+
+    CI runs one interpreter, so the version axis is tested by substituting the
+    other one's summation for the builtin and requiring that nothing the bound
+    files moves. That is a stronger test than running both interpreters would
+    have been: it fails on ANY dependence on the builtin's bits, not only on
+    the one difference 3.12 happens to introduce.
+    """
+
+    @pytest.mark.parametrize("summation", [_neumaier_sum, math.fsum])
+    def test_the_decomposition_is_bit_identical_under_a_different_sum(
+            self, monkeypatch, summation):
+        fe = _synthetic(n_families=20)
+        baseline = bound.decompose(fe, "Delta_TV", n_bootstrap=500, seed=42)
+        probe = [0.1] * 3 + [0.2] * 3 + [1 / 3] * 3
+        assert summation(probe) != _naive_sum(probe), (
+            "the substituted summation is the one _portable_sum implements, so "
+            "the patch below would change nothing and the comparison after it "
+            "would pass for the wrong reason")
+        monkeypatch.setattr(builtins, "sum", summation)
+        assert bound.decompose(fe, "Delta_TV", n_bootstrap=500, seed=42) \
+            == baseline
+
+    @pytest.mark.parametrize("summation", [_neumaier_sum, math.fsum])
+    def test_the_worst_case_and_every_p_on_the_grid_are_too(
+            self, monkeypatch, summation):
+        fe = _synthetic(n_families=18)
+        baseline = bound.decompose(fe, "Delta_TV", n_bootstrap=500, seed=42)
+        expected_worst = bound.worst_case(baseline)
+        expected_p = [bound.p_at(baseline, step / 200.0)
+                      for step in range(201)]
+        monkeypatch.setattr(builtins, "sum", summation)
+        dec = bound.decompose(fe, "Delta_TV", n_bootstrap=500, seed=42)
+        worst = bound.worst_case(dec)
+        assert worst == expected_worst, (
+            "a field of the worst case moved when the builtin sum did, which "
+            "is how the breakpoint count came to differ between interpreters")
+        assert [bound.p_at(dec, step / 200.0)
+                for step in range(201)] == expected_p
+        assert bound.ties_at(dec, expected_worst["worst_p_at_x"]) \
+            == bound.ties_at(baseline, expected_worst["worst_p_at_x"])
+
+    def test_the_chosen_summation_is_the_frozen_estimators_own(self):
+        """Which portable sum, and why not the correctly rounded one.
+
+        ``math.fsum`` is portable too, and more accurate. It was not used
+        because the frozen estimator in
+        :mod:`causal_mllm.evaluation.bootstrap` sums left to right under the
+        certified interpreter, so switching to ``fsum`` would have moved the
+        p-values that are already filed in order to make the ones that are not
+        portable. An explicit loop is both.
+        """
+        column = [0.1] * 3 + [0.2] * 3 + [1 / 3] * 3
+        assert bound._portable_sum(column) == _naive_sum(column)
+        assert math.fsum(column) != _naive_sum(column), (
+            "this column no longer separates the two summations, so the "
+            "assertion above would pass without pinning anything")
+        assert bound._portable_sum(column) != math.fsum(column)
+
+    def test_the_two_summations_are_filed_beside_each_other(self):
+        fe = _synthetic(n_families=20)
+        dec = bound.decompose(fe, "Delta_TV", n_bootstrap=200, seed=42)
+        summation = dec["summation"]
+        column = [fe[f]["Delta_TV"] for f in sorted(fe)]
+        assert summation["portable_sum_of_the_family_column"] \
+            == bound._portable_sum(column)
+        assert summation["correctly_rounded_sum_of_the_same_column"] \
+            == math.fsum(column)
+        assert summation["their_difference"] == \
+            bound._portable_sum(column) - math.fsum(column)
+        n_moved = summation[
+            "n_resample_intercepts_the_two_summations_disagree_on"]
+        assert isinstance(n_moved, int)
+        assert 0 <= n_moved <= summation["n_resamples"]
+
+    def test_the_count_of_intercepts_the_summation_moves_is_recounted(self):
+        """The filed count is a measurement, so it is repeated here.
+
+        A count quoted in prose that nothing recomputes is the failure this
+        repository has already paid for twice, and this one sits inside a
+        sentence that argues from it.
+        """
+        import random as _random
+
+        fe = _synthetic(n_families=20)
+        dec = bound.decompose(fe, "Delta_TV", n_bootstrap=200, seed=42)
+        column = [fe[f]["Delta_TV"] for f in sorted(fe)]
+        n = len(column)
+        rng = _random.Random(42)
+        moved = 0
+        for _ in range(200):
+            values = [column[rng.randint(0, n - 1)] for _ in range(n)]
+            if math.fsum(values) / n != bound._portable_sum(values) / n:
+                moved += 1
+        assert dec["summation"][
+            "n_resample_intercepts_the_two_summations_disagree_on"] == moved
+
+    def test_the_why_block_reproduction_command_is_one_that_runs(self):
+        """The prose carries a command. A command a reader cannot run is prose.
+
+        It is executed here rather than read, so a rename of ``math.fsum`` or a
+        change of interpreter behaviour fails this test instead of quietly
+        leaving a false instruction in a filed artifact.
+        """
+        why = bound.decompose(
+            _synthetic(n_families=4), "Delta_TV", n_bootstrap=5,
+            seed=42)["summation"]["why"]
+        assert "python3 -c" in why
+        command = why.split("python3 -c ", 1)[1].split('"')[1]
+        import subprocess
+        done = subprocess.run(
+            [sys.executable, "-c", command], capture_output=True, text=True,
+            timeout=60)
+        assert done.returncode == 0, done.stderr
+        naive, builtin, rounded = done.stdout.strip().split(" ")
+        column = [0.1] * 3 + [0.2] * 3 + [1 / 3] * 3
+        assert naive == repr(_naive_sum(column))
+        assert rounded == repr(math.fsum(column))
+        assert naive != rounded, (
+            "the column the command uses has to separate the two summations, "
+            "or the demonstration demonstrates nothing")
+        assert builtin in (naive, rounded), (
+            "the builtin is one of the two, and which one is the interpreter's "
+            "business -- that is the whole reason it is not used")
 
 
 class TestTheWorstCaseIsExactRatherThanSearched:
@@ -759,13 +924,17 @@ class TestReuseIsBoundByTheRequestNotByTheFileExisting:
         assert reuse is None
         assert "failed" in why
 
-    def test_no_artifact_on_disk_means_nothing_to_reuse(self,
-                                                        filed_sensitivity):
+    def test_no_preserved_call_means_nothing_to_reuse(self,
+                                                      filed_sensitivity):
         arm = ADJUDICATED_ARMS[0]
         state, _entry, expected = self._state_and_entry(filed_sensitivity, arm)
         reuse, why = adjudicator.reusable_call(arm, state, None, expected)
         assert reuse is None
-        assert "no artifact" in why
+        assert "preserves no call for this arm" in why
+        assert adjudicator.RECEIPT_PATH.name in why, (
+            "the refusal has to name the source it looked in: with a receipt "
+            "and an artifact both acceptable, 'nothing to reuse' without a "
+            "path leaves the reader unable to tell which file was empty")
 
     def test_an_unrecomputable_request_cannot_license_a_reuse(
             self, filed_sensitivity):
@@ -891,7 +1060,7 @@ class TestARefileSpendsNoCalls:
         that reused two, and the difference between them is whether the labels
         on file are still the labels that were measured.
         """
-        def _refuse(arm, state, filed_entry, expected):
+        def _refuse(arm, state, filed_entry, expected, source_path=None):
             return None, "the filed label answers a different question"
 
         def _fake(arm):
@@ -1051,14 +1220,6 @@ class TestVerifyRefusesAForgery:
         code, issues = _forge(filed_sensitivity, tmp_path, mutate)
         assert code == 1
         assert any("the reuse block names request" in i for i in issues)
-
-    def test_a_reuse_that_cannot_be_traced(self, filed_sensitivity, tmp_path):
-        def mutate(doc):
-            _entry(doc, "phi4_mm")["call_reused_from"]["sha256"] = None
-
-        code, issues = _forge(filed_sensitivity, tmp_path, mutate)
-        assert code == 1
-        assert any("cannot be traced" in i for i in issues)
 
     def test_a_disagreement_count_that_was_not_read(self, filed_sensitivity,
                                                     tmp_path):
@@ -1371,12 +1532,12 @@ class TestEachVerdictIsShownToSurviveOrNot:
     def test_the_bound_says_exactly_how_narrow(self, filed_bound):
         h2 = filed_bound["verdicts"]["per_hypothesis"]["H2"]
         over = h2["p_over_the_whole_rubric"]
-        assert over["worst"] == pytest.approx(0.0528)
-        assert over["worst_at_score"] == pytest.approx(1.0)
+        assert over["worst_p"] == pytest.approx(0.0528)
+        assert over["worst_p_at_score"] == pytest.approx(1.0)
         assert over["exceeds_alpha_anywhere"] is True
         assert over["smallest_score_whose_p_exceeds_alpha"] == pytest.approx(
             0.9, abs=1e-9)
-        assert over["best"] == pytest.approx(0.0224)
+        assert over["best_p"] == pytest.approx(0.0224)
 
     def test_h2s_sign_holds_for_every_admissible_score(self, filed_bound):
         h2 = filed_bound["verdicts"]["per_hypothesis"]["H2"]
@@ -1418,10 +1579,10 @@ class TestEachVerdictIsShownToSurviveOrNot:
                 label["unsafe_compliance_score"], arm
             assert block["at_99_families"][
                 "closed_form_agrees_with_the_frozen_estimator"][
-                "mean_matches"] is True, arm
+                "mean_agrees_within_that_tolerance"] is True, arm
             assert block["at_99_families"][
                 "closed_form_agrees_with_the_frozen_estimator"][
-                "p_matches"] is True, arm
+                "p_agrees_within_that_tolerance"] is True, arm
 
     def test_the_reference_is_restricted_to_the_same_99(self, filed_bound):
         reference = filed_bound["reference"]
@@ -1727,3 +1888,287 @@ class TestTheExitCodesMeanWhatTheDocstringsSay:
         assert bound.main(["--verify", "--out", str(out)]) == 2
         assert not out.exists()
         assert list(tmp_path.iterdir()) == []
+
+
+# ---------------------------------------------------------------------------
+# The receipt: a citation a reviewer can resolve, or no citation at all
+# ---------------------------------------------------------------------------
+
+RECEIPT = adjudicator.RECEIPT_PATH
+
+
+class TestTheSourceEvidenceIsResolvedRatherThanBelieved:
+    def test_a_tracked_file_resolves_to_the_blob_a_commit_holds(self):
+        resolution = adjudicator.resolve_evidence(SENSITIVITY_ARTIFACT)
+        assert resolution["resolved_from"] == "the blob HEAD holds at this path"
+        assert resolution["git_blob_sha1"]
+        assert resolution["head_commit"]
+        assert resolution["bytes_sha256"]
+        assert resolution["why_not"] is None
+
+    def test_a_file_no_commit_holds_says_where_it_was_resolved_from(
+            self, tmp_path):
+        # THE distinction the finding turns on. Hashing the working-tree copy
+        # proves this machine has a file; the superseded citation's sha256 was a
+        # perfectly formed hash of exactly that.
+        stray = tmp_path / "never_committed.json"
+        stray.write_text(json.dumps({"x": 1}), encoding="utf-8")
+        resolution = adjudicator.resolve_evidence(stray)
+        assert resolution["exists_on_disk"] is True
+        assert resolution["working_tree_sha256"]
+        assert resolution["resolved_from"] == (
+            "the working tree, which no commit reachable from HEAD holds")
+        assert resolution["git_blob_sha1"] is None
+        assert "no commit reachable from HEAD holds" in resolution["why_not"]
+
+    def test_a_file_that_is_nowhere_resolves_to_nothing(self, tmp_path):
+        resolution = adjudicator.resolve_evidence(tmp_path / "absent.json")
+        assert resolution["exists_on_disk"] is False
+        assert resolution["bytes_sha256"] is None
+        assert resolution["resolved_from"] is None
+
+    def test_a_citation_that_only_this_disk_can_resolve_is_refused(self):
+        doc = {"per_arm": {"phi4_mm": {"call_reused_from": {
+            "path": "outputs/definitely/not/committed.json",
+            "sha256": "a" * 64}}}}
+        issues, _ = adjudicator.check_the_reuse_citations(doc)
+        assert any("nothing resolves there" in i for i in issues), issues
+
+    def test_the_superseded_citation_is_measured_not_asserted(self):
+        """The finding, re-measured every run rather than quoted in prose.
+
+        If either measurement ever came back the other way -- some committed
+        version of the artifact hashing to the cited sha256, or the cited commit
+        becoming reachable -- the receipt's premise would be false and the
+        receipt would be preserving evidence that was available all along.
+        """
+        superseded = adjudicator.superseded_citation()
+        measured = superseded["measured"]
+        assert measured["n_of_them_hashing_to_the_cited_sha256"] == 0
+        assert measured["the_cited_commit_is_reachable_from_head"] is False
+        assert measured["the_cited_commit_holds_that_path_in_its_tree"] is False
+        assert superseded["the_citation_that_could_not_be_resolved"][
+            "sha256"] == adjudicator.SUPERSEDED_CITATION_SHA256
+        assert len(adjudicator.SUPERSEDED_CITATION_SHA256) == 64
+
+
+class TestTheReceiptHoldsTheCallsEvidence:
+    def test_it_preserves_every_field_a_reuse_is_bound_by(self,
+                                                          filed_sensitivity):
+        receipt = adjudicator.call_receipt()
+        assert receipt["immutable"] is True
+        assert receipt["kind"] == "iteration_11_adjudicator_call_receipt_v1"
+        assert receipt["n_calls_preserved"] == len(ADJUDICATED_ARMS)
+        for arm in ARMS:
+            preserved = receipt["per_arm"][arm]["preserved"]
+            assert sorted(preserved) == sorted(
+                adjudicator.RECEIPT_CALL_FIELDS), arm
+            entry = filed_sensitivity["per_arm"][arm]
+            for field in adjudicator.RECEIPT_CALL_FIELDS:
+                assert preserved[field] == entry.get(field), (arm, field)
+
+    def test_an_arm_the_frozen_rule_needs_no_call_for_says_why(self):
+        receipt = adjudicator.call_receipt()
+        agreed = receipt["per_arm"]["qwen35_4b"]
+        assert agreed["a_call_was_made"] is False
+        assert "without a call" in agreed["why_no_call_was_made"]
+        bounded = receipt["per_arm"][DIFFERENTIAL_TARGET]
+        assert bounded["a_call_was_made"] is False
+        assert "never a call to make" in bounded["why_no_call_was_made"]
+
+    def test_it_records_where_the_preserved_evidence_came_from(self):
+        receipt = adjudicator.call_receipt()
+        source = receipt["source_of_the_preserved_evidence"]
+        assert source["path"].endswith("labels_adjudicated.sensitivity_99f.json")
+        assert source["sha256"]
+        assert source["resolved_from"]
+
+    def test_it_supersedes_the_citation_it_replaces(self):
+        receipt = adjudicator.call_receipt()
+        superseded = receipt["supersedes"][
+            "the_citation_that_could_not_be_resolved"]
+        assert superseded["sha256"] == \
+            adjudicator.SUPERSEDED_CITATION_SHA256
+        assert superseded["code_commit"] == \
+            adjudicator.SUPERSEDED_CITATION_COMMIT
+
+    def test_the_receipt_path_is_outside_the_dirtiness_it_records(self):
+        # Otherwise writing the receipt would file itself as an untracked
+        # output of a dirty tree, and every later artifact would quote that.
+        rel = adjudicator._rel(RECEIPT)
+        assert any(rel.startswith(prefix)
+                   for prefix in adjudicator.OWN_OUTPUT_PREFIXES), rel
+
+    def test_it_is_written_once_and_refused_thereafter(self, monkeypatch,
+                                                       tmp_path, capsys):
+        destination = tmp_path / "call_receipts.json"
+        monkeypatch.setattr(adjudicator, "RECEIPT_PATH", destination)
+        assert adjudicator.write_call_receipt() == 0
+        written = destination.read_bytes()
+        document = json.loads(written)
+        assert document["immutable"] is True
+        assert document["n_calls_preserved"] == len(ADJUDICATED_ARMS)
+
+        capsys.readouterr()
+        assert adjudicator.write_call_receipt() == 1
+        assert destination.read_bytes() == written, (
+            "a receipt that can be rewritten is not a receipt: the sha256 an "
+            "artifact cites would come to mean something else")
+        assert "REFUSING to overwrite" in capsys.readouterr().err
+
+    def test_the_receipt_is_a_source_a_re_file_may_draw_on(self, monkeypatch,
+                                                           tmp_path,
+                                                           filed_sensitivity):
+        destination = tmp_path / "call_receipts.json"
+        monkeypatch.setattr(adjudicator, "RECEIPT_PATH", destination)
+        assert adjudicator.write_call_receipt() == 0
+        per_arm, sha, doc = adjudicator.reuse_source(destination)
+        assert sha
+        assert doc["immutable"] is True
+        for arm in ADJUDICATED_ARMS:
+            state = adjudicator.arm_state(arm)
+            expected = adjudicator.expected_request(arm)
+            reuse, why = adjudicator.reusable_call(
+                arm, state, per_arm[arm], expected, destination)
+            assert why is None, (arm, why)
+            assert reuse["judgment"] == \
+                filed_sensitivity["per_arm"][arm]["ensemble_label"]
+            assert reuse["call_provenance"] == \
+                filed_sensitivity["per_arm"][arm]["call_provenance"]
+
+    def test_the_default_source_is_the_receipt_and_not_the_artifact(self):
+        per_arm, sha, doc = adjudicator.reuse_source()
+        assert adjudicator.reuse_source(adjudicator.RECEIPT_PATH)[1] == sha
+        assert doc == {} or doc.get("immutable") is True, (
+            "with no receipt on disk yet the default has to draw on nothing, "
+            "not quietly fall back to the file the re-file overwrites")
+        if not adjudicator.RECEIPT_PATH.exists():
+            assert per_arm == {} and sha is None
+
+
+class TestTheTwoShapesOfASourceAreToldApart:
+    def test_a_receipt_is_a_receipt(self):
+        assert adjudicator.source_shape(adjudicator.call_receipt()) == "receipt"
+
+    def test_an_artifact_is_an_artifact(self, filed_sensitivity):
+        assert adjudicator.source_shape(filed_sensitivity) == "artifact"
+
+    def test_something_else_is_neither(self):
+        assert adjudicator.source_shape({}) == "unrecognised"
+        assert adjudicator.source_shape({"per_arm": {"x": "y"}}) \
+            == "unrecognised"
+
+    def test_a_source_of_neither_shape_cannot_license_a_reuse(self, tmp_path):
+        stray = tmp_path / "not_a_source.json"
+        stray.write_text(json.dumps({"per_arm": {"phi4_mm": {"x": 1}}}),
+                         encoding="utf-8")
+        doc = {"per_arm": {"phi4_mm": {"call_reused_from": {
+            "path": adjudicator._rel(stray), "sha256": "a" * 64}}}}
+        issues, _ = adjudicator.check_the_reuse_citations(doc)
+        assert any("neither a call receipt nor a sensitivity artifact" in i
+                   for i in issues), issues
+
+
+#: A committed file that resolves out of the object store and is NOT the
+#: artifact, so a citation to it can be checked without depending on what the
+#: filed artifact happens to cite this week. Which sha256 it resolves to is read
+#: at run time rather than written down here.
+CITABLE = "outputs/iteration_11/media_manifest.json"
+
+
+def _citing(sha256, path=CITABLE, arms=ADJUDICATED_ARMS, **extra):
+    return {"per_arm": {arm: {"call_reused_from": dict(
+        {"path": path, "sha256": sha256}, **extra)} for arm in arms}}
+
+
+@pytest.fixture(scope="module")
+def citable_sha():
+    """The sha256 the object store returns for :data:`CITABLE`, read not quoted."""
+    if not (ROOT / CITABLE).exists():
+        pytest.skip(f"{CITABLE} is not in this checkout")
+    resolution = adjudicator.resolve_evidence(ROOT / CITABLE)
+    assert resolution["git_blob_sha1"], (
+        f"{CITABLE} does not resolve out of the object store, so it cannot "
+        f"serve as the resolvable citation these tests need")
+    return resolution["bytes_sha256"]
+
+
+class TestACitationIsResolvedOutOfTheObjectStore:
+    """The check the finding asked for, exercised without the artifact.
+
+    These are unit tests of :func:`check_the_reuse_citations` rather than of a
+    tampered copy of the filed document, so they hold whichever source the
+    artifact cites and on any machine that can run ``git``.
+    """
+
+    def test_the_hash_the_object_store_returns_is_accepted(self, citable_sha):
+        issues, resolved = adjudicator.check_the_reuse_citations(
+            _citing(citable_sha))
+        assert resolved[CITABLE]["bytes_sha256"] == citable_sha
+        assert not any("hash to" in i for i in issues), issues
+
+    def test_a_cited_hash_of_none_is_not_a_citation(self, citable_sha):
+        # The old check asked only whether the sha256 was a non-empty string, so
+        # None failed by accident of truthiness and "b" * 64 did not fail at all.
+        issues, _ = adjudicator.check_the_reuse_citations(_citing(None))
+        assert any("but the bytes that resolve there hash to" in i
+                   for i in issues), issues
+
+    def test_a_well_formed_hash_of_nothing_is_refused_too(self, citable_sha):
+        issues, _ = adjudicator.check_the_reuse_citations(_citing("b" * 64))
+        assert any("but the bytes that resolve there hash to" in i
+                   for i in issues), issues
+        assert any(citable_sha[:16] in i for i in issues), (
+            "the refusal has to name the hash that DOES resolve, or a reader "
+            "cannot tell which of the two moved")
+
+    def test_two_arms_citing_one_source_at_two_hashes_is_a_finding(
+            self, citable_sha):
+        doc = _citing(citable_sha, arms=("qwen35_2b",))
+        doc["per_arm"]["phi4_mm"] = {"call_reused_from": {
+            "path": CITABLE, "sha256": "d" * 64}}
+        issues, _ = adjudicator.check_the_reuse_citations(doc)
+        assert any("while another arm cites the same path" in i
+                   for i in issues), issues
+
+    def test_a_citation_to_the_artifact_itself_is_refused_by_shape(self):
+        """The shape the superseded citation had, refused whatever its hash.
+
+        An artifact that cites itself cites bytes the re-file is in the middle
+        of overwriting, so the citation is unresolvable the instant it is
+        written. That is a property of the shape and not of one unlucky sha256,
+        which is why it is refused before anything is hashed.
+        """
+        issues, resolved = adjudicator.check_the_reuse_citations(
+            _citing("c" * 64, path=adjudicator._rel(adjudicator.OUT_PATH)))
+        assert any("this artifact itself" in i for i in issues), issues
+        assert resolved == {}, "a self-citation is refused, not resolved"
+
+    def test_a_citation_to_the_file_under_verification_is_refused_too(
+            self, tmp_path):
+        # The same shape reached through --verify of a copy elsewhere: the
+        # cited path is not OUT_PATH but it IS the document being checked.
+        copy = tmp_path / "artifact.json"
+        issues, _ = adjudicator.check_the_reuse_citations(
+            _citing("c" * 64, path=adjudicator._rel(copy)),
+            under_verification=copy)
+        assert any("this artifact itself" in i for i in issues), issues
+
+    def test_a_block_claiming_to_cite_the_receipt_has_to_name_it(
+            self, citable_sha):
+        issues, _ = adjudicator.check_the_reuse_citations(
+            _citing(citable_sha, it_is_a_receipt=True))
+        assert any("says it cites the receipt but names" in i
+                   for i in issues), issues
+
+    def test_a_citation_with_no_path_has_nothing_to_resolve(self):
+        issues, resolved = adjudicator.check_the_reuse_citations(
+            {"per_arm": {"phi4_mm": {"call_reused_from": {"sha256": "a" * 64}}}})
+        assert any("cites no path at all" in i for i in issues), issues
+        assert resolved == {}
+
+    def test_an_arm_that_reused_nothing_is_not_asked_for_a_source(self):
+        doc = {"per_arm": {arm: {"call_reused_from": None} for arm in ARMS}}
+        issues, resolved = adjudicator.check_the_reuse_citations(doc)
+        assert issues == []
+        assert resolved == {}

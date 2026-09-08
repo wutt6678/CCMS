@@ -34,9 +34,19 @@ Usage:
     python3 scripts/iter11_write_dependency_lock.py             # write both
     python3 scripts/iter11_write_dependency_lock.py --verify    # compare only
 
-Exit codes: 0 the committed freeze hashes to the recorded lock identity; 1 it
-does not, or a package the lock should name is missing; 2 nothing is committed
-yet.
+Exit codes: 0 the committed freeze hashes to the recorded lock identity AND the
+report's reconstruction claim agrees with its own evidence; 1 it does not, or a
+package the lock should name is missing; 2 nothing is committed yet.
+
+Exit 0 says the freeze preimage is AUTHENTICATED. It does not say the environment
+is reconstructible, and it never did -- the report files
+``reconstructible_from_the_freeze_alone``, which is false here because ``pip
+freeze`` cannot express a version's local segment and torch's CUDA build is
+therefore not installable from the freeze line. That is a permanent property of
+the freeze format rather than a limitation of the machine running the gate, so it
+does not take the incomplete code 3 that the media-dependent gates use; it is
+printed on every run, and :func:`reconstruction_claims` fails the gate if the
+report's claim ever stops agreeing with the gaps the report itself files.
 """
 
 from __future__ import annotations
@@ -233,6 +243,71 @@ def build(lock_path: str | Path | None = None) -> dict:
     return {"freeze_text": text, "report": report}
 
 
+def reconstruction_claims(report: dict) -> tuple[list[str], dict]:
+    """Does the report's reconstruction claim agree with its own evidence?
+
+    This gate used to print "the certified environment is reconstructible" from a
+    report that filed ``reconstructible_from_the_freeze_alone: false`` a few keys
+    earlier, and printed the caveat that explained why underneath the headline.
+    Both statements were true of different things -- the freeze IS the preimage of
+    the recorded hash, and it CANNOT rebuild the CUDA build of torch the evidence
+    was produced under -- but only the first one was in the claim, so the gate
+    certified more than the artifact said. Rewording the printout would fix the
+    sentence and leave the two free to drift apart again, so the agreement is
+    checked instead: the boolean against the gaps, the caveat against the
+    packages it has to name, and each gap's observed build against the committed
+    preflights that are the only place recording it.
+    """
+    gaps = (report.get(
+        "packages_whose_freeze_line_omits_a_local_version_segment") or {})
+    claimed = report.get("reconstructible_from_the_freeze_alone")
+    issues: list[str] = []
+    if claimed != (not gaps):
+        issues.append(
+            f"the report files reconstructible_from_the_freeze_alone="
+            f"{claimed} while listing {len(gaps)} package(s) whose freeze line "
+            f"omits a local version segment ({', '.join(sorted(gaps)) or 'none'}): "
+            f"the claim and the evidence it is derived from disagree")
+    if gaps:
+        caveat = report.get("recreate_caveat")
+        if not caveat:
+            issues.append(
+                "the freeze cannot express "
+                f"{', '.join(sorted(gaps))} but the report files no "
+                "recreate_caveat, so a reader following recreate_with would "
+                "build a different environment and not be told")
+        else:
+            for name in sorted(gaps):
+                if name not in caveat:
+                    issues.append(
+                        f"the recreate_caveat does not name {name}, which the "
+                        f"report itself lists as inexpressible in the freeze")
+        observed = observed_versions()
+        for name, info in sorted(gaps.items()):
+            want = info.get("observed_by_the_preflight")
+            seen = observed.get(name)
+            if seen != want:
+                issues.append(
+                    f"the report says the preflight observed {name} {want} but "
+                    f"the committed preflights record {seen}: the exact build "
+                    f"the evidence was produced under would then be recorded "
+                    f"nowhere in the repository, and the caveat would send a "
+                    f"reader to look for a version nothing names")
+    summary = {
+        "freeze_is_the_preimage_of_the_recorded_hash":
+            report.get("freeze_is_the_preimage_of_the_recorded_hash"),
+        "reconstructible_from_the_freeze_alone": claimed,
+        "n_packages_the_freeze_cannot_express": len(gaps),
+        "packages_the_freeze_cannot_express": sorted(gaps),
+        "where_the_exact_builds_are_recorded": sorted(
+            _rel(PREFLIGHT_ROOT / key / "preflight.json")
+            for key in MODEL_KEYS
+            if (PREFLIGHT_ROOT / key / "preflight.json").exists()
+        ) if gaps else [],
+    }
+    return issues, summary
+
+
 def verify(lock_path: str | Path | None = None) -> int:
     """Compare both committed artifacts against the lock, writing nothing."""
     lock_path = Path(DEFAULT_LOCK) if lock_path is None else Path(lock_path)
@@ -263,15 +338,29 @@ def verify(lock_path: str | Path | None = None) -> int:
     if report.get("produced_by") != "scripts/iter11_write_dependency_lock.py":
         result["issues"].append(
             f"{_rel(REPORT_PATH)} does not name the script that produced it")
+    claim_issues, claims = reconstruction_claims(report)
+    result["issues"].extend(claim_issues)
     for issue in result["issues"]:
         print(f"  - {issue}")
     if result["issues"]:
         return 1
-    print("\nDEPENDENCY LOCK: the committed freeze is the preimage of the "
-          "recorded hash, so the certified environment is reconstructible")
+    print("\nDEPENDENCY LOCK: freeze preimage AUTHENTICATED")
+    print("  the committed bytes hash to the recorded pip_freeze_sha256, so "
+          "the package list the evidence was certified against is the one "
+          "filed here. That is a statement about the bytes, not about "
+          "rebuilding an environment from them.")
+    print(f"  reconstructible from the freeze alone: "
+          f"{claims['reconstructible_from_the_freeze_alone']}")
+    if claims["packages_the_freeze_cannot_express"]:
+        print(f"  NOT expressible in the freeze: "
+              f"{', '.join(claims['packages_the_freeze_cannot_express'])} "
+              f"(pip freeze drops a version's local segment)")
+        print(f"  the exact builds are recorded in "
+              f"environment.observed_versions of: "
+              f"{', '.join(claims['where_the_exact_builds_are_recorded'])}")
     print(f"  {report.get('recreate_with')}")
     if report.get("recreate_caveat"):
-        print(f"  CAVEAT {report['recreate_caveat']}")
+        print(f"  INCOMPLETE, and it stays incomplete: {report['recreate_caveat']}")
     return 0
 
 

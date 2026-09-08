@@ -23,6 +23,16 @@ could not run did not pass, and not FAIL, because nothing was found wrong --
 and the media's identity is bound by a committed manifest so "not present here"
 can be told apart from "present and different".
 
+The third state then leaked back out through a different door. The note
+explaining that the media could not be checked HERE was appended to the flat
+``warnings`` list, which ``--verify`` compares, so a fresh checkout still exited
+1 with the message that four committed reports no longer reproduce -- while
+every target's own verdict read ``PASS_WITH_UNVERIFIED_SECTIONS`` with zero
+failures. Notes are now tagged with the section they came from: one from a
+section that was checked is a statement about the panel and is compared, one
+from a section this checkout could not reach is a statement about the checkout
+and is not.
+
 CI-safe: every fixture builds a miniature repository under ``tmp_path``, so a
 checkout limitation, a tampered image and an unbound file can all be
 manufactured rather than waited for.
@@ -359,6 +369,99 @@ class TestVerifyComparesWithoutWriting:
         assert checks.comparable_verdict({"verdict": "PASS"}) == "PASS"
         assert checks.comparable_verdict({"verdict": "FAIL"}) == "FAIL"
 
+    def test_the_machine_statement_keys_are_only_the_two_statements(self):
+        # The skip is a licence, so its scope is pinned. Skipping "warnings"
+        # would drop every note the panel ever made; skipping "failures" would
+        # drop the findings.
+        assert checks.MACHINE_STATEMENT_KEYS == frozenset({
+            "unverifiable_sections", "unverifiable_section_notes"})
+        for key in ("warnings", "failures", "verdict", "media", "coverage"):
+            assert key not in checks.MACHINE_STATEMENT_KEYS
+
+    def test_a_note_about_this_checkout_is_not_compared_on_either_side(self):
+        note = {"media": ["data/media holds 20 of 3034 files here"]}
+        fresh = {"verdict": "PASS_WITH_UNVERIFIED_SECTIONS",
+                 "unverifiable_sections": ["media"],
+                 "unverifiable_section_notes": note,
+                 "warnings": [],
+                 "media": {"ok": True, "verifiable_here": False}}
+        filed = {"verdict": "PASS", "warnings": [],
+                 "media": {"ok": True, "verifiable_here": True}}
+        assert checks.diff_reports(fresh, filed) == ([], ["media"])
+        # And the mirror image: filed by the blind checkout, re-read by one
+        # that holds the media and so files no note at all.
+        assert checks.diff_reports(filed, fresh) == ([], ["media"])
+
+    def test_two_checkouts_disagreeing_about_their_own_notes_still_agree(self):
+        shared = {"verdict": "PASS_WITH_UNVERIFIED_SECTIONS",
+                  "unverifiable_sections": ["media"], "warnings": [],
+                  "media": {"ok": True, "verifiable_here": False}}
+        one = dict(shared, unverifiable_section_notes={
+            "media": ["20 of 3034 files here"]})
+        two = dict(shared, unverifiable_section_notes={
+            "media": ["0 of 3034 files here"]})
+        assert checks.diff_reports(one, two) == ([], ["media"])
+
+
+class TestANoteIsTaggedWithTheSectionItCameFrom:
+    """The structure the finding asked for, instead of a prefix to parse.
+
+    A flat ``warnings`` list is compared, so a warning that says "this section
+    could not be checked HERE" makes the absence of evidence look like a change
+    in the evidence. Tagging the note with its section is what lets the
+    comparison skip only the notes belonging to sections this checkout could not
+    reach, and keep comparing every note about the panel.
+    """
+
+    def test_a_note_from_a_section_that_was_checked_is_a_panel_statement(self):
+        warnings, notes = [], {}
+        checks.route_notes(notes, warnings, "truncation",
+                           ["uniform-cap escalation is NOT triggered"],
+                           {"ok": True, "verifiable_here": True})
+        assert warnings == ["uniform-cap escalation is NOT triggered"]
+        assert notes == {}
+
+    def test_a_note_from_a_section_this_checkout_cannot_reach_is_not(self):
+        warnings, notes = [], {}
+        checks.route_notes(notes, warnings, "media",
+                           ["data/media holds 20 of 3034 files here"],
+                           {"ok": True, "verifiable_here": False})
+        assert warnings == [], (
+            "a note about the checkout in the compared list is the bug: it "
+            "makes --all --verify exit 1 on a fresh clone with the message "
+            "that four good reports no longer reproduce")
+        assert notes == {"media": ["data/media holds 20 of 3034 files here"]}
+
+    def test_the_tag_is_the_structure_not_a_prefix_on_a_sentence(self):
+        warnings, notes = [], {}
+        checks.route_notes(notes, warnings, "media", ["a", "b"],
+                           {"ok": True, "verifiable_here": False})
+        checks.route_notes(notes, warnings, "media", ["c"],
+                           {"ok": True, "verifiable_here": False})
+        checks.route_notes(notes, warnings, "truncation", ["d"],
+                           {"ok": True})
+        assert notes == {"media": ["a", "b", "c"]}
+        assert warnings == ["d"]
+
+    def test_no_notes_creates_no_key(self):
+        warnings, notes = [], {}
+        checks.route_notes(notes, warnings, "media", [],
+                           {"ok": True, "verifiable_here": False})
+        assert notes == {}, (
+            "an empty list under a section name would be filed as a statement "
+            "that the section had something to say and said nothing")
+        assert warnings == []
+
+    def test_a_section_that_never_considered_the_question_is_checked(self):
+        # ``verifiable_here`` is opt-in: only an explicit False routes a note to
+        # the machine's own list, so a section that does not ask the question
+        # cannot have its notes quietly dropped from the comparison.
+        warnings, notes = [], {}
+        checks.route_notes(notes, warnings, "coverage", ["99 families"],
+                           {"ok": True})
+        assert warnings == ["99 families"]
+        assert notes == {}
+
 
 # ---------------------------------------------------------------------------
 # The CLI contract, against a run directory that holds nothing real
@@ -368,7 +471,8 @@ SECTIONS = ("coverage", "full_panel", "provenance", "confirmatory_gate",
             "eligibility", "terminal_query_equality", "media", "truncation")
 
 
-def _canned(mod, *, media_verifiable=True, failures=(), warnings=()):
+def _canned(mod, *, media_verifiable=True, failures=(), warnings=(),
+            section_notes=None):
     result = {"model_key": "target_x", "run_dir": "outputs/target_x/run",
               "lock_path": "outputs/lock.yaml"}
     for name in SECTIONS:
@@ -378,6 +482,9 @@ def _canned(mod, *, media_verifiable=True, failures=(), warnings=()):
         result["media"]["verifiable_here"] = False
     result["failures"] = [f"media: {i}" for i in failures]
     result["warnings"] = list(warnings)
+    if section_notes:
+        result["unverifiable_section_notes"] = {
+            section: list(notes) for section, notes in section_notes.items()}
     result["verdict"], result["unverifiable_sections"] = mod.verdict_for(result)
     return result
 
@@ -481,6 +588,43 @@ class TestTheDocumentedReadOnlyCommandWritesNothing:
                      ["--model-key", "target_x", "--write-report"]):
             (gate / checks.CHECKS_FILE).unlink(missing_ok=True)
             assert _run(monkeypatch, gate, argv, result) == 1
+
+    def test_a_checkout_note_does_not_turn_a_reproducing_report_into_a_failure(
+            self, monkeypatch, gate):
+        """THE finding, end to end.
+
+        On a fresh checkout the media section was correctly skipped and every
+        target's own verdict was ``PASS_WITH_UNVERIFIED_SECTIONS`` with zero
+        failures -- and ``--all --verify`` still exited 1, because the note
+        explaining the blind spot sat in the compared ``warnings`` list. Three
+        is the answer: nothing failed, and something could not be checked.
+        """
+        filed = _canned(checks)
+        (gate / checks.CHECKS_FILE).write_text(
+            json.dumps(filed, indent=2) + "\n", encoding="utf-8")
+        fresh = _canned(checks, media_verifiable=False, section_notes={
+            "media": ["data/media holds 20 of 3034 files here, so the media "
+                      "identity was taken from the committed manifest"]})
+        code = _run(monkeypatch, gate,
+                    ["--model-key", "target_x", "--verify"], fresh)
+        assert code == 3, (
+            "1 says the panel stopped reproducing, which is the false failure "
+            "the finding describes; 0 says everything was checked, which this "
+            "checkout did not do")
+        assert json.loads(
+            (gate / checks.CHECKS_FILE).read_text(encoding="utf-8")) == filed
+
+    def test_the_same_checkout_still_reports_a_genuine_panel_note_as_a_change(
+            self, monkeypatch, gate):
+        # Skipping the machine's own notes must not skip the panel's.
+        filed = _canned(checks, warnings=["uniform-cap escalation is NOT "
+                                          "triggered"])
+        (gate / checks.CHECKS_FILE).write_text(
+            json.dumps(filed, indent=2) + "\n", encoding="utf-8")
+        fresh = _canned(checks, media_verifiable=False, section_notes={
+            "media": ["no media here"]})
+        assert _run(monkeypatch, gate,
+                    ["--model-key", "target_x", "--verify"], fresh) == 1
 
 
 class TestTheWriteIsStructurallyBehindTheFlag:

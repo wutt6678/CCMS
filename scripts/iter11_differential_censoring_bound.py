@@ -79,6 +79,7 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import math
 import random
 import sys
 from bisect import bisect_left, bisect_right
@@ -423,6 +424,25 @@ def family_estimands_at(arm: str, score: float) -> dict:
 # The closed form
 # ---------------------------------------------------------------------------
 
+def _portable_sum(values) -> float:
+    """The left-to-right sum, spelled out because the builtin one is not.
+
+    CPython 3.12 sums floats with Neumaier compensation; 3.10 and 3.11 do not.
+    The same column of the same committed floats therefore returns
+    ``1.8999999999999997`` from ``sum`` under 3.10.20 and ``1.9`` under 3.12.13,
+    while this loop returns the first under both and :func:`math.fsum` returns
+    the second under both. An explicit loop is the one summation whose result is
+    a property of the numbers rather than of the interpreter, and it is also
+    what the frozen estimator computes under the certified interpreter -- so a
+    closed form built on it bounds the estimator that produced the sealed
+    analysis instead of bounding a slightly different arithmetic.
+    """
+    total = 0.0
+    for value in values:
+        total += value
+    return total
+
+
 def decompose(family_estimands_at_zero: dict, estimand: str,
               n_bootstrap: int, seed: int, slope: float | None = None) -> dict:
     """The affine decomposition of every resample mean in ``estimand``.
@@ -432,6 +452,23 @@ def decompose(family_estimands_at_zero: dict, estimand: str,
     the mean AT x rather than the mean at an offset from some other origin: the
     decomposition carries no origin term, so an anchor that was not zero would
     silently shift every bound by a constant and nothing downstream would notice.
+
+    Every sum in here goes through :func:`_portable_sum`, never through the
+    builtin ``sum``, so an intercept, a breakpoint, a tail count, a p-value and
+    the count of evaluated breakpoints are bit-identical under CPython 3.10 and
+    3.12. That is the difference between a bound that verifies anywhere and one
+    that verifies only where it was filed: measured on this evidence and filed in
+    ``summation`` below, the builtin moves most of the 5,000 resample intercepts
+    of the qwen35_4b column between the two interpreters, by up to a couple of
+    units in the last place, which is enough to carry one resample across the
+    null, one step of p, and two candidates out of the breakpoint count.
+
+    The frozen estimator in :mod:`causal_mllm.evaluation.bootstrap` keeps its own
+    builtin ``sum`` and is NOT changed here: the sealed 98-family analysis was
+    produced by it, so making it portable would mean re-deriving sealed evidence.
+    Every comparison against it below is therefore tolerance-based, and the
+    correctly rounded alternative to this summation is filed beside it so a
+    reader who recomputes with :func:`math.fsum` or NumPy can see the distance.
     """
     ids = sorted(family_estimands_at_zero)
     if FAMILY not in ids:
@@ -445,21 +482,54 @@ def decompose(family_estimands_at_zero: dict, estimand: str,
     # rather than a re-implementation of them.
     rng = random.Random(seed)
     intercepts, counts = [], []
+    moved_by_the_summation = 0
     for _ in range(n_bootstrap):
         indices = [rng.randint(0, n - 1) for _ in range(n)]
-        intercepts.append(sum(column[i] for i in indices) / n)
+        values = [column[i] for i in indices]
+        mean = _portable_sum(values) / n
+        if math.fsum(values) / n != mean:
+            moved_by_the_summation += 1
+        intercepts.append(mean)
         counts.append(indices.count(j))
     slope = SLOPE[estimand] if slope is None else slope
+    portable = _portable_sum(column)
+    correctly_rounded = math.fsum(column)
     return {
         "estimand": estimand, "n_families": n, "family_index": j,
         "intercepts": intercepts,
         "slopes": [slope * k / n for k in counts],
         "family_slope": slope,
         "observed_slope": slope / n,
-        "observed_intercept": sum(column) / n,
+        "observed_intercept": portable / n,
         "n_resamples": n_bootstrap, "seed": seed,
         "constant_in_x": slope == 0.0,
         "anchored_at": SCORE_LO,
+        "summation": {
+            "used": "an explicit left-to-right loop (_portable_sum)",
+            "portable_sum_of_the_family_column": portable,
+            "correctly_rounded_sum_of_the_same_column": correctly_rounded,
+            "their_difference": portable - correctly_rounded,
+            "n_resample_intercepts_the_two_summations_disagree_on":
+                moved_by_the_summation,
+            "n_resamples": n_bootstrap,
+            "why": (
+                "the two sums above are of one committed column of "
+                f"{n} floats and they are not the same float. The builtin "
+                "sum() returns the first under CPython 3.10 and 3.11 and the "
+                "second under CPython 3.12 and later, because 3.12 sums "
+                "floats with Neumaier compensation, so the builtin is not "
+                "portable in EITHER direction and is not used. The explicit "
+                "loop is portable and is also what the frozen estimator "
+                "computes under the certified interpreter, which is why this "
+                f"decomposition uses it: {moved_by_the_summation} of the "
+                f"{n_bootstrap} resample intercepts would be a different "
+                "float under the correctly rounded summation, and at a zero "
+                "crossing one such resample is one step of p. Reproduce the "
+                "interpreter difference on any column of floats with: "
+                "python3 -c \"import functools, math, operator; "
+                "v=[0.1]*3+[0.2]*3+[1/3]*3; print(repr(functools.reduce("
+                "operator.add, v, 0.0)), repr(sum(v)), repr(math.fsum(v)))\""),
+        },
     }
 
 
@@ -559,12 +629,27 @@ def worst_case(dec: dict) -> dict:
     and the p-value's tail counts are monotone step functions whose only
     breakpoints are the ``x*_b``, so its extremes are at an endpoint or at a
     breakpoint. Every breakpoint inside the range is evaluated.
+
+    The COUNT of evaluated breakpoints is filed, and so are the two margins that
+    decide it, because that count is the one field here whose value can rest on a
+    last bit: a breakpoint is inside the range or it is not, and two breakpoints
+    are one candidate or two, and both questions are answered by comparing
+    floats. On this evidence both margins are far narrower than
+    :data:`reproduction.FLOAT_TOLERANCE` -- they are filed in
+    ``breakpoint_margins`` rather than quoted here, so the numbers a reader sees
+    are the ones this checkout measured. The counts are therefore exactly
+    reproducible, because every input to them is one portable summation of a
+    committed column, but they are not ROBUST: they would move by one if that
+    column moved. What a verdict reads is not one of them, and that is also
+    measured rather than asserted -- the p at a breakpoint that hugs an endpoint
+    is filed beside the p at that endpoint, in resample steps.
     """
     index = index_tails(dec)
     n = dec["n_resamples"]
+    inside = sorted(x for x in index["negative"] + index["positive"]
+                    if SCORE_LO <= x <= SCORE_HI)
     candidates = {SCORE_LO, SCORE_HI}
-    candidates.update(x for x in index["negative"] + index["positive"]
-                      if SCORE_LO <= x <= SCORE_HI)
+    candidates.update(inside)
     rows = []
     for x in sorted(candidates):
         below, above = fast_tails(index, x)
@@ -575,9 +660,62 @@ def worst_case(dec: dict) -> dict:
     best = min(rows, key=lambda r: (r["p"], -r["x"]))
     over_alpha = [r for r in rows if r["p"] > ALPHA]
     means = [mean_at(dec, SCORE_LO), mean_at(dec, SCORE_HI)]
+
+    distinct = sorted(set(inside))
+    distinct_gaps = [b - a for a, b in zip(distinct, distinct[1:])]
+    tolerance = reproduction.FLOAT_TOLERANCE
+    if inside:
+        nearest = min(inside, key=lambda x: min(x - SCORE_LO, SCORE_HI - x))
+        nearest_endpoint = (SCORE_LO if nearest - SCORE_LO <= SCORE_HI - nearest
+                            else SCORE_HI)
+        nearest_distance = abs(nearest - nearest_endpoint)
+        nearest_p = p_from_tails(*fast_tails(index, nearest), n)
+        endpoint_p = p_from_tails(*fast_tails(index, nearest_endpoint), n)
+    else:
+        nearest = nearest_endpoint = nearest_distance = None
+        nearest_p = endpoint_p = None
+    smallest_gap = min(distinct_gaps) if distinct_gaps else None
     return {
         "score_range": [SCORE_LO, SCORE_HI],
         "n_breakpoints_evaluated": len(rows),
+        "breakpoint_margins": {
+            "n_breakpoints_inside_the_range": len(inside),
+            "n_distinct_breakpoints_inside_the_range": len(distinct),
+            "n_exact_duplicates": len(inside) - len(distinct),
+            "smallest_gap_between_distinct_breakpoints": smallest_gap,
+            "nearest_breakpoint_to_a_range_endpoint": nearest,
+            "the_endpoint_it_is_nearest_to": nearest_endpoint,
+            "its_distance_from_that_endpoint": nearest_distance,
+            "float_tolerance": tolerance,
+            "the_count_rests_on_a_margin_narrower_than_the_float_tolerance":
+                bool(inside) and (
+                    (nearest_distance is not None
+                     and nearest_distance <= tolerance)
+                    or (smallest_gap is not None
+                        and smallest_gap <= tolerance)),
+            "nearest_breakpoint_p": nearest_p,
+            "nearest_endpoint_p": endpoint_p,
+            "their_difference_in_resample_steps":
+                None if nearest_p is None or endpoint_p is None
+                else abs(nearest_p - endpoint_p) / p_step(dec),
+            "why_exact_duplicates_are_not_a_margin": (
+                "two breakpoints can be the SAME float, which happens when two "
+                "resamples draw the same multiset of families or two quotients "
+                "round alike. A duplicate is not a last-bit hazard: it is one "
+                "candidate under every interpreter, so it is counted separately "
+                "from the smallest gap between DISTINCT breakpoints, which is "
+                "the margin a rounding difference could actually close"),
+            "what_it_means": (
+                "a breakpoint this close to an endpoint, or this close to "
+                "another breakpoint, makes the count of evaluated candidates a "
+                "last-bit question, so the count is reproducible only because "
+                "every float behind it is one portable summation of a committed "
+                "column, and it is filed with its margins rather than alone. "
+                "The p-value is not last-bit sensitive in the same way: the two "
+                "p-values above differ by the filed number of resample steps, "
+                "which is inside the documented p tolerance, so no verdict "
+                "reads the membership decision"),
+        },
         "mean_range": [min(means), max(means)],
         "mean_at_the_range_ends": {"at_0": means[0], "at_1": means[1]},
         "sign_can_flip": (means[0] > 0.0) != (means[1] > 0.0),
@@ -685,10 +823,11 @@ def check_the_closed_form(dec: dict) -> dict:
             "mean_difference": mean_difference,
             "p_difference": p_difference,
             "p_difference_in_resample_steps": p_difference / p_step(dec),
+            "mean_tolerance": reproduction.FLOAT_TOLERANCE,
+            "mean_agrees_within_that_tolerance": mean_ok,
             "p_tolerance_licensed": licensed,
             "p_tolerance_documented": documented,
-            "mean_exact": mean_difference == 0.0,
-            "p_exact": p_difference == 0.0,
+            "p_agrees_within_the_licensed_tolerance": p_ok,
             "ok": mean_ok and p_ok,
         })
 
@@ -726,6 +865,30 @@ def check_the_closed_form(dec: dict) -> dict:
             f"enumeration is missing one")
     return {
         "probes": probes,
+        "no_exactness_booleans": {
+            "worst_mean_difference_over_these_probes": max(
+                (p["mean_difference"] for p in probes), default=0.0),
+            "mean_tolerance": reproduction.FLOAT_TOLERANCE,
+            "worst_p_difference_over_these_probes_in_resample_steps": max(
+                (p["p_difference_in_resample_steps"] for p in probes),
+                default=0.0),
+            "p_tolerance_in_resample_steps":
+                reproduction.P_VALUE_TOLERANCE_STEPS,
+            "why": (
+                "these probes used to file mean_exact and p_exact, and both "
+                "flipped between CPython 3.10.20 and 3.12.13 on this evidence "
+                "while every verdict, sign and count a hypothesis test reads "
+                "stayed put. An exactness boolean has no headroom at all, so "
+                "the last bit of a float decides it and the interpreter that "
+                "summed the float decides the last bit. A tolerance boolean is "
+                "decided by the arithmetic instead: the worst difference over "
+                "these probes is filed beside a tolerance orders of magnitude "
+                "wider, so the answer is the same under any interpreter that "
+                "reads IEEE doubles. Asking the weaker question hides nothing, "
+                "because both the difference and the tolerance are filed -- it "
+                "is the only one of the two questions that has a stable "
+                "answer"),
+        },
         "grid": {
             "n_points": CHECK_GRID_STEPS,
             "step": step,
@@ -858,6 +1021,7 @@ def arm_block(arm: str, labels: dict, reference: dict) -> dict:
         "n_families_committed": committed["n_families"],
         "n_families_sensitivity": dec["n_families"],
         "closed_form_check": closed_form,
+        "arithmetic_of_the_decomposition": dec["summation"],
         "committed_at_98_families": {
             "reference_sign": ref98["sign"],
             PRIMARY: committed[PRIMARY],
@@ -897,12 +1061,39 @@ def arm_block(arm: str, labels: dict, reference: dict) -> dict:
             "all_five_estimands": {name: estimated[name]
                                    for name in ESTIMANDS},
             "closed_form_agrees_with_the_frozen_estimator": {
-                "mean": mean_at(dec, score),
-                "p": p_at(dec, score),
-                "mean_matches": abs(estimated[PRIMARY]["mean"]
-                                    - mean_at(dec, score)) <= 1e-12,
-                "p_matches": abs(estimated[PRIMARY]["bootstrap_p_two_sided"]
-                                 - p_at(dec, score)) <= 1e-12,
+                "closed_form_mean": mean_at(dec, score),
+                "frozen_estimator_mean": estimated[PRIMARY]["mean"],
+                "mean_difference": abs(estimated[PRIMARY]["mean"]
+                                       - mean_at(dec, score)),
+                "mean_tolerance": reproduction.FLOAT_TOLERANCE,
+                "mean_agrees_within_that_tolerance":
+                    abs(estimated[PRIMARY]["mean"] - mean_at(dec, score))
+                    <= reproduction.FLOAT_TOLERANCE,
+                "closed_form_p": p_at(dec, score),
+                "frozen_estimator_p":
+                    estimated[PRIMARY]["bootstrap_p_two_sided"],
+                "p_difference": abs(
+                    estimated[PRIMARY]["bootstrap_p_two_sided"]
+                    - p_at(dec, score)),
+                "p_tolerance": reproduction.p_value_tolerance(
+                    int(dec["config"]["n_bootstrap"])),
+                "p_agrees_within_that_tolerance": abs(
+                    estimated[PRIMARY]["bootstrap_p_two_sided"]
+                    - p_at(dec, score)) <= reproduction.p_value_tolerance(
+                    int(dec["config"]["n_bootstrap"])),
+                "why_not_exactness": (
+                    "the two fields here used to be mean_matches and "
+                    "p_matches, both compared with <= 1e-12. For a mean that "
+                    "is a float tolerance. For a p-value it is not a tolerance "
+                    "at all: a bootstrap p can only move in steps of "
+                    "2/n_resamples, which at 5,000 resamples is 0.0004, so "
+                    "that comparison demanded an agreement eight orders of "
+                    "magnitude tighter than the quantity's own granularity and "
+                    "could pass only where the two float paths to the same "
+                    "number happened to land on the same side of every zero "
+                    "crossing. Each quantity is now held to the tolerance "
+                    "documented for its kind, with the difference and the "
+                    "tolerance both filed"),
             },
         }
 
@@ -1053,7 +1244,13 @@ def pooled_block(labels: dict) -> dict:
     scores = {arm: label_source(labels, arm)["score"] for arm in ARMS}
     per_arm_99 = {arm: family_estimands_at(arm, scores[arm] or SCORE_LO)
                   for arm in ARMS}
-    pooled99 = {fid: {name: sum(per_arm_99[a][fid][name] for a in ARMS)
+    # The builtin sum() over these four floats is interpreter-dependent in its
+    # last bit for exactly the reason decompose() documents, and the pooled
+    # decomposition inherits every bit of it, so the portable sum is used here
+    # too: a four-term sum is not too short to matter, it is just shorter to
+    # overlook.
+    pooled99 = {fid: {name: _portable_sum(
+                          [per_arm_99[a][fid][name] for a in ARMS])
                       / len(ARMS) for name in ESTIMANDS}
                 for fid in sorted(per_arm_99[ARMS[0]])}
     config = arms[ARMS[0]]["config"]
@@ -1077,6 +1274,7 @@ def pooled_block(labels: dict) -> dict:
             "all_five_estimands": {name: estimated99[name]
                                    for name in ESTIMANDS}},
         "worst_case_over_the_missing_label": bound,
+        "arithmetic_of_the_decomposition": dec["summation"],
         "why_the_pooled_slope_is_a_quarter": (
             "pooling averages the four models' family-level estimands, so one "
             "arm's missing score enters the pooled value for that family with "
@@ -1187,9 +1385,9 @@ def survival(blocks: dict, holm: dict, reference: dict,
                 "mean_range_over_the_whole_rubric": bound["mean_range"],
             },
             "p_over_the_whole_rubric": {
-                "worst": bound["worst_p"],
-                "worst_at_score": bound["worst_p_at_x"],
-                "best": bound["best_p"],
+                "worst_p": bound["worst_p"],
+                "worst_p_at_score": bound["worst_p_at_x"],
+                "best_p": bound["best_p"],
                 "exceeds_alpha_anywhere": bound[
                     "p_exceeds_alpha_anywhere"],
                 "smallest_score_whose_p_exceeds_alpha": bound[
@@ -1373,8 +1571,8 @@ def main(argv: list[str] | None = None) -> int:
         worst = row["p_over_the_whole_rubric"]
         print(f"     raw_p filed {row['filed_raw_p']:.4f} -> 99f "
               f"{row['raw_p_at_99_families']:.4f}; over the whole rubric "
-              f"worst {worst['worst']:.4f} at score "
-              f"{worst['worst_at_score']:.4f}"
+              f"worst {worst['worst_p']:.4f} at score "
+              f"{worst['worst_p_at_score']:.4f}"
               + (f", exceeds alpha from "
                  f"{worst['smallest_score_whose_p_exceeds_alpha']:.4f}"
                  if worst["exceeds_alpha_anywhere"] else ""))

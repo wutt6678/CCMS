@@ -437,6 +437,28 @@ def pinned_versions(lines: list[str],
     return {name: found.get(name) for name in names}
 
 
+#: Why "reconstructible from the freeze alone" is False everywhere, and not a
+#: measurement this checkout happened to make. ``pip freeze`` emits
+#: ``name==version`` and nothing else: no index URL, no wheel hash, and -- the
+#: part that bites here -- no local version segment, so the CUDA build this
+#: project's evidence was certified in (``torch 2.8.0+cu128``) is written as
+#: ``torch==2.8.0``, which ``pip install -r`` resolves to the default-index
+#: build. The information is not missing from the file; the format cannot hold
+#: it. A verifier that reported the environment as reconstructible while the
+#: report beside it filed ``reconstructible_from_the_freeze_alone: false`` was
+#: therefore not misreading the evidence, it was making a claim the evidence
+#: contradicts, and the two claims are separate keys now so that they cannot
+#: agree by accident and disagree by wording.
+FREEZE_FORMAT_CANNOT_EXPRESS = (
+    "pip freeze emits name==version with no index URL, no wheel hash and no "
+    "local version segment, so a freeze authenticates the package list an "
+    "environment had and cannot specify the builds that produced it. Which "
+    "packages that costs here is measured, not assumed: see "
+    "packages_whose_freeze_line_omits_a_local_version_segment in the "
+    "reconstruction report, and environment.observed_versions in the four "
+    "preflight artifacts, which do carry the exact builds")
+
+
 def verify_committed_freeze(freeze_path: str | Path,
                             lock_path: str | Path | None = None) -> dict:
     """Check a committed freeze file against the hash the lock already binds.
@@ -450,6 +472,13 @@ def verify_committed_freeze(freeze_path: str | Path,
 
     Returns a report rather than raising, because "the committed freeze does
     not match the lock" is a finding to print, not a condition to unwrap.
+
+    What it authenticates is the PREIMAGE: that the committed bytes hash to the
+    value every artifact already binds. That is not the same claim as
+    "this environment can be rebuilt", and the two are returned as separate
+    keys because a single boolean that meant both was read as the stronger one.
+    :data:`FREEZE_FORMAT_CANNOT_EXPRESS` says why the weaker one is not merely
+    unproven here but unprovable from a freeze in any environment.
     """
     path = Path(freeze_path)
     locked = load_dependency_lock(lock_path)
@@ -474,7 +503,9 @@ def verify_committed_freeze(freeze_path: str | Path,
             "matches_recorded_hash": False,
             "matches_recorded_count": False,
             "numeric_packages": {},
-            "reconstructs_the_certified_environment": False,
+            "freeze_preimage_authenticated": False,
+            "reconstructible_from_the_freeze_alone": False,
+            "why_not_reconstructible": FREEZE_FORMAT_CANNOT_EXPRESS,
             "issues": issues,
         }
     raw = path.read_bytes()
@@ -513,8 +544,10 @@ def verify_committed_freeze(freeze_path: str | Path,
         "matches_recorded_hash": matches_hash,
         "matches_recorded_count": matches_count,
         "numeric_packages": numeric,
-        "reconstructs_the_certified_environment": matches_hash
+        "freeze_preimage_authenticated": matches_hash
         and matches_count and not issues,
+        "reconstructible_from_the_freeze_alone": False,
+        "why_not_reconstructible": FREEZE_FORMAT_CANNOT_EXPRESS,
         "issues": issues,
     }
 

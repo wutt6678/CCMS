@@ -56,10 +56,33 @@ WHAT THIS ADDS OVER THE FIRST RUN
 ``tests/unit/test_iter11_judge_profiles.py`` pins channels 1-3 over a sample
 as a regression guard. This is the full-population audit.
 
+MEDIA, AND WHAT A CHECKOUT WITHOUT IT CAN STILL SAY
+Channel 1 renders a real judge prompt for a sample of items, and rendering used
+to need every referenced image's bytes. ``data/media`` is gitignored apart from
+20 individually negated source images, so a fresh clone holds 20 of 3,034 and
+the render raised for the rest: 12 ``prompt_render_errors`` per arm, a BLINDING
+FAIL, and a verify failure whose advice was to re-run and commit -- which on
+such a checkout would have meant filing a degraded artifact as evidence. The
+prompt TEXT never depended on those bytes (it carries an image's file name, not
+its contents), so the render is now backed by the committed media manifest,
+``outputs/iteration_11/media_manifest.json``: an image whose bytes are absent is
+identified by the digest the panel was generated under, and an image whose bytes
+are present is hashed from the bytes AND cross-checked against that digest, so
+the audit is stricter on a full checkout than it was. How much of the media this
+checkout actually held is filed in ``media_identity_here``, a statement about the
+machine rather than about the blinding, which ``--verify`` does not compare and
+which turns a clean-but-incomplete run into exit code 3.
+
 Usage:
     python3 scripts/iter11_blinding_audit.py             # derive and write
     python3 scripts/iter11_blinding_audit.py --verify    # read-only gate
     python3 scripts/iter11_blinding_audit.py --json      # print, write nothing
+
+Exit codes: 0 the clause holds and every channel was verifiable here; 1 a leak
+channel failed or the committed artifact no longer reproduces; 2 there is no
+committed artifact to verify against; 3 nothing failed but the media bytes were
+not in this checkout, so channel 1 was verified against the committed manifest
+rather than against the images -- an incomplete answer, not a clean one.
 """
 
 from __future__ import annotations
@@ -92,6 +115,18 @@ PROTOCOL_FILE = REPO_ROOT / "outputs" / "iteration_11" / "protocol" \
     / "iteration_11_protocol.json"
 OUT_FILE = REPO_ROOT / "outputs" / "iteration_11" / "diagnostics" \
     / "judge_blinding" / "identity_leak_audit.json"
+
+#: Committed identity of ``data/media``, written by
+#: ``scripts/iter11_write_media_manifest.py``. It is what lets channel 1 render a
+#: prompt on a checkout that holds 20 of the 3,034 files the panel references.
+MEDIA_MANIFEST_PATH = REPO_ROOT / "outputs" / "iteration_11" \
+    / "media_manifest.json"
+
+#: Top-level keys that describe the MACHINE running the audit rather than the
+#: blinding under audit. ``--verify`` compares everything else exactly and skips
+#: these, whichever side carries them: the committed artifact predates the key,
+#: and a checkout that held every image would file a different one.
+MACHINE_STATEMENT_KEYS = frozenset({"media_identity_here"})
 
 #: The frozen panel every arm replays. Read from the legacy ``scale_c``
 #: profile rather than restated, so the audit follows the configuration it is
@@ -277,9 +312,90 @@ def _judge() -> MultimodalLLMJudge:
         judge_id="A")
 
 
+def _rel(path: Path | str) -> str:
+    """A path as this repository names it, or as it is if it is not in it.
+
+    Used where a path is being REPORTED. The places that resolve a profile's
+    ``replay_run`` keep ``relative_to`` strict on purpose: a profile pointing
+    outside the repository is a defect and should raise.
+    """
+    try:
+        return str(Path(path).relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def media_identity() -> tuple[dict, dict]:
+    """``({path: sha256}, manifest metadata)`` from the committed manifest.
+
+    An absent or unreadable manifest yields an empty map rather than an error:
+    the render then fails for any image whose bytes are also absent, which is the
+    honest outcome, because there would be nothing to verify it against.
+    """
+    rel = _rel(MEDIA_MANIFEST_PATH)
+    if not MEDIA_MANIFEST_PATH.exists():
+        return {}, {"present": False, "path": rel, "rollup_sha256": None,
+                    "n_files": None}
+    try:
+        manifest = json.loads(MEDIA_MANIFEST_PATH.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        return {}, {"present": False, "path": rel, "rollup_sha256": None,
+                    "n_files": None, "unreadable": f"{type(exc).__name__}: {exc}"}
+    files = manifest.get("files") or {}
+    identity = {str(path): str(entry["sha256"])
+                for path, entry in files.items()
+                if isinstance(entry, dict) and entry.get("sha256")}
+    return identity, {
+        "present": True, "path": rel,
+        "rollup_sha256": manifest.get("rollup_sha256"),
+        "n_files": manifest.get("n_files", len(identity)),
+        "n_digests_usable": len(identity),
+        "sha256": sha256_bytes(MEDIA_MANIFEST_PATH.read_bytes()),
+    }
+
+
+def media_identity_statement(resolutions: dict, manifest_meta: dict) -> dict:
+    """How much of the media this checkout held, and what that costs the audit.
+
+    Filed as a statement about the machine, so it is the one part of the report
+    ``--verify`` does not compare: it differs between a checkout that holds
+    ``data/media`` and one that does not, and neither difference is a finding
+    about the blinding.
+    """
+    records = [record for recs in resolutions.values() for record in recs]
+    from_bytes = [r for r in records if r["payload_built"]]
+    from_manifest = [r for r in records if not r["payload_built"]]
+    statement = {
+        "manifest_present": manifest_meta.get("present", False),
+        "manifest_path": manifest_meta.get("path"),
+        "manifest_rollup_sha256": manifest_meta.get("rollup_sha256"),
+        "manifest_n_files": manifest_meta.get("n_files"),
+        "n_images_rendered": len(records),
+        "n_hashes_from_bytes": len(from_bytes),
+        "n_hashes_from_the_manifest": len(from_manifest),
+        "n_distinct_paths_identified_from_the_manifest": len(
+            {r["path"] for r in from_manifest}),
+        "media_bytes_verifiable_here": not from_manifest,
+    }
+    if from_manifest:
+        statement["note"] = (
+            f"{len(from_manifest)} of {len(records)} rendered image(s) were "
+            f"identified by the digest {manifest_meta.get('path')} binds them "
+            f"to rather than by their own bytes, which are not in this "
+            f"checkout. The prompt text and every scan of it are unaffected -- "
+            f"the text carries an image's file name and never its contents -- "
+            f"so channels 1 to 4 are all still measured, but the byte identity "
+            f"of the media is verified against the manifest rather than "
+            f"against the images, and this run is incomplete rather than "
+            f"clean")
+    return statement
+
+
 def audit_target(key: str, profile: dict, families: dict,
-                 judge: MultimodalLLMJudge, arms: list[str]) -> tuple[dict, dict]:
-    """Audit one arm. Returns ``(report_entry, item_id -> cell map)``."""
+                 judge: MultimodalLLMJudge, arms: list[str],
+                 image_identity: dict | None = None
+                 ) -> tuple[dict, dict, list]:
+    """Audit one arm. Returns ``(report_entry, item_id -> cell, images used)``."""
     run_dir = REPO_ROOT / profile["replay_run"]
     journal = run_dir / "replay_outputs.jsonl"
     entry: dict = {
@@ -288,7 +404,7 @@ def audit_target(key: str, profile: dict, families: dict,
     }
     if not journal.exists():
         entry["skipped"] = "no journal yet"
-        return entry, {}
+        return entry, {}, []
 
     records = list(read_jsonl(journal))
     entry["n_records"] = len(records)
@@ -309,11 +425,13 @@ def audit_target(key: str, profile: dict, families: dict,
                                   for h in _scan(shown, IDENTITY_TERMS[other])]
 
     rendered, render_errors = 0, []
+    resolution: list = []
     for it in items[:PROMPT_SAMPLE]:
         try:
             prompt, _imgs, _hashes = judge._build_prompt(
                 it["system_prompt"], it["conversation_history"],
-                it["terminal_query"], it["response"])
+                it["terminal_query"], it["response"],
+                image_identity=image_identity, image_resolution=resolution)
         except Exception as exc:            # noqa: BLE001 - recorded, not fatal
             render_errors.append({"item_id": it["item_id"],
                                   "error": f"{type(exc).__name__}: {exc}"})
@@ -336,7 +454,8 @@ def audit_target(key: str, profile: dict, families: dict,
         try:
             prompt, _, _ = judge._build_prompt(
                 it["system_prompt"], it["conversation_history"],
-                it["terminal_query"], it["response"])
+                it["terminal_query"], it["response"],
+                image_identity=image_identity)
         except Exception:                   # noqa: BLE001 - already recorded
             continue
         for forbidden in (it["family_id"], it["variant"]):
@@ -388,7 +507,7 @@ def audit_target(key: str, profile: dict, families: dict,
                            or {}).get("marketed_label"),
     }
     entry["identity_terms"] = IDENTITY_TERMS[key]
-    return entry, id_map
+    return entry, id_map, resolution
 
 
 def audit() -> dict:
@@ -436,11 +555,18 @@ def audit() -> dict:
     }
 
     id_maps = {}
+    image_identity, manifest_meta = media_identity()
+    resolutions: dict = {}
     for key in sorted(profiles):
-        entry, id_map = audit_target(key, profiles[key], families, judge, arms)
+        entry, id_map, resolution = audit_target(
+            key, profiles[key], families, judge, arms,
+            image_identity=image_identity)
         report["targets"][key] = entry
+        resolutions[key] = resolution
         if id_map:
             id_maps[key] = id_map
+    report["media_identity_here"] = media_identity_statement(
+        resolutions, manifest_meta)
 
     # Channel 2 verdict: one shared context across every audited arm.
     contexts = {tuple(e["system_prompt_sha256"])
@@ -552,6 +678,30 @@ def main() -> int:
 
     report = audit()
     ok, problems = _verdict(report)
+    media = report["media_identity_here"]
+    incomplete = not media["media_bytes_verifiable_here"]
+
+    def conclude(verbose: bool = True) -> int:
+        """0 clean, 3 clean but not measurable here, 1 a finding.
+
+        A finding outranks incompleteness: a checkout without the media can
+        still find a leak in a payload or a prompt, and reporting that as merely
+        incomplete would bury it.
+        """
+        if not ok:
+            return 1
+        if incomplete:
+            if verbose:
+                print(
+                    f"\nINCOMPLETE: the clause holds on everything this "
+                    f"checkout could measure, but "
+                    f"{media['n_hashes_from_the_manifest']} of "
+                    f"{media['n_images_rendered']} rendered image(s) were "
+                    f"identified by {media['manifest_path']} rather than by "
+                    f"their own bytes. That is not a PASS -- hold data/media "
+                    f"and re-run for one")
+            return 3
+        return 0
 
     for key in sorted(report["targets"]):
         e = report["targets"][key]
@@ -582,6 +732,11 @@ def main() -> int:
     print("channel 4:", json.dumps(
         report["cross_target"].get("item_id_alignment", {}), indent=2)[:1200])
     print()
+    print("media identity here:", json.dumps(
+        {k: v for k, v in media.items() if k != "note"}, indent=2))
+    if media.get("note"):
+        print(f"  {media['note']}")
+    print()
     for p in problems:
         print(f"  FINDING {p}")
     print(f"\nBLINDING {'PASS' if ok else 'FAIL'}")
@@ -589,26 +744,42 @@ def main() -> int:
     text = json.dumps(report, indent=2, ensure_ascii=False, sort_keys=True)
     if args.json:
         print(text)
-        return 0 if ok else 1
+        return conclude(verbose=False)
 
     out = Path(args.out)
     if args.verify:
         if not out.exists():
-            print(f"VERIFY FAIL: no committed artifact at {out}")
-            return 1
-        committed = out.read_text(encoding="utf-8")
-        if json.loads(committed) != report:
+            print(f"VERIFY NOT FILED: no committed artifact at {out}")
+            return 2
+        committed = json.loads(out.read_text(encoding="utf-8"))
+        # Compared with the machine statements removed from BOTH sides: the
+        # committed artifact predates media_identity_here, and a checkout that
+        # held every image would file a different one. Neither is a statement
+        # about the blinding, so neither may decide this comparison.
+        fresh = {k: v for k, v in report.items()
+                 if k not in MACHINE_STATEMENT_KEYS}
+        filed = {k: v for k, v in committed.items()
+                 if k not in MACHINE_STATEMENT_KEYS}
+        if filed != fresh:
+            differing = sorted(
+                k for k in set(fresh) | set(filed)
+                if fresh.get(k) != filed.get(k))
             print(f"VERIFY FAIL: {out} does not match a fresh derivation")
-            print("  (journals have grown, or the derivation changed; "
-                  "re-run without --verify and commit)")
+            print(f"  differing top-level key(s): {differing}")
+            print("  (the journals grew, or the derivation changed; re-run "
+                  "without --verify and commit. NOT because an image is "
+                  "missing here: absent media is recorded in "
+                  "media_identity_here and never reaches this comparison)")
             return 1
-        print(f"VERIFY PASS: {out} matches a fresh derivation")
-        return 0 if ok else 1
+        print(f"VERIFY PASS: {out} matches a fresh derivation on every key "
+              f"except {sorted(MACHINE_STATEMENT_KEYS)}, which describes this "
+              f"checkout and is not comparable")
+        return conclude()
 
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(text + "\n", encoding="utf-8")
     print(f"wrote {out}")
-    return 0 if ok else 1
+    return conclude()
 
 
 if __name__ == "__main__":

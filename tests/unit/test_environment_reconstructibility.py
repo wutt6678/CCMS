@@ -1,4 +1,4 @@
-"""The environment is authenticated, and now it is also reconstructible.
+"""The environment's freeze is authenticated, and the environment is not rebuildable.
 
 ``dependency_lock_snapshot()`` recorded ``pip_freeze_sha256`` and
 ``n_packages``. That is a hash with no committed preimage: another machine could
@@ -17,11 +17,16 @@ changed the builtin ``sum`` to Neumaier summation, and the bootstrap averages
 every resample with ``sum``.
 
 The two halves of the fix are pinned here. The committed freeze makes the
-certified environment rebuildable from a checkout, and
-``causal_mllm.replay.reproduction`` decides what a re-derivation has to match:
-every non-numeric leaf exactly in every environment, every integer exactly
-because there is no summation order in a count, and floats within a documented
-tolerance that is licensed ONLY by a demonstrated deviation from the lock.
+certified environment's package LIST recoverable from a checkout -- which is a
+weaker claim than rebuilding the environment, and the two are kept apart as
+separate keys because one boolean that meant both was read as the stronger one:
+``pip freeze`` writes ``torch 2.8.0+cu128`` as ``torch==2.8.0``, so the file
+that authenticates the hash cannot express the build the evidence was made in.
+And ``causal_mllm.replay.reproduction`` decides what a re-derivation has to
+match: every non-numeric leaf exactly in every environment, every integer
+exactly because there is no summation order in a count, and floats within a
+documented tolerance that is licensed ONLY by a demonstrated deviation from the
+lock.
 Inside the certified environment the comparison stays exact, because there the
 last bit is reproducible and a difference is a defect.
 
@@ -168,7 +173,7 @@ class TestTheCommittedFreezeIsTheHashsPreimage:
             text.replace("numpy==2.2.6", "numpy==2.3.0"), encoding="utf-8")
         result = verify_committed_freeze(producer.FREEZE_PATH, lock_world)
         assert result["matches_recorded_hash"] is False
-        assert result["reconstructs_the_certified_environment"] is False
+        assert result["freeze_preimage_authenticated"] is False
         assert any("is not the environment the artifacts were certified "
                    "against" in i for i in result["issues"])
         assert producer.verify(lock_world) == 1
@@ -586,7 +591,7 @@ class TestTheCommittedFreezeIsTheEnvironmentTheEvidenceWasMadeIn:
         assert result["issues"] == []
         assert result["matches_recorded_hash"] is True
         assert result["matches_recorded_count"] is True
-        assert result["reconstructs_the_certified_environment"] is True
+        assert result["freeze_preimage_authenticated"] is True
         assert producer.verify(WORLD_LOCK) == 0
 
 
@@ -645,3 +650,284 @@ class TestTheReconstructionReportSaysWhatTheTextCannot:
         assert RECORDED_PYTHON in report["recreate_with"]
         assert "pip install -r" in report["recreate_with"]
         assert report["freeze_path"] in report["recreate_with"]
+
+
+# ---------------------------------------------------------------------------
+# The contradictory-semantics finding: two claims, one of them true
+# ---------------------------------------------------------------------------
+
+GAP = {"freeze": "2.8.0", "observed_by_the_preflight": TORCH_LOCAL_SEGMENT,
+       "what_pip_install_r_would_fetch": "the default-index build"}
+
+
+def _report(**overrides) -> dict:
+    """A reconstruction report with one inexpressible package, by default."""
+    report = {
+        "freeze_is_the_preimage_of_the_recorded_hash": True,
+        "reconstructible_from_the_freeze_alone": False,
+        "packages_whose_freeze_line_omits_a_local_version_segment": {
+            "torch": dict(GAP)},
+        "recreate_caveat": "pip freeze drops a version's local segment, so "
+                           "torch==2.8.0 does not name the CUDA build",
+        "recreate_with": "conda create -n x python=3.10.20 && pip install -r f",
+    }
+    report.update(overrides)
+    return report
+
+
+@pytest.fixture
+def preflight_observed(monkeypatch):
+    """The exact builds the committed preflights record, as the gate reads them."""
+    monkeypatch.setattr(producer, "observed_versions",
+                        lambda: {"torch": TORCH_LOCAL_SEGMENT})
+
+
+class TestTheTwoReconstructionClaimsAreKeptApart:
+    def test_the_library_authenticates_a_preimage_and_claims_no_rebuild(self):
+        result = verify_committed_freeze(WORLD_FREEZE, WORLD_LOCK)
+        assert result["freeze_preimage_authenticated"] is True
+        assert result["reconstructible_from_the_freeze_alone"] is False
+        assert "local version segment" in result["why_not_reconstructible"]
+
+    def test_a_tampered_freeze_loses_the_authentication_and_not_the_caveat(
+            self, lock_world):
+        producer.main(["--lock", str(lock_world)])
+        text = producer.FREEZE_PATH.read_text(encoding="utf-8")
+        producer.FREEZE_PATH.write_text(
+            text.replace("numpy==2.2.6", "numpy==2.3.0"), encoding="utf-8")
+        result = verify_committed_freeze(producer.FREEZE_PATH, lock_world)
+        assert result["freeze_preimage_authenticated"] is False
+        assert result["reconstructible_from_the_freeze_alone"] is False
+        assert result["why_not_reconstructible"], (
+            "the caveat has to survive the failure it is not about: a reader "
+            "who fixes the hash must not thereby lose the reason a clean hash "
+            "still does not rebuild the environment")
+
+    def test_a_missing_freeze_claims_neither(self, tmp_path):
+        result = verify_committed_freeze(tmp_path / "absent.txt", WORLD_LOCK)
+        assert result["freeze_preimage_authenticated"] is False
+        assert result["reconstructible_from_the_freeze_alone"] is False
+
+    def test_no_key_named_for_the_stronger_claim_survives(self):
+        # The finding was a wording contradiction, and wording is what drifts.
+        # The old key asserted the rebuild in its NAME, so any consumer that
+        # printed it printed the overclaim without deciding to.
+        for path in (WORLD_FREEZE, WORLD_LOCK):
+            assert path.exists()
+        result = verify_committed_freeze(WORLD_FREEZE, WORLD_LOCK)
+        assert "reconstructs_the_certified_environment" not in result
+        assert not any("reconstructs" in key for key in result), sorted(result)
+
+
+class TestTheReportCannotClaimWhatItsOwnEvidenceDenies:
+    def test_the_committed_report_agrees_with_itself(self,
+                                                    preflight_observed):
+        issues, claims = producer.reconstruction_claims(_reconstruction_report())
+        assert issues == []
+        assert claims["reconstructible_from_the_freeze_alone"] is False
+        assert claims["packages_the_freeze_cannot_express"] == ["torch"]
+        assert claims["n_packages_the_freeze_cannot_express"] == 1
+
+    def test_a_claim_of_reconstructibility_over_a_gap_is_refused(
+            self, preflight_observed):
+        # THE finding, in the direction it was filed: the gate said the
+        # certified environment is reconstructible while the report listed a
+        # package the freeze cannot express.
+        issues, _ = producer.reconstruction_claims(
+            _report(reconstructible_from_the_freeze_alone=True))
+        assert any("the claim and the evidence it is derived from disagree"
+                   in i for i in issues)
+        assert any("torch" in i for i in issues)
+
+    def test_a_denial_with_nothing_denied_is_refused_too(
+            self, preflight_observed):
+        # The other direction, so the check is an agreement and not a mood.
+        issues, _ = producer.reconstruction_claims(_report(
+            reconstructible_from_the_freeze_alone=False,
+            packages_whose_freeze_line_omits_a_local_version_segment={}))
+        assert any("the claim and the evidence it is derived from disagree"
+                   in i for i in issues)
+
+    def test_an_agreement_with_no_gaps_and_no_caveat_is_accepted(self):
+        issues, claims = producer.reconstruction_claims(_report(
+            reconstructible_from_the_freeze_alone=True,
+            packages_whose_freeze_line_omits_a_local_version_segment={},
+            recreate_caveat=None))
+        assert issues == []
+        assert claims["packages_the_freeze_cannot_express"] == []
+
+    def test_a_gap_with_no_caveat_leaves_a_reader_unwarned(
+            self, preflight_observed):
+        issues, _ = producer.reconstruction_claims(_report(recreate_caveat=None))
+        assert any("files no recreate_caveat" in i for i in issues)
+
+    def test_a_caveat_that_does_not_name_the_package_is_not_a_caveat(
+            self, preflight_observed):
+        issues, _ = producer.reconstruction_claims(
+            _report(recreate_caveat="some builds are not what they look like"))
+        assert any("does not name torch" in i for i in issues)
+
+    def test_a_gap_whose_exact_build_is_recorded_nowhere_is_refused(
+            self, monkeypatch):
+        # The caveat sends the reader to the preflights for the real build. If
+        # the preflights do not hold it, the caveat sends them nowhere and the
+        # build the evidence was made in exists in no file in the repository.
+        monkeypatch.setattr(producer, "observed_versions",
+                            lambda: {"torch": "2.8.0"})
+        issues, _ = producer.reconstruction_claims(_report())
+        assert any("the committed preflights record" in i for i in issues)
+
+    def test_the_committed_report_passes_its_own_gate(self):
+        issues, claims = producer.reconstruction_claims(_reconstruction_report())
+        assert issues == []
+        assert claims["freeze_is_the_preimage_of_the_recorded_hash"] is True
+        assert claims["reconstructible_from_the_freeze_alone"] is False
+        assert claims["where_the_exact_builds_are_recorded"], (
+            "the claim names the preflights as where the exact builds live, so "
+            "it has to hand back their paths rather than the idea of them")
+
+    def test_the_verifier_prints_the_weaker_claim_and_keeps_the_caveat(
+            self, capsys):
+        assert producer.verify(WORLD_LOCK) == 0
+        out = capsys.readouterr().out
+        assert "freeze preimage AUTHENTICATED" in out
+        assert "reconstructible from the freeze alone: False" in out
+        assert "NOT expressible in the freeze: torch" in out
+        assert "INCOMPLETE, and it stays incomplete" in out
+        assert "is reconstructible" not in out, (
+            "the sentence the finding quoted. Exit 0 is still correct -- the "
+            "gap is a property of the freeze format and not of this machine, "
+            "so it can never be repaired by re-running -- but a gate that "
+            "prints the stronger claim certifies more than the artifact says")
+
+
+# ---------------------------------------------------------------------------
+# Classifying every p-derived field, which is the finding's third clause
+# ---------------------------------------------------------------------------
+
+BOUND_ARTIFACT = ROOT / "outputs" / "iteration_11" / "analysis" \
+    / "differential_censoring" / "differential_censoring_bound.json"
+
+#: Names the bound files that hold a p-value, and names that look like one and
+#: hold a SCORE instead. The second list is the one that matters: matching
+#: ``worst_p_at_score`` on a substring of ``worst_p`` would hand a rubric score
+#: 0.0064 of slack, which is 16 bootstrap steps of a quantity that is not a
+#: bootstrap count at all.
+SCORES_AT_WHICH_A_P_IS_ATTAINED = (
+    "worst_p_at_x", "best_p_at_x", "worst_p_at_score",
+    "smallest_x_whose_p_exceeds_alpha", "smallest_score_whose_p_exceeds_alpha",
+    "nearest_breakpoint_to_a_range_endpoint", "score_used",
+)
+
+BOOLEANS_AND_TOLERANCES_ARE_NOT_P_VALUES = (
+    "p_exceeds_alpha_anywhere", "p_tolerance", "p_tolerance_documented",
+    "p_tolerance_licensed", "mean_tolerance", "float_tolerance",
+)
+
+
+def _leaf_names_and_types(doc, path="$", out=None):
+    out = {} if out is None else out
+    if isinstance(doc, dict):
+        for key, value in doc.items():
+            _leaf_names_and_types(value, f"{path}.{key}", out)
+    elif isinstance(doc, list):
+        for index, value in enumerate(doc):
+            _leaf_names_and_types(value, f"{path}[{index}]", out)
+    else:
+        leaf = path.rsplit(".", 1)[-1]
+        out.setdefault(leaf, set()).add(type(doc).__name__)
+    return out
+
+
+class TestEveryPDerivedFieldIsClassifiedByWhatItHolds:
+    def test_a_field_expressed_in_resample_steps_gets_the_step_tolerance(self):
+        comparison = reproduction.compare(
+            {"margins": {"their_difference_in_resample_steps": 1.0}},
+            {"margins": {"their_difference_in_resample_steps": 2.0}},
+            tolerate_numerics=True)
+        assert comparison["n_p_step_differences"] == 1
+        assert comparison["n_numeric_differences"] == 1
+        assert comparison["numeric_differences_outside_tolerance"] == []
+        assert comparison[
+            "worst_p_step_difference_in_resample_steps"] == 1.0
+        assert comparison["worst_p_value_absolute_difference"] == 0.0, (
+            "a step count folded into the p-value roll-up would read 1 step as "
+            "1.0 of p, which at 5,000 resamples is 2,500 steps")
+
+    def test_a_step_field_beyond_the_step_bound_is_a_disagreement(self):
+        comparison = reproduction.compare(
+            {"d_in_resample_steps": 0.0},
+            {"d_in_resample_steps": float(reproduction.P_VALUE_TOLERANCE_STEPS
+                                          + 1)},
+            tolerate_numerics=True)
+        assert comparison["numeric_differences_outside_tolerance"]
+
+    def test_the_step_rule_is_checked_before_the_p_value_rule(self):
+        # A field can satisfy both -- its name ends in a p-value name's suffix
+        # and in the step suffix -- and the units have to win, because the step
+        # tolerance is the same quantity expressed in the field's own units.
+        path = "$.probes.worst_p_difference_over_these_probes_in_resample_steps"
+        assert reproduction.is_p_step_path(path)
+        comparison = reproduction.compare(
+            {"probes": {"worst_p_in_resample_steps": 0.0}},
+            {"probes": {"worst_p_in_resample_steps": 4.0}},
+            tolerate_numerics=True)
+        assert comparison["n_p_step_differences"] == 1
+        assert comparison["n_numeric_differences"] == 1
+
+    @pytest.mark.parametrize("name", sorted(
+        reproduction.P_VALUE_FIELD_NAMES))
+    def test_every_registered_name_is_classified_as_a_p_value(self, name):
+        assert reproduction.is_p_value_path(f"$.per_arm.qwen35_4b.{name}")
+        assert reproduction.is_p_value_path(f"$.holm_bonferroni.{name}.H2")
+
+    @pytest.mark.parametrize("name", SCORES_AT_WHICH_A_P_IS_ATTAINED)
+    def test_a_score_is_not_held_to_a_p_values_slack(self, name):
+        assert name not in reproduction.P_VALUE_FIELD_NAMES
+        assert not reproduction.is_p_value_path(f"$.worst_case.{name}")
+
+    @pytest.mark.parametrize("name", BOOLEANS_AND_TOLERANCES_ARE_NOT_P_VALUES)
+    def test_a_tolerance_or_a_verdict_is_not_a_p_value_either(self, name):
+        assert not reproduction.is_p_value_path(f"$.probes.{name}")
+
+    def test_no_exactness_boolean_survives_in_the_filed_bound(self):
+        """The finding's first clause, checked against the artifact itself.
+
+        An exactness boolean has no headroom: the last bit of a float decides
+        it, so a field named ``*_exact`` or ``*_matches`` over a float is a
+        field that will flip between interpreters without anything being
+        wrong. Every such field the bound filed is gone, and this test is what
+        keeps the next one out.
+        """
+        if not BOUND_ARTIFACT.exists():
+            pytest.skip(f"no bound artifact at {BOUND_ARTIFACT}")
+        doc = json.loads(BOUND_ARTIFACT.read_text(encoding="utf-8"))
+        leaves = _leaf_names_and_types(doc)
+        offenders = sorted(
+            name for name, types in leaves.items()
+            if "bool" in types
+            and (name.endswith("_exact") or name.endswith("_matches")))
+        assert offenders == [], (
+            f"{offenders} decide a float question with no headroom; file the "
+            f"difference and the tolerance instead")
+
+    def test_every_filed_p_value_name_is_registered(self):
+        """The completeness half: an unregistered p-value is held to 1e-12.
+
+        That is the mechanism behind the original failure -- 0.0008 of p-value
+        rejected while 2.6e-15 of mean was accepted -- so the rule is checked
+        against the artifact rather than against a list somebody remembered to
+        update.
+        """
+        if not BOUND_ARTIFACT.exists():
+            pytest.skip(f"no bound artifact at {BOUND_ARTIFACT}")
+        doc = json.loads(BOUND_ARTIFACT.read_text(encoding="utf-8"))
+        leaves = _leaf_names_and_types(doc)
+        unregistered = sorted(
+            name for name, types in leaves.items()
+            if name.endswith("_p") and types == {"float"}
+            and name not in reproduction.P_VALUE_FIELD_NAMES)
+        assert unregistered == [], (
+            f"{unregistered} hold floats, are named as p-values, and are not "
+            f"in P_VALUE_FIELD_NAMES, so a re-derivation on another "
+            f"interpreter would hold a count of resamples to a float epsilon")

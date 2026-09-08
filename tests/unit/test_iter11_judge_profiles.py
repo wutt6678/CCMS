@@ -14,17 +14,28 @@ visible in a judge's output:
   a testable claim with three channels -- the payload, the shared context,
   and the model naming itself inside its own response.
 
-CI-safe: the profiles are read as JSON and the blinding checks use the
-production context helpers over a sample of the committed journals. The
-judge pipeline itself is NOT imported, because it raises at import time
-without ``LLM_JUDGE_API_KEY``.
+The audit that measures those channels is pinned here too, on the question of
+what it reports when a checkout cannot measure part of it: ``data/media`` is
+gitignored apart from 20 individually negated source images, so a fresh clone
+holds 20 of 3,034 files, and an audit that treated the missing bytes as a
+blinding failure reported one on a machine that had done nothing to the
+evidence.
+
+CI-safe: the profiles are read as JSON, the blinding checks use the production
+context helpers over a sample of the committed journals, and the audit's own
+report is manufactured under ``tmp_path``. The judge module is imported but
+never called: ``iter11_blinding_audit`` only assembles prompt text, and no test
+here reaches a gateway.
 """
 
 from __future__ import annotations
 
+import importlib.util
+import inspect
 import json
 import random
 import re
+import sys
 from pathlib import Path
 
 import pytest
@@ -280,3 +291,251 @@ class TestModelIdentityBlinding:
         maps = [_build_anonymization_map(42) for _ in TARGETS]
         assert all(m == maps[0] for m in maps)
         assert sorted(maps[0].values()) == ["A", "B", "C", "D", "E", "F"]
+
+
+# ---------------------------------------------------------------------------
+# The audit's own report: what it measured, and what this checkout could not
+# ---------------------------------------------------------------------------
+
+def _load_script(name: str):
+    spec = importlib.util.spec_from_file_location(
+        f"{name}_under_test", ROOT / "scripts" / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = mod
+    spec.loader.exec_module(mod)
+    return mod
+
+
+blinding = _load_script("iter11_blinding_audit")
+
+MANIFEST = ROOT / "outputs" / "iteration_11" / "media_manifest.json"
+
+
+def _resolutions(*records) -> dict:
+    """One arm's worth of image resolutions, as ``_build_prompt`` reports them."""
+    return {"item-0001": [dict(path=p, sha256=s, source=src,
+                                payload_built=built)
+                          for p, s, src, built in records]}
+
+
+def _target(**overrides) -> dict:
+    entry = {
+        "run_dir": "outputs/iteration_11/generations/x/replay",
+        "complete": True, "n_records": 100,
+        "payload_identity_hits": [], "payload_other_arm_identity_hits": [],
+        "prompt_identity_hits": [], "prompt_judge_identity_hits": [],
+        "iteration10_blinding_violations": [], "prompt_render_errors": [],
+        "prompts_rendered": 12, "mirror_crosscheck": {"present": True,
+                                                      "identical": True},
+        "response_self_identification": {"n_items": 0, "rate": 0.0},
+    }
+    entry.update(overrides)
+    return entry
+
+
+def _report(*, media_verifiable=True, targets=None, **overrides) -> dict:
+    rendered = 12
+    from_manifest = 0 if media_verifiable else rendered
+    report = {
+        "targets": targets if targets is not None else {"target_x": _target()},
+        "cross_target": {
+            "shared_context": {"uniform": True,
+                               "n_distinct_system_prompts": 1},
+            "item_id_alignment": {"status": "aligned"},
+        },
+        "media_identity_here": {
+            "manifest_present": True,
+            "manifest_path": "outputs/iteration_11/media_manifest.json",
+            "manifest_rollup_sha256": "a" * 64,
+            "manifest_n_files": 3034,
+            "n_images_rendered": rendered,
+            "n_hashes_from_bytes": rendered - from_manifest,
+            "n_hashes_from_the_manifest": from_manifest,
+            "n_distinct_paths_identified_from_the_manifest":
+                4 if from_manifest else 0,
+            "media_bytes_verifiable_here": media_verifiable,
+        },
+    }
+    report.update(overrides)
+    return report
+
+
+def _run_audit(monkeypatch, argv, report, capsys=None):
+    monkeypatch.setattr(blinding, "audit", lambda: report)
+    monkeypatch.setattr(sys, "argv", ["iter11_blinding_audit.py", *argv])
+    return blinding.main()
+
+
+class TestAbsentMediaIsAStatementAboutTheCheckout:
+    """The finding: a fresh clone produced 12 render errors per arm and exit 1.
+
+    ``data/media`` is gitignored apart from 20 individually negated source
+    images, so ``audit_target`` could not build a prompt that referenced any of
+    the other 3,014, and a machine that had done nothing to the evidence
+    reported a BLINDING FAIL. The prompt text carries an image's file name and
+    never its contents, so the blinding question is answerable without the
+    bytes; what is not answerable without them is the byte identity of the
+    media, and that is filed as an incomplete run rather than as a finding.
+    """
+
+    def test_a_run_that_held_every_image_is_complete(self):
+        statement = blinding.media_identity_statement(
+            _resolutions(("data/media/a.png", "b" * 64, "bytes", True),
+                         ("data/media/b.png", "c" * 64, "bytes", True)),
+            {"present": True, "path": "m.json", "rollup_sha256": "a" * 64,
+             "n_files": 2})
+        assert statement["media_bytes_verifiable_here"] is True
+        assert statement["n_hashes_from_bytes"] == 2
+        assert statement["n_hashes_from_the_manifest"] == 0
+        assert "note" not in statement, (
+            "a note on a complete run would be compared by --verify on a "
+            "machine that has nothing to explain")
+
+    def test_a_run_that_identified_images_from_the_manifest_says_so(self):
+        statement = blinding.media_identity_statement(
+            _resolutions(("data/media/a.png", "b" * 64,
+                           "the committed media manifest", False),
+                         ("data/media/b.png", "c" * 64, "bytes", True)),
+            {"present": True, "path": "m.json", "rollup_sha256": "a" * 64,
+             "n_files": 2})
+        assert statement["media_bytes_verifiable_here"] is False
+        assert statement["n_hashes_from_the_manifest"] == 1
+        assert statement["n_hashes_from_bytes"] == 1
+        assert "m.json" in statement["note"]
+        assert "prompt text" in statement["note"], (
+            "the note has to say what the fallback does NOT cost, or a reader "
+            "cannot tell an incomplete byte check from an unmeasured clause")
+
+    def test_the_distinct_path_count_is_paths_and_not_images(self):
+        statement = blinding.media_identity_statement(
+            _resolutions(*[("data/media/a.png", "b" * 64, "manifest", False),
+                           ("data/media/a.png", "b" * 64, "manifest", False),
+                           ("data/media/b.png", "c" * 64, "manifest", False)]),
+            {"present": True, "path": "m.json"})
+        assert statement["n_images_rendered"] == 3
+        assert statement[
+            "n_distinct_paths_identified_from_the_manifest"] == 2
+
+    def test_the_committed_manifest_binds_every_image_it_lists(self):
+        if not MANIFEST.exists():
+            pytest.skip(f"no committed media manifest at {MANIFEST}")
+        identity, meta = blinding.media_identity()
+        assert meta["present"] is True
+        assert identity, "an empty identity map would make every absent image " \
+                         "fatal again, which is the behaviour being replaced"
+        assert len(identity) == meta["n_files"]
+        assert meta["n_digests_usable"] == len(identity)
+        assert re.fullmatch(r"[0-9a-f]{64}", meta["rollup_sha256"])
+        assert all(re.fullmatch(r"[0-9a-f]{64}", digest)
+                   for digest in identity.values())
+
+    def test_no_manifest_is_an_empty_map_and_not_an_error(self, monkeypatch,
+                                                          tmp_path):
+        monkeypatch.setattr(blinding, "MEDIA_MANIFEST_PATH",
+                            tmp_path / "absent.json")
+        identity, meta = blinding.media_identity()
+        assert identity == {}
+        assert meta["present"] is False
+        assert meta["rollup_sha256"] is None
+
+    def test_an_unreadable_manifest_is_said_to_be_unreadable(self, monkeypatch,
+                                                             tmp_path):
+        path = tmp_path / "media_manifest.json"
+        path.write_text("{not json", encoding="utf-8")
+        monkeypatch.setattr(blinding, "MEDIA_MANIFEST_PATH", path)
+        identity, meta = blinding.media_identity()
+        assert identity == {}
+        assert meta["present"] is False
+        assert "JSONDecodeError" in meta["unreadable"]
+
+    def test_the_render_is_given_the_manifest_identity(self):
+        # Structural, because the behavioural alternative is a test that needs
+        # 3,014 images to be absent. What the kwarg DOES is pinned in
+        # test_llm_judge_fixes; what is pinned here is that the audit threads it
+        # all the way down, and by name -- a positional pass would keep working
+        # right up to the day somebody reorders audit_target's parameters.
+        assert "image_identity" in inspect.signature(
+            blinding.audit_target).parameters
+        audit_source = inspect.getsource(blinding.audit)
+        assert "media_identity()" in audit_source
+        assert "image_identity=image_identity" in audit_source
+        target_source = inspect.getsource(blinding.audit_target)
+        assert "image_identity=image_identity" in target_source
+        assert "image_resolution=" in target_source, (
+            "without the resolution record the report cannot say how much of "
+            "the media this checkout held, and 3 would be indistinguishable "
+            "from 0 on a guess")
+
+
+class TestTheAuditKeepsThreeAnswersApart:
+    def test_clean_and_complete_is_zero(self, monkeypatch, capsys):
+        assert _run_audit(monkeypatch, ["--json"], _report()) == 0
+        assert "BLINDING PASS" in capsys.readouterr().out
+
+    def test_clean_but_not_measurable_here_is_three(self, monkeypatch, capsys):
+        code = _run_audit(monkeypatch, ["--json"],
+                          _report(media_verifiable=False))
+        out = capsys.readouterr().out
+        assert code == 3
+        assert "BLINDING PASS" in out, (
+            "nothing was found wrong, and 3 is not a soft way of saying 1")
+
+    def test_a_finding_outranks_incompleteness(self, monkeypatch, capsys):
+        report = _report(media_verifiable=False, targets={
+            "target_x": _target(prompt_identity_hits=[{"term": "qwen"}])})
+        assert _run_audit(monkeypatch, ["--json"], report) == 1
+        assert "BLINDING FAIL" in capsys.readouterr().out
+
+    def test_a_render_error_is_still_a_finding_where_the_bytes_were_held(
+            self, monkeypatch):
+        # The fix is a fallback for absent images, not a licence to swallow a
+        # render that failed on a checkout holding the media.
+        report = _report(targets={"target_x": _target(
+            prompt_render_errors=["EvaluationError: image not found"])})
+        assert _run_audit(monkeypatch, ["--json"], report) == 1
+
+    def test_verify_with_nothing_filed_is_two(self, monkeypatch, tmp_path):
+        code = _run_audit(monkeypatch,
+                          ["--verify", "--out", str(tmp_path / "absent.json")],
+                          _report())
+        assert code == 2
+
+    def test_verify_ignores_the_machine_statement_on_both_sides(
+            self, monkeypatch, tmp_path, capsys):
+        """The other half of the finding.
+
+        The committed artifact predates ``media_identity_here``, and a checkout
+        that held every image would file a different one from a checkout that
+        held none. Neither is a statement about the blinding, so neither may
+        decide the comparison -- and the advice printed on a real mismatch must
+        not send a reader to re-run for a reason that is not the reason.
+        """
+        filed = _report(media_verifiable=True)
+        out = tmp_path / "blinding.json"
+        out.write_text(json.dumps(filed, indent=2), encoding="utf-8")
+        fresh = _report(media_verifiable=False)
+        code = _run_audit(monkeypatch, ["--verify", "--out", str(out)], fresh)
+        text = capsys.readouterr().out
+        assert "does not match a fresh derivation" not in text
+        assert code == 3, (
+            "the derivation matched on every comparable key, and this checkout "
+            "could not measure the byte identity of the media")
+
+    def test_verify_still_catches_a_real_disagreement(
+            self, monkeypatch, tmp_path, capsys):
+        filed = _report()
+        out = tmp_path / "blinding.json"
+        out.write_text(json.dumps(filed, indent=2), encoding="utf-8")
+        fresh = _report(targets={"target_x": _target(n_records=101)})
+        code = _run_audit(monkeypatch, ["--verify", "--out", str(out)], fresh)
+        text = capsys.readouterr().out
+        assert code == 1
+        assert "does not match a fresh derivation" in text
+        assert "differing top-level key(s): ['targets']" in text
+
+    def test_the_machine_statement_keys_are_only_the_media_statement(self):
+        assert blinding.MACHINE_STATEMENT_KEYS == frozenset(
+            {"media_identity_here"})
+        for key in ("targets", "cross_target"):
+            assert key not in blinding.MACHINE_STATEMENT_KEYS, (
+                f"skipping {key} would skip the audit's findings")

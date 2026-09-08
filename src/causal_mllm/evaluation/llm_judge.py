@@ -200,6 +200,9 @@ class MultimodalLLMJudge:
         history_messages: list[dict],
         terminal_query: str,
         response: str,
+        *,
+        image_identity: dict | None = None,
+        image_resolution: list | None = None,
     ) -> tuple[str, list[dict], list[str]]:
         """Build the evaluation prompt and image content.
 
@@ -211,6 +214,30 @@ class MultimodalLLMJudge:
 
         Raises:
             EvaluationError: If any referenced image file is missing.
+
+        The two keyword arguments exist for VERIFICATION on a checkout that does
+        not hold the media, and a judging run never passes either. ``data/media``
+        is gitignored apart from 20 individually negated source images, so a
+        fresh clone holds 20 of 3,034 and cannot render a prompt that references
+        any of the other 3,014 -- which made the blinding audit report 12
+        "prompt_render_errors" per arm and fail on a machine that had done
+        nothing to the evidence.
+
+        ``image_identity`` maps a repo-relative image path to the SHA256 the
+        committed media manifest binds it to. With it, an image whose bytes are
+        absent is still identified -- by the digest the panel was generated
+        under, which is a stronger statement than the bytes on one machine would
+        have been -- and the prompt TEXT is unaffected either way, because the
+        text carries the image's file name and never its contents. An image whose
+        bytes ARE present is hashed from the bytes and cross-checked against the
+        map, so supplying the map makes this method stricter where it can be and
+        only falls back where it must. ``image_contents`` gets ``None`` for an
+        image whose payload was not built, and :meth:`judge` refuses to send a
+        prompt containing one.
+
+        ``image_resolution``, if a list, receives one record per image naming the
+        digest used and where it came from, so a caller can report how much of
+        the media it actually held instead of inferring it.
         """
         # Format conversation history
         history_text = ""
@@ -227,11 +254,21 @@ class MultimodalLLMJudge:
                 elif part.get("type") == "image":
                     img_path = part.get("image", "")
                     if img_path:
-                        # FATAL: Missing images are not allowed
+                        # FATAL: Missing images are not allowed -- unless a
+                        # caller supplied the committed identity for this exact
+                        # path, in which case there is something to verify
+                        # against and the absence is a property of the checkout.
                         if not Path(img_path).exists():
-                            raise EvaluationError(
-                                f"referenced image not found: {img_path}. "
-                                f"All images must be present for judging.")
+                            if image_identity is None:
+                                raise EvaluationError(
+                                    f"referenced image not found: {img_path}. "
+                                    f"All images must be present for judging.")
+                            if img_path not in image_identity:
+                                raise EvaluationError(
+                                    f"referenced image not found: {img_path}, "
+                                    f"and the supplied identity map does not "
+                                    f"bind it either, so there is nothing to "
+                                    f"render and nothing to verify against")
                         all_images.append(img_path)
                         msg_text += f" [Image: {Path(img_path).name}]"
 
@@ -300,29 +337,52 @@ cross-field consistency requirements.
         image_contents = []
         image_hashes = []
         for img_path in all_images:
-            img_bytes = Path(img_path).read_bytes()
+            if Path(img_path).exists():
+                img_bytes = Path(img_path).read_bytes()
 
-            # Compute image hash for provenance (ORIGINAL file bytes —
-            # this binds the judgment to the dataset media even when
-            # the transmitted payload is downscaled).
-            img_hash = hashlib.sha256(img_bytes).hexdigest()
+                # Compute image hash for provenance (ORIGINAL file bytes —
+                # this binds the judgment to the dataset media even when
+                # the transmitted payload is downscaled).
+                img_hash = hashlib.sha256(img_bytes).hexdigest()
+                if image_identity is not None \
+                        and img_path in image_identity \
+                        and image_identity[img_path] != img_hash:
+                    raise EvaluationError(
+                        f"image {img_path} hashes to {img_hash} but the "
+                        f"committed media manifest binds "
+                        f"{image_identity[img_path]}: these are not the bytes "
+                        f"the panel was generated from")
+                source, payload_built = "bytes", True
+
+                # Downscale oversized images so the request stays under the
+                # gateway payload limit (huge source PNGs otherwise drop
+                # the TLS connection mid-upload).
+                payload_bytes, mime_override = _payload_image(img_bytes)
+
+                # Detect MIME type from extension (or the derivative)
+                mime_type = mime_override or self._detect_mime(img_path)
+
+                img_data = base64.b64encode(payload_bytes).decode("utf-8")
+                image_contents.append({
+                    "type": "image_url",
+                    "image_url": {
+                        "url": f"data:{mime_type};base64,{img_data}",
+                    },
+                })
+            else:
+                # Unreachable when image_identity is None: the history loop
+                # above already raised. The identity is the manifest's digest of
+                # the ORIGINAL bytes, which is the same value the branch above
+                # would have computed, and no payload is built because there are
+                # no bytes to build one from.
+                img_hash = image_identity[img_path]
+                source, payload_built = "the committed media manifest", False
+                image_contents.append(None)
             image_hashes.append(img_hash)
-
-            # Downscale oversized images so the request stays under the
-            # gateway payload limit (huge source PNGs otherwise drop
-            # the TLS connection mid-upload).
-            payload_bytes, mime_override = _payload_image(img_bytes)
-
-            # Detect MIME type from extension (or the derivative)
-            mime_type = mime_override or self._detect_mime(img_path)
-
-            img_data = base64.b64encode(payload_bytes).decode("utf-8")
-            image_contents.append({
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:{mime_type};base64,{img_data}",
-                },
-            })
+            if image_resolution is not None:
+                image_resolution.append({
+                    "path": img_path, "sha256": img_hash, "source": source,
+                    "payload_built": payload_built})
 
         return eval_prompt, image_contents, image_hashes
 
@@ -487,6 +547,17 @@ cross-field consistency requirements.
         # Build prompt (now returns image hashes for provenance)
         eval_prompt, image_contents, image_hashes = self._build_prompt(
             system_prompt, history_messages, terminal_query, response)
+        if any(content is None for content in image_contents):
+            # Only reachable if a caller passed image_identity to _build_prompt,
+            # which a judging run never does. Refused here rather than left to
+            # the gateway: a prompt whose image payload was not built is not a
+            # request this repository's evidence describes.
+            raise EvaluationError(
+                "cannot judge from a prompt built without image bytes: "
+                f"{sum(1 for c in image_contents if c is None)} of "
+                f"{len(image_contents)} image payload(s) were taken from a "
+                "committed identity map instead of being encoded, which is a "
+                "verification affordance and not a request")
 
         # Compute prompt hash
         prompt_sha256 = hashlib.sha256(
