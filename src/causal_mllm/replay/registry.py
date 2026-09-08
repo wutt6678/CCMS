@@ -370,22 +370,17 @@ def editable_vcs_revisions(lines: list[str]) -> dict:
             if info.get("revision")}
 
 
-def dependency_lock_snapshot() -> dict:
-    """Hashed snapshot of the reference environment.
+def normalized_freeze_lines() -> tuple[list[str], list[str]]:
+    """The exact lines ``pip_freeze_sha256`` hashes, and what was dropped.
 
-    The frozen protocol requires a complete pip-freeze lock hash to be
-    captured at preflight and bound into each resolved run fingerprint.
-    Only this project's own editable install is excluded (see
-    :data:`SELF_DISTRIBUTIONS`), because ``pip freeze`` renders it in one of
-    two forms depending on invocation and one of them embeds THIS
-    repository's live HEAD — which ``code_commit`` already binds more
-    precisely. Third-party editable installs are kept verbatim, revision
-    included, and are additionally reported so their presence can be
-    refused (see :func:`editable_vcs_revisions`).
+    Returns ``(lines, excluded_self_distributions)``. Split out of
+    :func:`dependency_lock_snapshot` so a committed freeze file is the hash's
+    preimage BY CONSTRUCTION rather than the output of a second implementation
+    free to drift from the first.
 
     Fail-closed: a non-zero ``pip freeze`` exit is an error, not an empty
-    snapshot. A partial or empty freeze still hashes to a STABLE value, so
-    it would silently certify an environment that was never observed.
+    snapshot. A partial or empty freeze still hashes to a STABLE value, so it
+    would silently certify an environment that was never observed.
     """
     completed = subprocess.run(
         [sys.executable, "-m", "pip", "freeze"],
@@ -403,11 +398,155 @@ def dependency_lock_snapshot() -> dict:
                        if name})
     lines = [line for line in all_lines
              if not _is_self_distribution_line(line)]
-    freeze_text = "\n".join(lines)
+    return lines, excluded
+
+
+def freeze_text(lines: list[str]) -> str:
+    """The byte-exact string ``pip_freeze_sha256`` is the SHA-256 of.
+
+    Sorted, comment-free, self-distribution-free, and with NO trailing newline
+    and no header. A comment line or a final ``\\n`` would move the hash, so the
+    committed freeze file is the hashed text and nothing else; whatever needs
+    saying about it is said beside it.
+    """
+    return "\n".join(lines)
+
+
+#: The packages a reviewer asks about first, because these are the ones whose
+#: floating-point, BLAS and RNG behaviour can move a bootstrap mean. Named
+#: explicitly rather than left to "the whole list" because the question "would
+#: this environment give the same numbers" is about these and not about
+#: whatever else happens to be installed.
+NUMERICALLY_CONSEQUENTIAL_PACKAGES = ("numpy", "scipy", "torch", "pandas")
+
+
+def pinned_versions(lines: list[str],
+                    names: tuple[str, ...] =
+                    NUMERICALLY_CONSEQUENTIAL_PACKAGES) -> dict:
+    """``{package: version}`` for the asked-for ``name==version`` lines.
+
+    A missing package is reported as None rather than omitted: "numpy is not
+    installed" and "this freeze does not mention numpy" have to read the same
+    way in the artifact, and an absent key reads as neither.
+    """
+    found = {}
+    for line in lines:
+        name, sep, version = line.partition("==")
+        if sep:
+            found[name.strip().lower()] = version.strip()
+    return {name: found.get(name) for name in names}
+
+
+def verify_committed_freeze(freeze_path: str | Path,
+                            lock_path: str | Path | None = None) -> dict:
+    """Check a committed freeze file against the hash the lock already binds.
+
+    A lock that stores only ``pip_freeze_sha256`` can be COMPARED against but
+    never rebuilt: another machine can find out whether it happens to possess
+    the same environment and cannot create it. Committing the freeze text makes
+    the same hash reconstructible, and this is the check that the two halves
+    still belong to each other -- that the file's bytes hash to the value every
+    preflight artifact and every resolved run fingerprint already carries.
+
+    Returns a report rather than raising, because "the committed freeze does
+    not match the lock" is a finding to print, not a condition to unwrap.
+    """
+    path = Path(freeze_path)
+    locked = load_dependency_lock(lock_path)
+    recorded_hash = (locked or {}).get("pip_freeze_sha256")
+    recorded_count = (locked or {}).get("n_packages")
+    issues: list[str] = []
+    if locked is None:
+        issues.append(
+            f"no dependency lock recorded at "
+            f"{Path(lock_path) if lock_path else DEFAULT_LOCK}, so there is "
+            f"no hash for a committed freeze to be checked against")
+    if not path.exists():
+        issues.append(
+            f"no committed freeze at {path}; the lock's "
+            f"pip_freeze_sha256 has no preimage in the repository, so the "
+            f"environment it certifies cannot be recreated from a checkout")
+        return {
+            "freeze_path": str(path), "exists": False, "sha256": None,
+            "n_lines": 0, "lines": [],
+            "recorded_pip_freeze_sha256": recorded_hash,
+            "recorded_n_packages": recorded_count,
+            "matches_recorded_hash": False,
+            "matches_recorded_count": False,
+            "numeric_packages": {},
+            "reconstructs_the_certified_environment": False,
+            "issues": issues,
+        }
+    raw = path.read_bytes()
+    digest = hashlib.sha256(raw).hexdigest()
+    text = raw.decode("utf-8")
+    lines = [line for line in text.split("\n") if line]
+    if freeze_text(lines) != text:
+        issues.append(
+            f"{path} is not byte-exactly the hashed text: it carries a "
+            f"trailing newline, a blank line or a header, so its own bytes do "
+            f"not hash to what it lists")
+    matches_hash = digest == recorded_hash
+    matches_count = len(lines) == recorded_count
+    if not matches_hash and recorded_hash is not None:
+        issues.append(
+            f"{path} hashes to {digest} but the lock records "
+            f"{recorded_hash}: the committed package list is not the "
+            f"environment the artifacts were certified against")
+    if not matches_count and recorded_count is not None:
+        issues.append(
+            f"{path} lists {len(lines)} packages but the lock records "
+            f"n_packages={recorded_count}")
+    numeric = pinned_versions(lines)
+    for name, version in numeric.items():
+        if version is None:
+            issues.append(
+                f"the committed freeze pins no {name}, so the package most "
+                f"likely to move a floating-point result is the one thing "
+                f"the lock does not name")
+    return {
+        "freeze_path": str(path), "exists": True, "sha256": digest,
+        "n_lines": len(lines), "lines": lines,
+        "recorded_pip_freeze_sha256": recorded_hash,
+        "recorded_n_packages": recorded_count,
+        "recorded_python_version": (locked or {}).get("python_version"),
+        "matches_recorded_hash": matches_hash,
+        "matches_recorded_count": matches_count,
+        "numeric_packages": numeric,
+        "reconstructs_the_certified_environment": matches_hash
+        and matches_count and not issues,
+        "issues": issues,
+    }
+
+
+def dependency_lock_snapshot() -> dict:
+    """Hashed snapshot of the reference environment.
+
+    The frozen protocol requires a complete pip-freeze lock hash to be
+    captured at preflight and bound into each resolved run fingerprint.
+    Only this project's own editable install is excluded (see
+    :data:`SELF_DISTRIBUTIONS`), because ``pip freeze`` renders it in one of
+    two forms depending on invocation and one of them embeds THIS
+    repository's live HEAD — which ``code_commit`` already binds more
+    precisely. Third-party editable installs are kept verbatim, revision
+    included, and are additionally reported so their presence can be
+    refused (see :func:`editable_vcs_revisions`).
+
+    Fail-closed: a non-zero ``pip freeze`` exit is an error, not an empty
+    snapshot. A partial or empty freeze still hashes to a STABLE value, so
+    it would silently certify an environment that was never observed.
+
+    The package LIST is not part of this snapshot: it is committed separately
+    (see :func:`verify_committed_freeze`) because 100 lines in every preflight
+    artifact and every run fingerprint would repeat one environment four times
+    over, and because the hash already binds it exactly. What the snapshot
+    stores is the identity; what the committed freeze stores is the content.
+    """
+    lines, excluded = normalized_freeze_lines()
     pyproject = REPO_ROOT / "pyproject.toml"
     return {
         "pip_freeze_sha256": hashlib.sha256(
-            freeze_text.encode("utf-8")).hexdigest(),
+            freeze_text(lines).encode("utf-8")).hexdigest(),
         "n_packages": len(lines),
         "excluded_self_distributions": excluded,
         "pyproject_sha256": _file_sha256(pyproject),

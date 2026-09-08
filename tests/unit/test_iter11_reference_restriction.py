@@ -31,6 +31,7 @@ from causal_mllm.evaluation.bootstrap import (
     paired_bootstrap_ci,
     paired_bootstrap_samples,
 )
+from causal_mllm.replay import reproduction
 
 ROOT = Path(__file__).resolve().parents[2]
 VARIANTS = ("neutral", "text_only", "vision_only", "cross_modal", "shuffle",
@@ -107,26 +108,59 @@ class TestTheReproductionCheckAgainstTheSealedReference:
         assert any("publishes no CI" in i
                    for i in mod.check_reproduction(recomputed, partial))
 
-    def test_the_resample_refactor_left_the_published_floats_bit_identical(
+    def test_the_resample_refactor_left_the_rng_consumption_order_untouched(
             self, sealed_reference):
         # ``paired_bootstrap_ci`` was split so 11.8 can put a p-value beside
         # the frozen interval, and the split had to leave the rng consumption
-        # order untouched: these are the exact floats the sealed Iteration 10
-        # report publishes, and H1-H5 test their sign. A refactor that moved
-        # the loop would reproduce the interval to four decimals and still
-        # silently change the evidence.
+        # order untouched. These invariants hold in ANY interpreter, which is
+        # why they are equalities: the interval is a summary of exactly the
+        # resamples the p-value counts, so the two cannot describe different
+        # distributions. A refactor that moved the loop breaks all three.
         _, _, config, family_estimands = sealed_reference
         ci = paired_bootstrap_ci(
             family_estimands, n_bootstrap=config["n_bootstrap"],
             ci_level=config["ci_level"], seed=config["seed"])
-        assert ci["Delta_TV"]["mean"] == 0.11506760000000027
-        assert ci["Delta_TV"]["CI_lower"] == 0.0495
-        assert ci["Delta_TV"]["CI_upper"] == 0.17999999999999997
         samples = paired_bootstrap_samples(
             family_estimands, n_bootstrap=config["n_bootstrap"],
             seed=config["seed"])
         ordered = sorted(samples["Delta_TV"])
         assert sum(ordered) / len(ordered) == ci["Delta_TV"]["mean"]
+        assert ordered[0] <= ci["Delta_TV"]["CI_lower"] \
+            <= ci["Delta_TV"]["CI_upper"] <= ordered[-1]
+        assert len(ordered) == config["n_bootstrap"]
+
+    def test_the_published_reference_floats_are_pinned_to_the_tolerance(
+            self, sealed_reference):
+        # The sealed Iteration 10 report publishes these, the protocol's
+        # sign_convention quotes the interval, and H1-H5 test its sign, so
+        # they are pinned. Pinned to ``reproduction.FLOAT_TOLERANCE`` rather
+        # than with ``==``, because the last bit of a floating-point sum is a
+        # property of the interpreter that summed it and not of the evidence:
+        # CPython 3.12 changed the builtin ``sum`` to Neumaier summation, and
+        # under it these come out as 0.11506759999999999 / 0.0495 / 0.18 --
+        # a difference of -2.78e-16 in the mean, measured, not estimated.
+        #
+        # This used to assert exact equality, which made it the one test that
+        # failed out of 1,506 under a different interpreter while every verdict
+        # in the repository stayed where it was. The tolerance is 1e-12: about
+        # 3,600 times the drift that was measured, and still nine orders of
+        # magnitude below anything that would move a digit this repository
+        # reports. The four-decimal pin on the interval the protocol quotes
+        # lives in
+        # ``test_the_published_reference_interval_is_the_one_the_protocol_freezes``.
+        _, _, config, family_estimands = sealed_reference
+        ci = paired_bootstrap_ci(
+            family_estimands, n_bootstrap=config["n_bootstrap"],
+            ci_level=config["ci_level"], seed=config["seed"])
+        published = {"mean": 0.11506760000000027,
+                     "CI_lower": 0.0495,
+                     "CI_upper": 0.17999999999999997}
+        for field, expected in published.items():
+            drift = ci["Delta_TV"][field] - expected
+            assert abs(drift) <= reproduction.FLOAT_TOLERANCE, (
+                f"Delta_TV.{field} moved {drift:+.3g} from the published "
+                f"value, which is far more than a summation order can "
+                f"account for")
 
     def test_the_reference_sign_is_resolved_by_its_own_resamples(
             self, sealed_reference):

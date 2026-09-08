@@ -31,6 +31,21 @@ is not guaranteed across versions. A tolerance of 1e-12 is twelve orders of
 magnitude above that noise and still nine orders below any difference that
 would mean something.
 
+The same tolerance governs ``--verify``, and for the same reason. This script
+used to compare its own re-derivation against the committed artifact with exact
+equality while documenting, twelve lines above, that floating-point sums are not
+portable across interpreters -- so it held two positions about the same quantity.
+Under CPython 3.12, whose builtin ``sum`` uses Neumaier summation, the reference
+mean ``0.11506760000000027`` becomes ``0.11506759999999999`` and the published
+``CI_upper`` ``0.17999999999999997`` becomes ``0.18``: 34 leaves of this
+artifact differ, every one of them numeric, none of them by more than 5.6e-16.
+``causal_mllm.replay.reproduction`` now decides the comparison, and licenses the
+tolerance only when the active environment demonstrably deviates from the
+recorded dependency lock. Inside the certified environment the comparison is
+still exact, because there the last bit is reproducible and a difference is a
+defect. Non-numeric leaves -- every status, name, count and family id -- are
+exact in every environment.
+
 Usage:
     python3 scripts/iter11_reference_restriction.py
     python3 scripts/iter11_reference_restriction.py --verify
@@ -53,6 +68,7 @@ from causal_mllm.evaluation.estimands import (  # noqa: E402
     compute_family_estimands,
     incomplete_families,
 )
+from causal_mllm.replay import reproduction  # noqa: E402
 
 #: The sealed Iteration 10 / Scale-C reference. Read only, never written.
 REFERENCE_ROOT = REPO_ROOT / "outputs" / "scale_c" / "llm_judge_artifacts"
@@ -71,9 +87,10 @@ OUT_PATH = (REPO_ROOT / "outputs" / "iteration_11" / "analysis"
 ESTIMANDS = ("Delta_T", "Delta_V", "Delta_TV", "order_effect",
              "history_effect")
 
-#: Agreement tolerance for the reproduction self-check. See the module
-#: docstring: the residual is floating-point summation order, about 3e-16.
-TOLERANCE = 1e-12
+#: Agreement tolerance for the reproduction self-check AND for --verify. Not
+#: defined here: one standard governs both comparisons, and it is the one
+#: ``causal_mllm.replay.reproduction`` documents with the measurement behind it.
+TOLERANCE = reproduction.FLOAT_TOLERANCE
 
 
 def _load_json(path: Path):
@@ -331,22 +348,45 @@ def build() -> dict:
 
 
 def verify() -> int:
+    """Re-derive and compare, writing nothing.
+
+    Exact inside the certified environment; within the documented numeric
+    tolerance under a demonstrated deviation from the dependency lock, which is
+    then named. Non-numeric leaves are exact either way.
+    """
     if not OUT_PATH.exists():
         print(f"VERIFY FAIL: no artifact at {OUT_PATH}", file=sys.stderr)
         return 1
     committed = _load_json(OUT_PATH)
     fresh = build()
-    if fresh != committed:
+    deviation = reproduction.environment_deviation()
+    comparison = reproduction.compare(
+        committed, fresh, tolerate_numerics=deviation["deviates"])
+    code, conclusion, issues = reproduction.verdict(comparison, deviation)
+    if code == 1:
         print("VERIFY FAIL: a fresh derivation differs from the committed "
               "artifact", file=sys.stderr)
-        for key in sorted(set(fresh) | set(committed)):
-            if fresh.get(key) != committed.get(key):
-                print(f"  differs: {key}", file=sys.stderr)
+        for key in comparison["differing_top_level_keys"]:
+            print(f"  differs: {key}", file=sys.stderr)
+        for issue in issues:
+            print(f"  - {issue}", file=sys.stderr)
         return 1
-    print(f"VERIFY PASS: {OUT_PATH.relative_to(REPO_ROOT)} matches a fresh "
-          f"derivation")
+    relative = OUT_PATH.relative_to(REPO_ROOT)
+    print(f"VERIFY PASS: {relative} -- {conclusion.replace('_', ' ')}")
+    if not comparison["exactly_equal"]:
+        print(f"  {comparison['n_numeric_differences']} numeric "
+              f"difference(s), worst continuous "
+              f"{comparison['worst_continuous_absolute_difference']:.3g} "
+              f"against a tolerance of {TOLERANCE:g}, and no difference "
+              f"anywhere else")
+        print(f"  licensed by: {deviation['reason']}")
+        for field, both in sorted(deviation["differences"].items()):
+            print(f"    {field}: locked {both.get('locked')!r} "
+                  f"active {both.get('active')!r}")
+    for issue in issues:
+        print(f"  NOTE {issue}")
     _print_summary(fresh)
-    return 0
+    return code
 
 
 def _print_summary(artifact: dict) -> None:

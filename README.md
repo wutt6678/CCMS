@@ -1419,6 +1419,124 @@ do. `--verify` skips a section this checkout cannot verify and names it instead
 of comparing it, and a genuine media failure is still caught because it lands in
 the top-level `verdict` and `failures`, which are never skipped.
 
+### The environment can now be rebuilt, not only recognised
+
+`dependency_lock_snapshot()` recorded `pip_freeze_sha256` and `n_packages`: a
+hash with no committed preimage. Another machine could find out whether it
+happened to possess the certified environment and could not create it, so the
+re-deriving verifiers below were usable in exactly one place.
+[`outputs/iteration_11/preflight/dependency_freeze.lock.txt`](outputs/iteration_11/preflight/dependency_freeze.lock.txt)
+is that preimage — the 100 lines whose SHA-256 is the `pip_freeze_sha256` every
+preflight artifact and every resolved run fingerprint already binds
+(`c03a5800ca95b02003c97f35c25db744c357f6d35b216c4836b8cb32e9f91014`), sorted,
+comment-free, without a trailing newline, and with this project's own editable
+distribution removed by name only so the file does not move with HEAD. Every line
+is `name==version`, so it is directly installable:
+
+```
+conda create -n ccms-iter11 python=3.10.20 -y && conda activate ccms-iter11 \
+  && pip install -r outputs/iteration_11/preflight/dependency_freeze.lock.txt \
+  && pip install -e .
+```
+
+That command is not quite sufficient, and the report says so rather than letting
+it look complete. `pip freeze` reports a distribution's version WITHOUT its local
+segment: this environment holds **torch 2.8.0+cu128** — which is what all four
+preflight artifacts record under `environment.observed_versions` — and freezes it
+as `torch==2.8.0`, so `pip install -r` fetches the default-index build and a
+different CUDA toolchain. That matters more than the floating-point story below,
+because torch's build decides whether a checkpoint loads at all.
+`reconstructible_from_the_freeze_alone` is therefore `false`,
+`packages_whose_freeze_line_omits_a_local_version_segment` names the gap, and
+`recreate_caveat` says the CUDA build has to come from the index it came from
+before the rest of the freeze is applied.
+
+[`dependency_lock_reconstruction.json`](outputs/iteration_11/preflight/dependency_lock_reconstruction.json)
+says what the text cannot, since a comment inside it would move the hash: which
+script filed it, from which commit, that its bytes still hash to the recorded
+value, and the versions of the packages whose floating-point behaviour actually
+moves a result — **numpy 2.2.6, scipy 1.15.3, torch 2.8.0, pandas 2.3.3** on
+Python 3.10.20. `scripts/iter11_write_dependency_lock.py --verify` re-checks both
+and the producer refuses to file an environment that is not the certified one,
+because a package list beside a hash that does not describe it is two
+contradictory statements in one directory.
+
+### What the re-deriving verifiers demand of a different machine
+
+Two of the commands above re-derive an artifact and compare. That comparison was
+exact equality on every leaf of the parsed JSON, floats included, and it failed
+on a machine that had changed nothing. The cause is worth stating precisely,
+because it is not the one it looks like.
+
+[`src/causal_mllm/evaluation/bootstrap.py`](src/causal_mllm/evaluation/bootstrap.py)
+is pure Python — there is no NumPy anywhere in it — and it averages each resample
+with the builtin `sum`. CPython 3.12 changed `sum` to use Neumaier summation for
+floats, so the same seed, the same resample indices and the same inputs give a
+more accurate and therefore different last bit. Deriving 11.8 under
+`/usr/bin/python3.12.3` against artifacts written by the certified 3.10.20:
+
+| artifact | differing leaves | non-numeric | worst continuous | worst p-value |
+|---|---|---|---|---|
+| `cross_model_analysis.json` | 166 | **0** | 2.61e-15 | 0.0044 — 11 resamples |
+| `reference_restriction.json` | 34 | **0** | 5.55e-16 | — |
+
+H2's raw bootstrap p reads 0.0248 instead of 0.0256: eleven resamples changing
+side of zero, in steps of 2/5000, because a bootstrap p-value is a count. H2 is
+still CONFIRMED at the same adjusted 0.0272, and so are the other three verdicts.
+The sealed Iteration 10 reference mean `0.11506760000000027` becomes
+`0.11506759999999999` and its published `CI_upper` `0.17999999999999997` becomes
+`0.18`, while `CI_lower` is exactly `0.0495` under both — that was the single
+test failure out of 1,506, in a test that had pinned the last bit of a sum.
+
+So the verifier did not fail because the analysis was wrong. It failed because it
+demanded bit equality from a quantity whose last bit belongs to the interpreter
+that summed it.
+[`src/causal_mllm/replay/reproduction.py`](src/causal_mllm/replay/reproduction.py)
+now decides both comparisons, and one standard governs: every non-numeric leaf is
+exact in every environment; every integer is exact, because there is no summation
+order in a count, and an integer arriving as a float is a type change, which is
+non-numeric drift; floats are compared with `FLOAT_TOLERANCE = 1e-12`, about 380×
+the worst difference measured above and nine orders of magnitude below anything
+that would move a reported digit; and p-values are compared in RESAMPLE STEPS,
+`16 × 2/n_bootstrap` = 0.0064 at 5000 resamples, because an absolute 1e-12 on a
+count is not a tight standard but an impossible one. Sixteen is the next power of
+two above the eleven measured, so the bound is not fitted to the observation that
+produced it, and it is smaller than the 0.0114 distance from the nearest raw p to
+its Holm critical value and the 0.0228 distance from the nearest adjusted p to α
+— so it cannot reach a decision boundary, and the exactness of the non-numeric
+leaves means a verdict could not ride along with it anyway.
+
+`iter11_reference_restriction.py` already documented this tolerance for its own
+reproduction self-check and recorded `tolerance: 1e-12` inside the artifact it
+files, while comparing its own output with `!=` twelve lines later. It held two
+positions about the same quantity; it now holds one, imported.
+
+The tolerance is licensed ONLY by a demonstrated deviation from the recorded
+lock. Inside the certified environment the comparison is exact, because there the
+last bit is reproducible and a difference is a defect; the absence of a lock
+licenses nothing, since not being able to tell which environment you are in is
+not evidence that it deviates. A verification that needed the tolerance exits 3
+and names what licensed it, rather than exiting 0 and looking like the stronger
+claim:
+
+```
+$ python3 scripts/iter11_cross_model_analysis.py --verify             # 3.10.20
+VERIFY PASS: outputs/iteration_11/analysis/cross_model/cross_model_analysis.json -- reproduced exactly
+
+$ /usr/bin/python3.12 scripts/iter11_cross_model_analysis.py --verify  # exit 3
+VERIFY PASS: outputs/iteration_11/analysis/cross_model/cross_model_analysis.json -- reproduced within the documented numeric tolerance
+  166 numeric difference(s): worst continuous 2.61e-15 against a tolerance of 1e-12, worst p-value 0.0044 against 0.0064 (16 resample step(s) of 5000, worst observed 11); every non-numeric leaf is exact
+  licensed by: the active interpreter is 3.12.3 and the lock records 3.10.20, which is a demonstrated deviation; ...
+    python_version: locked '3.10.20' active '3.12.3'
+```
+
+A minimal interpreter has no pip at all, so the package set cannot be compared
+there. That is not treated as an inability to say anything: `python_version`
+needs only `sys.version`, it is the field that decides how `sum` behaves, and a
+difference in it is itself the demonstrated deviation — reported with
+`package_set_comparable: false`. Denying the tolerance to a machine with no pip
+would deny it to exactly the machine that needs it.
+
 ## Schema Reports
 
 Pre-computed schema reports from programmatic inspection of all three source datasets are available in [`outputs/schema/`](outputs/schema/):

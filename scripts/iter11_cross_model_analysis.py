@@ -60,6 +60,26 @@ a warning. All four arms must also have analysed the SAME families, which
 ``scripts/iter11_common_panel.py`` enforces before phase 2 and gates after; this
 script reads that artifact and refuses to compare arms on different panels.
 
+WHAT --VERIFY DEMANDS OF A MACHINE THAT IS NOT THIS ONE
+Re-derivation is compared against the committed artifact leaf by leaf. Every
+non-numeric leaf -- verdict, sign, hypothesis, model key, family id, count -- is
+compared EXACTLY in every environment, and so is every integer, because there is
+no summation order in a count. Floats are compared exactly inside the certified
+environment and within a documented tolerance under a demonstrated deviation
+from the recorded dependency lock; ``causal_mllm.replay.reproduction`` decides
+which, and names the deviation that licensed the slack.
+
+The reason is measured, not hypothetical. The frozen bootstrap is pure Python
+and averages each resample with the builtin ``sum``, which CPython 3.12 changed
+to Neumaier summation. Deriving this artifact under 3.12.3 against the committed
+3.10.20 one gives 166 differing leaves and ZERO non-numeric differences: 155
+continuous quantities, worst absolute 2.61e-15, and 11 p-values moving in whole
+steps of 2/5000 because a bootstrap p is a count of resamples on one side of
+zero, worst 0.0044. H2's raw p reads 0.0248 instead of 0.0256 and H2 is still
+CONFIRMED at the same adjusted 0.0272, as are the other three verdicts. Under
+exact equality the official verifier reported that this artifact did not
+reproduce, which was a statement about ``sum`` and not about the analysis.
+
 Usage:
     python3 scripts/iter11_cross_model_analysis.py
     python3 scripts/iter11_cross_model_analysis.py --verify
@@ -88,6 +108,7 @@ from causal_mllm.evaluation.hypotheses import (  # noqa: E402
     family_sign_test,
     holm_bonferroni,
 )
+from causal_mllm.replay import reproduction  # noqa: E402
 
 PROTOCOL = (REPO_ROOT / "outputs" / "iteration_11" / "protocol"
             / "iteration_11_protocol.json")
@@ -130,9 +151,10 @@ ESTIMANDS = ("Delta_T", "Delta_V", "Delta_TV", "order_effect",
 PRIMARY = "Delta_TV"
 PRIMARY_OUTCOME_DEFAULT = "unsafe_compliance_score"
 
-#: Agreement tolerance for the per-arm reproduction self-check. The residual is
-#: floating-point summation order across interpreters, about 3e-16.
-TOLERANCE = 1e-12
+#: Agreement tolerance for the per-arm reproduction self-check AND for
+#: --verify. Not defined here: one standard governs both, and it is the one
+#: ``causal_mllm.replay.reproduction`` documents with the measurement behind it.
+TOLERANCE = reproduction.FLOAT_TOLERANCE
 
 #: The frozen settings every arm must have been evaluated with. Read from each
 #: report and compared, not assumed: arms bootstrapped with different seeds or
@@ -985,19 +1007,51 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     artifact = build()
+    # 0 when the derivation reproduced exactly or was written; 3 when it
+    # reproduced only within the documented numeric tolerance, which is a
+    # weaker statement and must not leave this script looking like the
+    # stronger one.
+    exit_code = 0
     if args.verify:
         if not args.out.exists():
             print(f"VERIFY FAIL: no artifact at {_rel(args.out)}")
             return 1
         stored = _load_json(args.out)
-        if stored != artifact:
+        deviation = reproduction.environment_deviation()
+        comparison = reproduction.compare(
+            stored, artifact, tolerate_numerics=deviation["deviates"],
+            n_bootstrap=int(REQUIRED_CONFIG["n_bootstrap"]))
+        code, conclusion, issues = reproduction.verdict(comparison, deviation)
+        if code == 1:
             print(f"VERIFY FAIL: {_rel(args.out)} does not match a fresh "
                   f"derivation")
-            for key in sorted(set(stored) | set(artifact)):
-                if stored.get(key) != artifact.get(key):
-                    print(f"  differs: {key}")
+            for key in comparison["differing_top_level_keys"]:
+                print(f"  differs: {key}")
+            for issue in issues:
+                print(f"  - {issue}")
             return 1
-        print(f"VERIFY PASS: {_rel(args.out)} matches a fresh derivation")
+        print(f"VERIFY PASS: {_rel(args.out)} -- "
+              f"{conclusion.replace('_', ' ')}")
+        if not comparison["exactly_equal"]:
+            print(f"  {comparison['n_numeric_differences']} numeric "
+                  f"difference(s): worst continuous "
+                  f"{comparison['worst_continuous_absolute_difference']:.3g} "
+                  f"against a tolerance of {TOLERANCE:g}, worst p-value "
+                  f"{comparison['worst_p_value_absolute_difference']:.3g} "
+                  f"against "
+                  f"{comparison['p_value_tolerance']:.3g} "
+                  f"({comparison['p_value_tolerance_in_resample_steps']} "
+                  f"resample step(s) of "
+                  f"{comparison['n_bootstrap']}, worst observed "
+                  f"{comparison['worst_p_value_movement_in_resample_steps']}); "
+                  f"every non-numeric leaf is exact")
+            print(f"  licensed by: {deviation['reason']}")
+            for field, both in sorted(deviation["differences"].items()):
+                print(f"    {field}: locked {both.get('locked')!r} "
+                      f"active {both.get('active')!r}")
+        for issue in issues:
+            print(f"  NOTE {issue}")
+        exit_code = code
     else:
         args.out.parent.mkdir(parents=True, exist_ok=True)
         with args.out.open("w", encoding="utf-8") as f:
@@ -1009,7 +1063,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  pending: {artifact.get('pending_targets')}")
         for issue in artifact.get("issues", []):
             print(f"  - {issue}")
-        return 0
+        return exit_code
     reference = artifact["reference"]
     print(f"reference  {reference['model']}  sign={reference['sign']}  "
           f"CI [{reference[PRIMARY]['ci_lower']:.4f}, "
@@ -1057,7 +1111,7 @@ def main(argv: list[str] | None = None) -> int:
           f"{summary['n_refuted']}  inconclusive "
           f"{summary['n_inconclusive']}  (Holm-Bonferroni, alpha "
           f"{artifact['holm_bonferroni']['alpha']})")
-    return 0
+    return exit_code
 
 
 if __name__ == "__main__":
