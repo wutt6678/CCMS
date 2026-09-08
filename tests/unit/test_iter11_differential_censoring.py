@@ -1465,52 +1465,43 @@ def rederived_bound():
     return code, conclusion, issues
 
 
-def _what_this_environment_owes_the_bound() -> tuple[int, str]:
-    """The answer ``bound.verify()`` is contracted to give, on THIS machine.
-
-    Exact inside the certified environment, where the last bit is reproducible
-    and a difference is a defect. Within the documented numeric tolerance under
-    a deviation the report names, which is exit 3 and not exit 0 -- "the numbers
-    agree to 1e-12 under a different interpreter" is a weaker statement than
-    "the numbers are the same numbers", and the weaker one must not be printed
-    in the stronger one's words.
-
-    Asserting only the first makes the suite green under one interpreter and red
-    under another, which is the portability defect this whole lane exists to
-    close: a test that encodes its own machine as the only correct one is not a
-    test of the artifact.
-    """
-    if reproduction.environment_deviation()["deviates"]:
-        return 3, reproduction.WITHIN_TOLERANCE
-    return 0, reproduction.EXACT
-
-
 class TestTheCommittedBoundReDerives:
-    def test_the_document_comes_back_as_this_environment_permits(
+    def test_the_document_comes_back_without_contradicting_itself(
             self, rederived_bound):
-        code, conclusion, issues = rederived_bound
-        expected_code, expected_conclusion = _what_this_environment_owes_the_bound()
-        assert code == expected_code, issues
-        assert conclusion == expected_conclusion
-        assert issues == [], (
-            "neither answer carries issues: a tolerated numeric difference is "
-            "named in the report's own tolerance block, and a real one is "
-            "exit 1")
+        """The contract, which is the same on every machine that runs it.
 
-    def test_exactness_is_demanded_only_where_it_is_available(self):
-        code, conclusion = _what_this_environment_owes_the_bound()
-        deviation = reproduction.environment_deviation()
-        if deviation["certified"]:
-            assert (code, conclusion) == (0, reproduction.EXACT), (
-                "inside the certified environment the last bit is reproducible, "
-                "so a difference is a defect and not a tolerance")
+        Three environments have run this check and given three different answers,
+        all of them correct:
+
+            certified 3.10.20   exact      -> 0, EXACT, []
+            deviating 3.12.13   tolerated  -> 3, WITHIN_TOLERANCE, []
+            deviating 3.10.x    exact      -> 0, EXACT, [the deviation's reason]
+
+        The third is what CI does: ``python-version: "3.10"`` sums floats the way
+        the certified interpreter does, so the re-derivation comes back exact,
+        while ``pip install -e ".[dev]"`` on a fresh runner produces a package
+        set with nothing in common with the recorded lock, so the environment is
+        named in a NOTE beside an exact result. Predicting the exit code from the
+        deviation alone gets that row wrong, and a test that encodes its own
+        machine as the only correct one is not a test of the artifact -- it is
+        the portability defect this lane exists to close, sitting in the tests.
+        """
+        code, conclusion, issues = rederived_bound
+        assert code in (0, 3), (
+            f"the committed bound did not re-derive: exit {code}, {issues}")
+        if code == 0:
+            assert conclusion == reproduction.EXACT
+            reason = reproduction.environment_deviation()["reason"]
+            assert issues in ([], [reason]), (
+                "exact agreement carries no issue at all, or exactly the note "
+                "naming an environment that reproduced the numbers and could "
+                f"not be certified: {issues}")
         else:
-            assert (code, conclusion) == (
-                3, reproduction.WITHIN_TOLERANCE)
-            assert deviation["reason"], (
-                "a tolerance with no named deviation licensing it is a "
-                "tolerance that applies everywhere, which is no tolerance at "
-                "all")
+            assert conclusion == reproduction.WITHIN_TOLERANCE
+            assert issues == []
+            assert reproduction.environment_deviation()["deviates"], (
+                "a tolerance no demonstrated deviation licenses is a tolerance "
+                "that applies everywhere, which is no tolerance at all")
 
     def test_a_deviation_that_licenses_the_tolerance_is_a_measured_one(self):
         """Exit 3 is earned by a measurement, not by an interpreter's name."""

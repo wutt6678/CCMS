@@ -447,9 +447,23 @@ class TestTheToleranceIsLicensedByADemonstratedDeviationOnly:
         comparison = reproduction.compare(same, dict(same),
                                           tolerate_numerics=True)
         assert comparison["exactly_equal"] is True
-        code, conclusion, _ = reproduction.verdict(comparison, self.DEVIATING)
+        code, conclusion, issues = reproduction.verdict(comparison,
+                                                        self.DEVIATING)
         assert code == 0
         assert conclusion == reproduction.EXACT
+        assert issues == [self.DEVIATING["reason"]], (
+            "exact agreement in an environment that could not be certified says "
+            "so out loud rather than quietly claiming the stronger result. This "
+            "is CI's row: the runner's interpreter sums floats the way the "
+            "certified one does, so the re-derivation is exact, while its "
+            "package set has nothing in common with the recorded lock")
+
+    def test_a_certified_environment_that_reproduces_exactly_notes_nothing(self):
+        same = {"mean": 0.11506760000000027}
+        comparison = reproduction.compare(same, dict(same),
+                                          tolerate_numerics=False)
+        assert reproduction.verdict(comparison, self.CERTIFIED) == (
+            0, reproduction.EXACT, [])
 
     def test_an_uncertifiable_environment_licenses_nothing(self):
         # Not being able to tell which environment you are in is not evidence
