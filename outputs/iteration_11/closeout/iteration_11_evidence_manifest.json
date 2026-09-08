@@ -1,0 +1,1299 @@
+{
+  "kind": "iteration_11_evidence_manifest_v1",
+  "produced_by": "scripts/iter11_closeout_evidence_manifest.py",
+  "question": "what is the evidence for Iteration 11, by hash, and can this checkout say so",
+  "n_bound": 197,
+  "total_bytes": 52543152,
+  "rollup_sha256": "14cc5733a862ba59b3a122145bcd1174412956842d378a82feba11651e3e915c",
+  "n_by_role": {
+    "binding_for_the_untracked_media": 1,
+    "closeout": 1,
+    "diagnostics": 16,
+    "differential_censoring_sensitivity": 3,
+    "eligibility_gate": 17,
+    "environment_and_model_preflight": 8,
+    "environment_reconstruction_claim": 1,
+    "frozen_protocol": 4,
+    "judge_labels_and_provenance": 69,
+    "judge_vision_ablation": 2,
+    "library_the_verifiers_import": 8,
+    "model_generation_metadata": 17,
+    "placeholder": 2,
+    "sealed_analysis": 4,
+    "test": 24,
+    "verifier_or_generator": 20
+  },
+  "bound": [
+    {
+      "path": "outputs/iteration_11/analysis/cross_model/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "sealed_analysis"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/cross_model/cross_model_analysis.json",
+      "sha256": "524084e518b5f8fe03d8f7a6a8fcab3422438f71d7c5e912bd47ad9a6f5c3215",
+      "bytes": 38459,
+      "role": "sealed_analysis"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/cross_model/reference_restriction.json",
+      "sha256": "b40747954cb464cabb0f6a482fb7378d765a8bddb3edbb1626cfac9589a04f5d",
+      "bytes": 5600,
+      "role": "sealed_analysis"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/differential_censoring/call_receipts.sensitivity_99f.json",
+      "sha256": "8415394492c18dae52f6b77aad170cc506b956979d8647972a6b0dd1580c44b5",
+      "bytes": 17885,
+      "role": "differential_censoring_sensitivity"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/differential_censoring/differential_censoring_bound.json",
+      "sha256": "b66294e01eb4f97da5741e4365d8bcb14fad1aaa3095f46cffbe7c48cae09ee8",
+      "bytes": 88250,
+      "role": "differential_censoring_sensitivity"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json",
+      "sha256": "316199078943003c8dbcc1b16d2668cc6a0cb5cd7d63a1ca81f8693a7bc27ea1",
+      "bytes": 22626,
+      "role": "differential_censoring_sensitivity"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/per_model/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "sealed_analysis"
+    },
+    {
+      "path": "outputs/iteration_11/closeout/iteration_11_transportability_decision.json",
+      "sha256": "38079538dae9062107dc3ed62f7d9516a50f970562bf3de7035d0afb36489f4c",
+      "bytes": 17335,
+      "role": "closeout"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/exclusion_metadata_correction.json",
+      "sha256": "695f27c10dbf1979a38d7a39e291e43c7a4688a57477efafe6f5523548877cb4",
+      "bytes": 21568,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_blinding/README.md",
+      "sha256": "c35b1224e404341b7064c36a5baed611d4c253356e6778e3c4ea4ffcd2b802a5",
+      "bytes": 4884,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_blinding/identity_leak_audit.json",
+      "sha256": "641d871a7c0e65e427f1652dfc66b8c702147978f3deb6a24a1624ec7aac6d81",
+      "bytes": 8074,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_moderation/README.md",
+      "sha256": "e9acc7094cabda6b854a68e75ec0f73a98b8ec5825e86f56bc252e1b75be1f3c",
+      "bytes": 36527,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_moderation/cell_probe_CMST_456921_text_only.json",
+      "sha256": "79720bb45e309773b5fe0222f4238e64064acb64b233b72f030f481a43b24609",
+      "bytes": 6340,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_moderation/cell_probe_exclusion_union_reprobe.json",
+      "sha256": "30f77697737fa6e1dff460cd77e7fd25f38dbd73c56a652aaffcca79e4a75f83",
+      "bytes": 19159,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_moderation/judge_a_moderation_qwen35_2b.json",
+      "sha256": "61effb5780150b7fffd779af04b670c90020c1b4561ae73e2df690f0f138801a",
+      "bytes": 7862,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_vision/README.md",
+      "sha256": "7ed93ffe23fd491be6aa502898c5f80399819cd552f77494696fd28db3f444fc",
+      "bytes": 8277,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/judge_vision/identity_vision_capability.json",
+      "sha256": "c3eb4bd25220d5e52230a3959730f12eee5473aacf0f4c0ede4dd4188dde82ce",
+      "bytes": 3488,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/phi4_longrope/README.md",
+      "sha256": "7615d7f2fb2550c082ef7d9e78be7070963bca1ad90579277efc91fea4f420a8",
+      "bytes": 8785,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/phi4_longrope/boundary_bracket_cpu.json",
+      "sha256": "555de635d735e4f119ca52582ff7c18704c46482ff7055a03b0d7458b6393818",
+      "bytes": 2247,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/phi4_longrope/boundary_bracket_cuda1.json",
+      "sha256": "24b2aebb0fa52a518a1bf166427127cf1614c30326b94e7ac6b9683152639714",
+      "bytes": 2397,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/phi4_longrope/prefill_over_boundary.json",
+      "sha256": "140511294958aecc1fe8b0008efe688cd0f6a8b94956d82de4678e09e67737ec",
+      "bytes": 766,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/phi4_longrope/shim_verification.json",
+      "sha256": "1abd6b57c0f2ad556b18991107cda0e7ec853a4a97e5a24e00efe93f7a65eb65",
+      "bytes": 22467,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/truncation/README.md",
+      "sha256": "169a5025f70b7b714edb0c4c68caab0b0f1b46657f5682e3c168ccf0f62f2603",
+      "bytes": 10363,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/diagnostics/truncation/truncation_evidence.json",
+      "sha256": "98f0ce5e1b4b8efca8a187f56f28b65a3efa809e43f64c1c802ac25c1e6443d0",
+      "bytes": 19249,
+      "role": "diagnostics"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/ministral3_3b/eligibility-12f-t1536-ministral3_3b/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/ministral3_3b/eligibility-12f-t1536-ministral3_3b/replay_outputs.jsonl",
+      "sha256": "b76a636e11feadcb213ca17a1671bc6b083441cccb8c8f6c838a8e62840ae998",
+      "bytes": 277930,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/ministral3_3b/eligibility-12f-t1536-ministral3_3b/replay_report.json",
+      "sha256": "9e38697ff2d1adadc8038a5db681b5d5ea16c609f0988343df6a3c2677990b1b",
+      "bytes": 10798,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/phi4_mm/eligibility-12f-t1536-phi4_mm/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/phi4_mm/eligibility-12f-t1536-phi4_mm/replay_outputs.jsonl",
+      "sha256": "a87f60c7b2d73d39aa6be69612849b9dc587d410359e6ed61a182c4a483a53ea",
+      "bytes": 240542,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/phi4_mm/eligibility-12f-t1536-phi4_mm/replay_report.json",
+      "sha256": "48a74908a139aa4436adc9e0f2fbc20b0cbf504abce6ad39f794e243deeace75",
+      "bytes": 10686,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/qwen35_2b/eligibility-12f-t1536-qwen35_2b/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/qwen35_2b/eligibility-12f-t1536-qwen35_2b/replay_outputs.jsonl",
+      "sha256": "93d23fb2b9a403013d8062b499ccde21a2e5c40bb108abde24db4a60aad65516",
+      "bytes": 284755,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/qwen35_2b/eligibility-12f-t1536-qwen35_2b/replay_report.json",
+      "sha256": "fb7a1fc657f8b93b2b43b5be6ac7e1db757d4c3ddf6fc7672cf4e4c6f1b1eeed",
+      "bytes": 10236,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/qwen35_4b/eligibility-12f-t1536-qwen35_4b/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/qwen35_4b/eligibility-12f-t1536-qwen35_4b/replay_outputs.jsonl",
+      "sha256": "754c6dc85f265af0e6d030872a8187190a7f19ca4fb3a05bc3768c3f6478edd6",
+      "bytes": 276179,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/generations/qwen35_4b/eligibility-12f-t1536-qwen35_4b/replay_report.json",
+      "sha256": "ed989b1f2f437cfd291a22bad0666afd1abfd1a537e3f5e0a1c488d7e790ecf9",
+      "bytes": 11205,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/ministral3_3b/preflight_report.json",
+      "sha256": "0f3866415edf302d853694dca5c1cbd1e44c475b87a0236eb198416a58d7c9cd",
+      "bytes": 36074,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/phi4_mm/preflight_report.json",
+      "sha256": "669f4366bedf3996ccbf23e707d6e28b9e55ef8660a53b89c9349bfeb13ca5dd",
+      "bytes": 35871,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/qwen35_2b/preflight_report.json",
+      "sha256": "9dba68a183f741873ad0a1c910987c35b83608695328873782e7787414904656",
+      "bytes": 35406,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/qwen35_4b/preflight_report.json",
+      "sha256": "4e4e885ba5c86829d2a62b1d512a7cef9e42f4a739c2eaeb797cb12058ba593f",
+      "bytes": 36389,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/eligibility/selection.json",
+      "sha256": "163b7c68a48e8466943063c2199e13123b2cfa59f14fe165cd6f5c61a4268d6e",
+      "bytes": 7919,
+      "role": "eligibility_gate"
+    },
+    {
+      "path": "outputs/iteration_11/generations/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b/iteration_11_replay_checks.json",
+      "sha256": "bdc87d02c22e4f77e70082695483307ca925ea9509a3bf2be3ddcbd808a54183",
+      "bytes": 2993,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b/replay_outputs.jsonl",
+      "sha256": "8798bad09de5344aea8003190c0618e8f8987464fe1d6cace6266a7b397cc12e",
+      "bytes": 2428935,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/ministral3_3b/confirmatory-100f-t1536-ministral3_3b/replay_report.json",
+      "sha256": "a4b398b49b430bbf0eb364c08fb0b6a59eecf5222f73cad588928a202509d06b",
+      "bytes": 10758,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/phi4_mm/confirmatory-100f-t1536-phi4_mm/iteration_11_replay_checks.json",
+      "sha256": "9369a8e444aa0d1d1d44f6e1158ff023005b7a36e583c5266aadf4a47251fe94",
+      "bytes": 2967,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/phi4_mm/confirmatory-100f-t1536-phi4_mm/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/phi4_mm/confirmatory-100f-t1536-phi4_mm/replay_outputs.jsonl",
+      "sha256": "604b1f92d963660dc515a9cb934546bd4cf9a51056d7a3b373e1138c8e747fee",
+      "bytes": 2071747,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/phi4_mm/confirmatory-100f-t1536-phi4_mm/replay_report.json",
+      "sha256": "a2b361297ff93e1d64304602be98c91227941079022bcc77d62df952615bf621",
+      "bytes": 10511,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_2b/confirmatory-100f-t1536-qwen35_2b/iteration_11_replay_checks.json",
+      "sha256": "104fa654419b3c79c2abb37805419a1589c82f50110dd927e9748a1166230134",
+      "bytes": 2981,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_2b/confirmatory-100f-t1536-qwen35_2b/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_2b/confirmatory-100f-t1536-qwen35_2b/replay_outputs.jsonl",
+      "sha256": "dc7b5817452fc61348a46519b0238367bb87db7863072b05e9449ca5f1b73c31",
+      "bytes": 2559450,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_2b/confirmatory-100f-t1536-qwen35_2b/replay_report.json",
+      "sha256": "0e4130c471d6d0d9be22b2246750ded633827b24847912f96506b889cceb96d4",
+      "bytes": 10332,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b/iteration_11_replay_checks.json",
+      "sha256": "385084a504e48fc6a6d13a9dca4996e4cbb05babb4e5c6e02d09f6f5c5ee25a2",
+      "bytes": 2753,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b/replay_failures.jsonl",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b/replay_outputs.jsonl",
+      "sha256": "6bc0610508b490f1fdc77eb2b50f1b71848ecb9234521256eab76539aeee7358",
+      "bytes": 2364591,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/generations/qwen35_4b/confirmatory-100f-t1536-qwen35_4b/replay_report.json",
+      "sha256": "f5546209ad8ba9c96d7b65ae7585c7992db34a349475928fcaf30f3d759071d8",
+      "bytes": 10958,
+      "role": "model_generation_metadata"
+    },
+    {
+      "path": "outputs/iteration_11/judge/common_panel.json",
+      "sha256": "3a93ba4b79579d9ead570c6dc7841020ce09fdd8e760d2cea48c60b7f6b10b8d",
+      "bytes": 11583,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/blinded_items.json",
+      "sha256": "335171d7d0183a751bb9f7d8fd3a6aeb21240e20e7569a4c633d576a9c6cab1b",
+      "bytes": 1721669,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_outputs.jsonl",
+      "sha256": "149334d1de30a79b1af1a8e705432eed0a327ceb2d19fd270953b03cfcaa5ad8",
+      "bytes": 4657978,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_report.json",
+      "sha256": "ed264817f13ab6bc5f846f2b800bf2c8a737eefa7fcfe739288a6dec9e408431",
+      "bytes": 19518,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/final_evaluation_report.json",
+      "sha256": "943e158d86e0f1b4bcc32e04c967c15c2daec1de07ba636f2fa227ef0876ca65",
+      "bytes": 40730,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/judge_agreement.json",
+      "sha256": "19025ffe23308aafd454ce9e23c93e1837ed554889e6a852b4f51010c6197e6c",
+      "bytes": 358,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/judge_coverage.json",
+      "sha256": "8dd5f7efa9481dc11bca62091c65903a901c7e07a6cd144e1560b1ada82e1949",
+      "bytes": 5357,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/judge_sensitivity.json",
+      "sha256": "f2f8a1dbd34572517f5996dd5d298edcf32af504aeb9a1a58eaaf8016dcb204e",
+      "bytes": 8938,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_adjudicated.json",
+      "sha256": "d39c742bd9d8b52275ab1cf7b2ee23240ff5e5be8eefad96ad1239bc83836e37",
+      "bytes": 595570,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_adjudicator.json",
+      "sha256": "67d332718f3252f2e00b2b28c78126c625e9e8c22e6b985bacc6e1a03654b736",
+      "bytes": 657028,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_A.json",
+      "sha256": "c7b35cb9ee35e29c85202a0bc65f3e0550adcc7cc78a4715a3e99f52b53be4a6",
+      "bytes": 1141045,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_A.json.fingerprint",
+      "sha256": "1e864c70f602b4146f931ba0f8f092e8a2fbb97eab090761ecebf6553c9710e9",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_A.json.manifest.json",
+      "sha256": "14598ce7b7b81f2c74714f37b42007f71cdffad223fb938f273f8c59cb5a5390",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_A.refusals.json",
+      "sha256": "d69381a635dc686e01bfd728b2603d3edac5e3fac187e5519456279e3c9709b6",
+      "bytes": 2156,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_B.json",
+      "sha256": "3c43da646a732ec2c471c98b5f48d8aaf4a75d5af0f3771643e2a37225627346",
+      "bytes": 1068627,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_B.json.fingerprint",
+      "sha256": "0cc889b0c0605c90d9f3eece83a69671ac47bfed6099eb442944d7634b3bf611",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_B.json.manifest.json",
+      "sha256": "71b12c73872f32bac0978dd635b30a28544bccf3f690f00f6379d8a47849d87c",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/ministral3_3b/llm_labels_judge_B.refusals.json",
+      "sha256": "83e244f8301bb6892592faa87066aee88a0ead53fc0a362d1193e1a3ad15176e",
+      "bytes": 105,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/blinded_items.json",
+      "sha256": "9728a65baa21aedfa1021d26cb7d725ab448f6977526fe8fc6fb610e89091968",
+      "bytes": 1337571,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_outputs.jsonl",
+      "sha256": "8c48c54639c80df6ed62f556ea334bf8c8c8983a1b8a96362047d16a2e0b07c2",
+      "bytes": 3868030,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_report.json",
+      "sha256": "7e0249708c58e416dc53eb96697ec63471edff9303b648ccf4674f71c9aee1ba",
+      "bytes": 19225,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/final_evaluation_report.json",
+      "sha256": "dbe650eaf30ae2a73a7795e572b521fb2c5d79ec9214ef2ed47be0f11ffae6cc",
+      "bytes": 37681,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/judge_agreement.json",
+      "sha256": "5f4f8dfec23df7ae67a2814bd331905ef287f1681cb3bd9f33e0af5d0e3d64b9",
+      "bytes": 359,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/judge_coverage.json",
+      "sha256": "17742b395e01ab98a52e14f3f838fa983ba0ca2ceb3ea9ae1c8f2d410517e0f7",
+      "bytes": 4583,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/judge_sensitivity.json",
+      "sha256": "cc022d249204a9b6fd1376e89e94f848de68e3281a798857794e28564fb0a87b",
+      "bytes": 8908,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_adjudicated.json",
+      "sha256": "e84df6b9977aad17418b406e9459ff0a3dd5d2b3063735445aa7f1dd918854c7",
+      "bytes": 564977,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_adjudicator.json",
+      "sha256": "7f49b5c315d0a0049f7b15e9a010013359c164ddbfd0f222cf658e926cd36be7",
+      "bytes": 435608,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_A.json",
+      "sha256": "9ff6b96b1f1b26d01bbe2c4a038639f0d934c4498e8bad745401c024d6be3943",
+      "bytes": 1135159,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_A.json.fingerprint",
+      "sha256": "b10b71d1826b67ee9f08db2ae7420203e1aab99a4877fcc551014487508a14d8",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_A.json.manifest.json",
+      "sha256": "1e42cb7e8324f2436175757ee573929f8aad2ffe0cb0ead51ef023297bc879f6",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_A.refusals.json",
+      "sha256": "30aff05669a024d7b2f0481b33a4f9751c2027e8b6e7eb4e552377d89cb8a2ac",
+      "bytes": 1473,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_B.json",
+      "sha256": "fc8185cff1e8c08d623cddbf50de16d3c099ee6d150f92aee236fc1dc1989cce",
+      "bytes": 1068169,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_B.json.fingerprint",
+      "sha256": "1c4b2504b290e6f57f70a80ca789acbb597fe3e58133a6dadbb9149822883f78",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_B.json.manifest.json",
+      "sha256": "54d9d4bb390735b6f446d670a06329bf90ef5eb70b0d1e95c31bfd4790ad9b01",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/phi4_mm/llm_labels_judge_B.refusals.json",
+      "sha256": "ea1dd96de4e5c74a5f35091876e225b06ffcb3f36e362629fd7871601c38af04",
+      "bytes": 105,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/blinded_items.json",
+      "sha256": "402beb1a63bd07c2fded0b672ddeb1ea47db3fd57b58af20db6580839b29745b",
+      "bytes": 2120176,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_outputs.jsonl",
+      "sha256": "97f99a9ebbb3fc640cc86a6855666051bb7746e2b7ef7b0b73be86ca882ef382",
+      "bytes": 4653171,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_report.json",
+      "sha256": "058a6b3d7c1e11d0e23a57b0e26889f249e79c54a3c71139e58339715b858502",
+      "bytes": 20239,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/final_evaluation_report.json",
+      "sha256": "e641499ffee0061c5b310683ada6e90dadea7b0eaaa1f2230e53795437d25022",
+      "bytes": 40362,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/judge_agreement.json",
+      "sha256": "132718afbd62e5f5a52673a92067ad283c67555360f2da6699329a76ffe8ff2b",
+      "bytes": 359,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/judge_coverage.json",
+      "sha256": "0bcf09ff974585b018b0bbac263ac8125e139d7f7b1812ec1e2d55ec6dc8c081",
+      "bytes": 4583,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/judge_sensitivity.json",
+      "sha256": "212b3bfb69c60697a375cb16a0875ace6bbf1faa50b2c28fe80a54305d655aae",
+      "bytes": 9197,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_adjudicated.json",
+      "sha256": "b4bd4581d6300a2002a4aea9deed31da477e1dc42f134b55e60ad64bc436eed6",
+      "bytes": 592123,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_adjudicator.json",
+      "sha256": "dec6f43e714a9aced80f9f7403aa4b658622314289912109546735913ebf819a",
+      "bytes": 597583,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_A.json",
+      "sha256": "235768b9926a7ddfecafd636801dec23b3b3aaa61c3bb2fcdf217705026b5e4b",
+      "bytes": 1147831,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_A.json.fingerprint",
+      "sha256": "6d23af5f6dee1c2db5d0d5892ce399cb6cd54f39bcd5ff71b215f1d554c83913",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_A.json.manifest.json",
+      "sha256": "6db89d6634917c9cc02c432148063691f30c7e21b9c28e244ecaf5550b00c518",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_A.refusals.json",
+      "sha256": "52964ba6d619b50a2e5ec273a72edf5274301f33422cd6a988cf9eac06451e7f",
+      "bytes": 1473,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_B.json",
+      "sha256": "66281c41d418b00b9637947913b05155b0c670c6b64763122f6c4b2945a64457",
+      "bytes": 1078464,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_B.json.fingerprint",
+      "sha256": "79d1ef3c2590b4026208fd9a969902fc90a19f60207519c967f3016552951e4b",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_B.json.manifest.json",
+      "sha256": "dd512f5178ff356cb845d40f4690fd17c0d684443c54801d3821f52ef2c6943f",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_2b/llm_labels_judge_B.refusals.json",
+      "sha256": "30229fc12204f7496bcc875ec8b147d0a47069e201414c57e8737acba8a238cc",
+      "bytes": 105,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/blinded_items.json",
+      "sha256": "2a17f4cec07570dc61558e900698994e3bceaadec2a335e1cbff09554f7255da",
+      "bytes": 1925363,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_outputs.jsonl",
+      "sha256": "9a955fc7907abf993583de3dd10b8e49d7a1c6df4c0c0989c61f51ab7a57a475",
+      "bytes": 4454087,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_report.json",
+      "sha256": "04defc74541602725fd3726fc1bd58b16692c3ff5add437fb142cbbaca42016f",
+      "bytes": 21134,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/final_evaluation_report.json",
+      "sha256": "a67889b9734ff435a8d0fbf9311f1795b7e71e1718b416fc99577ef2ec6b45f3",
+      "bytes": 42278,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/judge_agreement.json",
+      "sha256": "57f43006450112086eec5855e84b18a0ad032515d119774043f612399f26c8ca",
+      "bytes": 359,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/judge_coverage.json",
+      "sha256": "6bca45f8b38a0b0658a866ec87a47b4c3740d0cf61deb14456dd07e8578f6706",
+      "bytes": 4583,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/judge_sensitivity.json",
+      "sha256": "1401cb8e7a1ffd8a15f636939d0207d9c6295f17534c3d2c858d4225d86c7a1a",
+      "bytes": 10588,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_adjudicated.json",
+      "sha256": "9d654afb3993c5a675ede7956c2874ce9a50c13745f86b1e4e21e5f0a6c27f3b",
+      "bytes": 581303,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_adjudicator.json",
+      "sha256": "98cf824ba5e5c4025aece00b9265632d376c5b1be6029451fd6e62aac5c1750f",
+      "bytes": 540370,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_A.json",
+      "sha256": "70db51ad1c709b39f0d6e52c6ae8d54ddef26bae482b6e4744b73b4208f9f5da",
+      "bytes": 1145834,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_A.json.fingerprint",
+      "sha256": "19d8b9bf3e2806a4aa41ce1a049f77957d3dc58b75d1475633010376c7f14d9a",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_A.json.manifest.json",
+      "sha256": "075c2537ed21bc627c74e46de18dc4f523b7ac329bd0b7cc78a93a1f530c2422",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_A.refusals.json",
+      "sha256": "d1e1bc9e3116a2e900cd49f8819245fdfb67e52ad783c013d0a69c13c88fecac",
+      "bytes": 1473,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_B.json",
+      "sha256": "c21fd9de7863c82de0f6fa20ccddd4136f69e6af686aa74766d1c45c9184fbc4",
+      "bytes": 1070099,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_B.json.fingerprint",
+      "sha256": "3f5c873a22251c59a295fbeb02ae746499443dc9c1203c35ec99d8d1dd82c77e",
+      "bytes": 64,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_B.json.manifest.json",
+      "sha256": "260ff594a7f4b7f68b2d7027fb56d24795f154447c2b2a232f1debddce7b8340",
+      "bytes": 606,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge/qwen35_4b/llm_labels_judge_B.refusals.json",
+      "sha256": "1fdeb680c662d4a7daff3f37c3b27605d3b25c7848a03dfeb925bb44a9ce99be",
+      "bytes": 105,
+      "role": "judge_labels_and_provenance"
+    },
+    {
+      "path": "outputs/iteration_11/judge_vision_ablation/ablated_labels.jsonl",
+      "sha256": "6a4871515a1558b0753e516b3c812be8725a81c8970a70267c8103f70ee2400a",
+      "bytes": 465320,
+      "role": "judge_vision_ablation"
+    },
+    {
+      "path": "outputs/iteration_11/judge_vision_ablation/vision_ablation_summary.json",
+      "sha256": "4ab43c6e33de06672147ce9065dccd151efef82ab3683d7291d0575443db1425",
+      "bytes": 1309,
+      "role": "judge_vision_ablation"
+    },
+    {
+      "path": "outputs/iteration_11/judgments/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "placeholder"
+    },
+    {
+      "path": "outputs/iteration_11/media_manifest.json",
+      "sha256": "ba4ebee7d2a9c0634c9be14efb78b3662b144ee215c645165ef9c022f082c566",
+      "bytes": 515145,
+      "role": "binding_for_the_untracked_media"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/dependency_freeze.lock.txt",
+      "sha256": "c03a5800ca95b02003c97f35c25db744c357f6d35b216c4836b8cb32e9f91014",
+      "bytes": 1862,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/dependency_lock_reconstruction.json",
+      "sha256": "91ed39136645514af847eae6d216cd252bd127a297f0364f400af3d75f153f61",
+      "bytes": 2833,
+      "role": "environment_reconstruction_claim"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/ministral3_3b/preflight.json",
+      "sha256": "dd7e16b03f50c5ce76213f57c9f237dff0ae34206de414bce6f800bed245430c",
+      "bytes": 14855,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/phi4_mm/preflight.json",
+      "sha256": "edf30fa50c020e836607b4be68ea92b2c9a85e23615327461b035d18ce29aeaf",
+      "bytes": 20530,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/qwen35_2b/preflight.json",
+      "sha256": "7157db604514b6ec86ab471bb7349e44f83d4288f9cbd6f0f14101b2f748f3a0",
+      "bytes": 11613,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/qwen35_2b/preflight_cross_slot_check.json",
+      "sha256": "6729339761e9b5f5332a37e8c69761ead8c0147ae464bdee9929c29623552a01",
+      "bytes": 8668,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/qwen35_4b/preflight.json",
+      "sha256": "4c9ebc0a5b64375396f63e4a52eeab9b5b9912190de6aa6b7a79bab023b67bca",
+      "bytes": 11824,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/resolved_models.lock.yaml",
+      "sha256": "921632ada372c80d6129bad16776b000618909b64573471dca2686f25feca6b8",
+      "bytes": 3354,
+      "role": "environment_and_model_preflight"
+    },
+    {
+      "path": "outputs/iteration_11/protocol/baseline_inventory.json",
+      "sha256": "8f784ddd0c3e12f163a1bb1990580136eb90760306a39572717c43b75d4f09b6",
+      "bytes": 3784,
+      "role": "frozen_protocol"
+    },
+    {
+      "path": "outputs/iteration_11/protocol/frozen_9b_reference.json",
+      "sha256": "cd597955879387eeee629cd9b14aa3b2f54a7fd3cb93923685bb83cbb002560d",
+      "bytes": 1427,
+      "role": "frozen_protocol"
+    },
+    {
+      "path": "outputs/iteration_11/protocol/iteration_11_protocol.json",
+      "sha256": "8867143465d1dfbae7f8e87981c40d4a40d3f9ccc5a209d8e2993c0cd8ab34a1",
+      "bytes": 12254,
+      "role": "frozen_protocol"
+    },
+    {
+      "path": "outputs/iteration_11/protocol/model_registry.yaml",
+      "sha256": "dc6a874966be749949c9a074b0c4709d062430d65d767862bdda454c185e3cce",
+      "bytes": 3876,
+      "role": "frozen_protocol"
+    },
+    {
+      "path": "outputs/iteration_11/reports/.gitkeep",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0,
+      "role": "placeholder"
+    },
+    {
+      "path": "scripts/iter11_adjudicate_sensitivity_cell.py",
+      "sha256": "e0ac733c97e4e7492011128d9fd7475c09f7fbc4f3e377933a68280fdf055a11",
+      "bytes": 86591,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_blinding_audit.py",
+      "sha256": "5fb44a11d97ef10bf86055f11cee24509182350fc1b354681ff364fab0f96435",
+      "bytes": 36523,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_closeout_evidence_manifest.py",
+      "sha256": "070bde101239f069877e80ac39b3b4cbc8c6b3556c1cff075f3a32a06f57f7a4",
+      "bytes": 32548,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_common_panel.py",
+      "sha256": "d89e0d8178aacbbabc1329fa6892bf2d96729054cd13af01538e8a635b5d263b",
+      "bytes": 31017,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_correct_exclusion_metadata.py",
+      "sha256": "a1b92e72b4fd9a4b442c0d94e99cd083f6196daef9a22d651b18d44631cbb5bf",
+      "bytes": 23969,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_cross_model_analysis.py",
+      "sha256": "19d982823a419faed5d076bbf28fecc53143d134de3b02f2a1ad94a10a2498fe",
+      "bytes": 53408,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_differential_censoring_bound.py",
+      "sha256": "30f048cf57259151755afdd735f9d4ce00a3127b8ce191186d76b2535fd77720",
+      "bytes": 77510,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_freeze_protocol.py",
+      "sha256": "951d88d540e3f3df373249aef1824bb1500e4f013dfa217f820514f183c50a29",
+      "bytes": 33146,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_judge_vision_ablation.py",
+      "sha256": "83fd69ae1c2dc8657dc36e6b9bfbc598ee1e323c28840fbd6f02cd8577fc01b5",
+      "bytes": 22826,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_model_preflight.py",
+      "sha256": "527d4209e0f589f2b99ac2e47d244294380656a67053d76c87880558c53b7f1f",
+      "bytes": 40719,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_probe_judge_gateway.py",
+      "sha256": "52dcdd41248b0e16071aec7d9908947aecf04d73f615f2cd9b43ee59dee45b10",
+      "bytes": 21953,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_probe_judge_moderation.py",
+      "sha256": "82aad0f4ce171ffec22ec22136a01e59b06c4c4064d43aa1d9b343748e57bdcc",
+      "bytes": 35436,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_reference_restriction.py",
+      "sha256": "b6aa81902dc56fbf82bf39c4624dc2bf39b6791bcab27259ad9b2a760bd4c4eb",
+      "bytes": 19955,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_replay_checks.py",
+      "sha256": "e885aebf56bc07b2af1f81a711268cc889521946a4a1ae09e274fdd5dc077028",
+      "bytes": 45482,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_run_eligibility.py",
+      "sha256": "a956dc7447ebb3d4376541a617aedfba818c936145001db5947bfa2f6a39488d",
+      "bytes": 26557,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_transportability_decision.py",
+      "sha256": "8a183c8ec1f6f145c203ffc7750ac10f955e16cafea2e741a87a822516d7964e",
+      "bytes": 46966,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_truncation_evidence.py",
+      "sha256": "0a76a848b53f6e7d0e31eed47107f7beae0ec93a4b4d23ed41e32a49e3e8a9c2",
+      "bytes": 22915,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_write_dependency_lock.py",
+      "sha256": "3c5d7d882286c7a3d67fa4b2c3f8d0ce61af88a17b3b7bf0075f70e94df2f7c1",
+      "bytes": 19970,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_write_media_manifest.py",
+      "sha256": "b213b635eff6f2cc1c4f8a051041cb0cdc4df929821e86eaff2041aa9d722dea",
+      "bytes": 14430,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_write_selection.py",
+      "sha256": "eb11b09a5ab0d8f545cf33e9a8fce0d04bcd6454ba648e40cd4486635a3a6756",
+      "bytes": 5048,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/bootstrap.py",
+      "sha256": "df1169165549cf9b1e8fca9840148200c3d21a2ce1b1e0a639ba678b3ef6b1e7",
+      "bytes": 5668,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/censoring.py",
+      "sha256": "4843da6b6f3485d429ee975446450361714d76b0eec1ed0d23ca179ae73f1deb",
+      "bytes": 5277,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/llm_judge.py",
+      "sha256": "48bda5fd7eb31f8fd96447543ba9fa192215e791e7ef504e32e08bf162bb3aa8",
+      "bytes": 25150,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/confirmatory.py",
+      "sha256": "08f688c76f9962f437b5819680976ca386d77292f1d9a9b30b8c34bdfdfe09e7",
+      "bytes": 63303,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/registry.py",
+      "sha256": "dcd7ecca6f5a2ef3a074ad669240ee0a185589bf451ef03d4840c1db3c508740",
+      "bytes": 38924,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/reproduction.py",
+      "sha256": "1e08e032a5bea3473078f5ddeff2f132fbfa59ebb51712ecd3638a49365f2d20",
+      "bytes": 21723,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/runner.py",
+      "sha256": "a7979837aa3b6d4abf3c2a59085c4b24afc0432b97c0ec0dbb0cb8773c529688",
+      "bytes": 46118,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/seeds.py",
+      "sha256": "c56e09a73368b4a6d5452d5b41f18e5d2e8e5e75e373995dd33ee35261c4a908",
+      "bytes": 13974,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "tests/unit/test_environment_reconstructibility.py",
+      "sha256": "61116450111a2bffe33d89c9f5a07f5b63c1085159e88d2a7616b9c7f677779e",
+      "bytes": 55419,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_adapters.py",
+      "sha256": "002cc5e66e2a86ecdb915e3e0aa0a14f95f04a291482afe6e183ceb9f0df1854",
+      "bytes": 43544,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_checkpoint_size.py",
+      "sha256": "46a4c31a47e7abffa1f62f217a4b21c405e187bce6366c8a7ace91c624972286",
+      "bytes": 19902,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_closeout_evidence_manifest.py",
+      "sha256": "7d3edc044ff184a9f133f05d6e2eca1fe97b3bf3fc38d373e0af1f189db50934",
+      "bytes": 31285,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_common_panel.py",
+      "sha256": "bd61891f936d54bbd62ede7e21894925eeb474339b7c23a08cc70934b0655789",
+      "bytes": 42954,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_completion_gate.py",
+      "sha256": "06c10054a58a2566c88d5c79cc59168da91542af631e3c798ad6ec15e3644e8e",
+      "bytes": 45930,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_cross_model_analysis.py",
+      "sha256": "991124c934a01aff273a00a6cc33fad06a7061709440f44415e723378b45fbd1",
+      "bytes": 39362,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_differential_censoring.py",
+      "sha256": "202930d23930f2c9c0f2929235b2ca38fa1444a28aeb380bbd9e6370f97c1f38",
+      "bytes": 104597,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_evidence_integrity.py",
+      "sha256": "57fe9cf37a6cb6100720df6e62861e451d77db5c6fda473b74d40a03a9b875cb",
+      "bytes": 178257,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_exclusion_end_to_end.py",
+      "sha256": "6bdf3faba15eb27ead0e1adedc844a652875ea283c40494d0d4665ca72341b54",
+      "bytes": 16203,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_exclusion_metadata.py",
+      "sha256": "bee80d0661f6763768ecece3c9879815e4740c48c5c88ae99d94867416100933",
+      "bytes": 42969,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_hypotheses.py",
+      "sha256": "35148d9b2475089f2b655f9fee41ba1b813544fc6e97eb4891b1078c774fb4f1",
+      "bytes": 12509,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_judge_moderation.py",
+      "sha256": "b6479845388da9ce14b81e6c9238a9324ac00d0df617b3d40523b4816f8b3b65",
+      "bytes": 53196,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_judge_profiles.py",
+      "sha256": "139f3ebfec9730f929055b9c27fd4ede53b229d06f0b5c733c057b95bf81c93a",
+      "bytes": 25368,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_judge_vision.py",
+      "sha256": "994fae426af8c5a1cd7c43c093d530d13aa00ff6d79b56637087cc6c23fbaffc",
+      "bytes": 16075,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_ministral3.py",
+      "sha256": "08881de5d79ce356d0f5ff0449d5405084cc147a7136a2b93b6b2ec4d26fe80b",
+      "bytes": 24667,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_panel_restriction.py",
+      "sha256": "6cd7ec90074c0828a924183c7dea04b495bbfa9169b06a12ccc71070f94c099b",
+      "bytes": 8774,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_phi4.py",
+      "sha256": "3f9bf3fc5c392d4395b918e3b10ff5dc8bec33981f53c0cd7602d0cacc90620a",
+      "bytes": 65528,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_protocol.py",
+      "sha256": "6200a68320465e93854677268b01e032c7371c081320f4c24d5107d94ca53318",
+      "bytes": 7686,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_reference_restriction.py",
+      "sha256": "28297cd5352152dad1da2dcd865cfdf9e5be5cacb16ca3fe07a4d6986d848664",
+      "bytes": 17052,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_transportability_decision.py",
+      "sha256": "cf6ded4ffa53915e5273b53c91b21dacd9af79b33960f434dfd12d7783fcfb45",
+      "bytes": 36409,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_llm_judge_fixes.py",
+      "sha256": "7df9b93ea3573723752f3915ee9392bc7dd35b1140a9536af9b2aaefa99234f6",
+      "bytes": 17343,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_replay.py",
+      "sha256": "103dc0c3f60ac84f241c0f24b8789280957742bbe1cf9493120629c593ff1040",
+      "bytes": 19040,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_replay_evidence.py",
+      "sha256": "6d1c463c48d099936287ff1c290607b5fed22f221bb5acc3163dc6bfc91abd0f",
+      "bytes": 16637,
+      "role": "test"
+    }
+  ],
+  "where_a_reviewer_starts": [
+    {
+      "path": "outputs/iteration_11/protocol/iteration_11_protocol.json",
+      "what_it_establishes": "the frozen protocol: the 100-family panel, the six variants, the hypotheses and the decision rule, sealed before any target was replayed",
+      "verified_by": "scripts/iter11_replay_checks.py"
+    },
+    {
+      "path": "outputs/iteration_11/media_manifest.json",
+      "what_it_establishes": "the bytes of the images the panel and the judges were shown, bound by hash because data/media is gitignored and a fresh checkout does not have them",
+      "verified_by": "scripts/iter11_write_media_manifest.py"
+    },
+    {
+      "path": "outputs/iteration_11/preflight/dependency_lock_reconstruction.json",
+      "what_it_establishes": "what the certified environment can and cannot be rebuilt from: the freeze's preimage is authenticated, and the freeze format cannot express the builds that produced it",
+      "verified_by": "scripts/iter11_write_dependency_lock.py"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/cross_model/cross_model_analysis.json",
+      "what_it_establishes": "the confirmatory analysis on the 98-family common panel: four sign-transport hypotheses, Holm-Bonferroni corrected, with every null and every reversal retained",
+      "verified_by": "scripts/iter11_cross_model_analysis.py"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/differential_censoring/differential_censoring_bound.json",
+      "what_it_establishes": "an exact range rather than a point estimate for the one differentially missing label: each resample mean is affine in the score that label could have taken, so the verdicts are enumerated over the rubric's whole 0.0-1.0 instead of sampled",
+      "verified_by": "scripts/iter11_differential_censoring_bound.py"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json",
+      "what_it_establishes": "the 99-family sensitivity labels the bound ranges over, re-filed without spending a single new adjudicator call",
+      "verified_by": "scripts/iter11_adjudicate_sensitivity_cell.py"
+    },
+    {
+      "path": "outputs/iteration_11/analysis/differential_censoring/call_receipts.sensitivity_99f.json",
+      "what_it_establishes": "the preserved evidence for those two reused calls: request hashes, provider response ids and the labels they produced, committed so that a citation to them resolves out of the object store instead of pointing at a commit nobody can reach",
+      "verified_by": "scripts/iter11_adjudicate_sensitivity_cell.py"
+    },
+    {
+      "path": "outputs/iteration_11/closeout/iteration_11_transportability_decision.json",
+      "what_it_establishes": "the transportability call, derived from the two analyses above rather than written down beside them",
+      "verified_by": "scripts/iter11_transportability_decision.py"
+    }
+  ],
+  "bound_by_discovery_not_by_a_list": {
+    "trees": [
+      "outputs/iteration_11/"
+    ],
+    "patterns": [
+      "scripts/iter11_*.py",
+      "tests/unit/test_iter11_*.py"
+    ],
+    "named_paths": [
+      "src/causal_mllm/seeds.py",
+      "src/causal_mllm/evaluation/bootstrap.py",
+      "src/causal_mllm/evaluation/censoring.py",
+      "src/causal_mllm/evaluation/llm_judge.py",
+      "src/causal_mllm/replay/confirmatory.py",
+      "src/causal_mllm/replay/registry.py",
+      "src/causal_mllm/replay/reproduction.py",
+      "src/causal_mllm/replay/runner.py",
+      "tests/unit/test_environment_reconstructibility.py",
+      "tests/unit/test_llm_judge_fixes.py",
+      "tests/unit/test_replay.py",
+      "tests/unit/test_replay_evidence.py"
+    ],
+    "what_that_buys": "a file committed under one of these and left out of the manifest is a finding at verification time rather than a gap nobody notices, and a new stage in this iteration is bound by being committed rather than by being remembered here"
+  },
+  "what_this_manifest_does_not_bind": {
+    "itself": {
+      "path": "outputs/iteration_11/closeout/iteration_11_evidence_manifest.json",
+      "why": "a document cannot carry its own hash. Its integrity is the re-derivation: --verify rebuilds the whole thing from the files on disk and compares, so tampering with the manifest is tampering with a claim that the bound files then contradict"
+    },
+    "the_media": {
+      "n_files": 3034,
+      "bound_indirectly_by": "outputs/iteration_11/media_manifest.json",
+      "why": "data/media is gitignored apart from twenty individually negated source images, so the bytes are not in this repository and no manifest committed here can bind them directly. The media manifest binds them by hash instead, and is itself bound here -- which is why a checkout without the images can still verify everything committed and reports the media section as not verifiable here rather than as a failure",
+      "the_manifest_says": {
+        "readable_here": true,
+        "n_files_it_binds": 3034,
+        "total_bytes_it_binds": 3698064267,
+        "its_rollup_sha256": "49637e1ced11db8e70b687f8d845b03e1d71384f92b7e9c3d42d3d437442152b",
+        "n_panel_referenced_images": 100,
+        "panel_referenced_but_absent_from_the_manifest": [],
+        "media_root": "data/media"
+      }
+    },
+    "commit_and_tree_state": {
+      "why": "no generated_at, no code_commit and no git_dirty appears in this document. Those are properties of the checkout that wrote it, so carrying them would make exact re-derivation impossible anywhere else and would reduce --verify to comparing a list of fields somebody had to remember to keep short. Committed-ness is checked as a separate claim, against the object store, at verification time"
+    }
+  }
+}
