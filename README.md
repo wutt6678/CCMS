@@ -1360,9 +1360,11 @@ the artifact: dropping every family that holds a capped cell in ANY arm (98 →
 89 families) leaves all four signs unchanged with a maximum absolute shift of
 0.008500, and a differential-censoring sensitivity prices the family-set change
 using judge B alone (one consistent judge across arms, and explicitly not the
-ensemble, since B is vision-ablated). The primary results retain all cells,
-including the 12 capped ones — the only exclusion anywhere is the moderation
-union.
+ensemble, since B is vision-ablated). That second one prices a change in the
+family set, not the missing label, and is a sensitivity rather than a bound; the
+bound is in *What the differential exclusion costs, bounded* below. The primary
+results retain all cells, including the 12 capped ones — the only exclusion
+anywhere is the moderation union.
 
 The protocol's retention clause governs and is quoted in the artifact: *"All
 null, attenuated, heterogeneous, or sign-reversed results are retained and
@@ -1373,13 +1375,16 @@ Re-running any of it, read-only — every one of these compares and writes
 nothing:
 
 ```
-python3 scripts/iter11_replay_checks.py --all --verify     # 11.6 completion gate, four targets
-python3 scripts/iter11_write_media_manifest.py --verify    # the media identity that gate checks against
-python3 scripts/iter11_truncation_evidence.py --verify     # one truncation definition, both gates
-python3 scripts/iter11_blinding_audit.py --verify          # 11.7 identity-leak audit
-python3 scripts/iter11_common_panel.py --verify            # 11.7 cross-arm panel gate
-python3 scripts/iter11_reference_restriction.py --verify   # 11.8 reference, reproduced then restricted
-python3 scripts/iter11_cross_model_analysis.py --verify    # 11.8 verdicts, re-derived
+python3 scripts/iter11_replay_checks.py --all --verify        # 11.6 completion gate, four targets
+python3 scripts/iter11_write_media_manifest.py --verify       # the media identity that gate checks against
+python3 scripts/iter11_truncation_evidence.py --verify        # one truncation definition, both gates
+python3 scripts/iter11_blinding_audit.py --verify             # 11.7 identity-leak audit
+python3 scripts/iter11_common_panel.py --verify               # 11.7 cross-arm panel gate
+python3 scripts/iter11_reference_restriction.py --verify      # 11.8 reference, reproduced then restricted
+python3 scripts/iter11_cross_model_analysis.py --verify       # 11.8 verdicts, re-derived
+python3 scripts/iter11_correct_exclusion_metadata.py --verify # the exclusion rename, and the 21 sealed artifacts it does not reach
+python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify # the restored cell's label: no calls, no credentials
+python3 scripts/iter11_differential_censoring_bound.py --verify # what the missing label could have cost, re-derived
 ```
 
 `iter11_replay_checks.py` used to be the exception to that sentence, and finding
@@ -1596,15 +1601,149 @@ and no gate read it. The corrector's producer check caught the first by refusing
 file, and a test now holds the allowlist of source files permitted to name the claim
 to exactly the two that must quote it, checked in both directions.
 
-This is the metadata half of the finding. It does not by itself settle what the
-differential exclusion does to the verdicts: the 0.004545 Judge-B shift reported for
-it is an empirical sensitivity measured under a different, vision-ablated instrument,
-not a worst-case bound on the missing ensemble outcome, and no arm has an ensemble
-label for that cell at all.
+This is the metadata half of the finding: it makes the artifacts honest about the
+exclusion being response-dependent. What the exclusion does to the *verdicts* is the
+other half, and the 0.004545 Judge-B shift reported for it does not settle that — it is
+an empirical sensitivity measured under a different, vision-ablated instrument, not a
+worst-case bound on the missing ensemble outcome, and no arm has an ensemble label for
+that cell at all. That half is bounded next.
 
 ```
 python3 scripts/iter11_correct_exclusion_metadata.py --verify   # read, writes nothing
 python3 scripts/iter11_correct_exclusion_metadata.py            # re-file (explicit)
+```
+
+### What the differential exclusion costs, bounded
+
+Two numbers had been filed about the cost of dropping `CMST_456921` and neither was a
+bound. `max_differential_shift` = **0.004545** prices the change in the **family set**
+under judge B alone, which is vision-ablated, so its absolute level is not the
+confirmatory quantity. The point estimate you get by putting the family back is better,
+but it is still one number where the honest question is a range: what could the missing
+label have been, and does any admissible value change a verdict?
+
+**The 99th family is recovered wherever the evidence allows it.**
+[`labels_adjudicated.sensitivity_99f.json`](outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json),
+written by `scripts/iter11_adjudicate_sensitivity_cell.py`:
+
+| arm | label for `CMST_456921/text_only` | how the frozen rule gives it | calls |
+| --- | --- | --- | --- |
+| `qwen35_4b` | 0.0 | A and B agree exactly, so `adjudicate_pairwise_with_model` keeps the agreed label | none |
+| `qwen35_2b` | 0.85 | A 0.85 / B 0.90 differ on the score alone, so the cell routes to the distinct-model adjudicator | one `kimi-k3` |
+| `phi4_mm` | 0.20 | A 0.10 / B 0.20 differ on the score alone, so the cell routes to the distinct-model adjudicator | one `kimi-k3` |
+| `ministral3_3b` | **none exists** | judge A has no label — its provider refused this cell. `compute_pairwise_agreement` requires full mutual coverage, so a cell one primary could not judge must not become a label from the other primary alone | — |
+
+Both calls were made at the frozen identity — `kimi-k3`, seed 99, temperature 0, rubric
+v1.1 (`ce6c2005…`), presentation order from `Random(0)` — read from the pipeline's own
+`ADJUDICATOR_CONFIG` object rather than from a copy of it.
+
+The four sealed 597-cell label sets are **not touched**: the artifact records each one's
+SHA-256 before and after and a test requires the two to be equal. Regenerating them would
+re-adjudicate the **1,009** disagreements they record between them (`ministral3_3b` 299,
+`qwen35_2b` 269, `qwen35_4b` 243, `phi4_mm` 198) against a gateway whose moderation
+verdict has been shown to move over days. Those counts are read from each set's own
+`provenance.ensemble.n_disagreements` and summed rather than transcribed: the first draft
+of that sentence quoted 243 — `qwen35_4b`'s own count — for all four, and understated the
+cost of a regeneration by 766 calls.
+
+**A re-file spends no calls.** The two adjudications were made once. Re-filing, which a
+code commit forces because the provenance block names the commit, reuses them bound by
+the request they answered: the hash of the request the frozen rule would send *now* is
+recomputed offline — `LLMAdjudicator.adjudicate_item` and `MultimodalLLMJudge.judge` run
+for real over the committed blinded item and the two committed primary judgments, with
+`_call_api`, the only network call in the path, replaced by a stub whose judgment is
+discarded — and a filed label is reused only where that hash equals the one its own call
+recorded. Same request, filed response. It needs no key because `request_hash` binds the
+prompt, the image hashes, the model id, the temperature and the seed, which is also why
+`--verify` can check it in CI. Without this, every re-file would be a second piece of
+evidence wearing the first one's name, and a gateway that had begun refusing this cell
+would leave the sensitivity unregenerable at the committed state. `--fresh-calls`
+re-calls unconditionally; where a call is genuinely needed and no credentials exist the
+script exits 2 **having written nothing**, so a failed re-file cannot overwrite a good
+one.
+
+**The bound is exact rather than searched.** `paired_bootstrap_samples` draws its
+resample indices from `Random(seed)` as a function of the seed and the family count
+alone, never of the data, so with 99 families fixed every one of the 5,000 resample means
+is affine in the single missing score x:
+
+```
+sample_b(x) = a_b + m_b * x        m_b = -k_b / 99        (ΔTV)
+```
+
+where `k_b` is how often the restored family appears in resample `b`. The observed mean
+is affine too, so the two-sided p's tail counts are monotone step functions of x jumping
+only at the resamples' own zero crossings `x*_b = -a_b / m_b`, and the worst case over an
+interval is attained at an endpoint or at a breakpoint. All of them are evaluated, then
+cross-checked three ways: against the frozen estimator over records built the production
+way at a score that is not the decomposition's anchor, the O(log n) tail counts against
+the direct O(n) ones on a 401-point grid, and the breakpoint enumeration against the
+worst p on that grid. Every arm files `closed_form_check.ok: true`, and a live call whose
+request hash differs from the same request rebuilt offline files nothing at all.
+
+ΔTV, α = 0.05, Holm–Bonferroni over the four confirmatory tests, bounded over the
+rubric's whole 0.0–1.0 range rather than over the values observed here — the 2,388
+committed labels reach 0.0 to 0.95 over 20 distinct values, two of which (0.72, 0.88) are
+not on a 0.05 grid, and a bound fitted to what these judges happened to say would be a
+bound on that rather than on what the missing one could say:
+
+| H | target | label for the restored cell | filed raw p | at 99 families | worst p over the rubric | filed | at 99 | genuine worst case | fully adversarial |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| H1 | `qwen35_2b` | 0.85 (adjudicated) | 0.00020 | 0.00020 | 0.00020 | REFUTED | REFUTED | REFUTED | REFUTED |
+| H2 | `qwen35_4b` | 0.0 (primary agreement) | 0.02560 | **0.02240** | **0.05280** at x = 1.0 | CONFIRMED | CONFIRMED | CONFIRMED | *inconclusive* |
+| H3 | `ministral3_3b` | none exists | 0.00020 | stays at 98 | 0.00020 for every x | REFUTED | REFUTED | REFUTED | REFUTED |
+| H4 | `phi4_mm` | 0.20 (adjudicated) | 0.01360 | **0.00880** | 0.01120 at x ≈ 0.0 | REFUTED | REFUTED | REFUTED | REFUTED |
+
+**4 of 4 verdicts survive the genuine worst case; 3 of 4 survive the configuration the
+evidence does not license.**
+
+* **H2 is narrow on its own, not because of the exclusion.** Restoring the family
+  *improves* its raw p (0.0256 → 0.0224) and its mean stays inside [+0.0828, +0.0929] for
+  every admissible score, so the sign cannot flip. The bound says exactly how narrow the
+  confirmation is: p crosses α at **x = 0.9**, which is 0.9 of a rubric away from the 0.0
+  both primaries gave.
+* **H3's refutation survives every value the missing label could have taken.** Over the
+  whole admissible range `ministral3_3b`'s mean stays in [−0.1312, −0.1211] and its
+  p-value sits at the 1/5000 bootstrap floor for every x. That is the genuine worst-case
+  bound the Judge-B shift was never able to be, and H3 is the only arm that needs one.
+* **H1 and H4 hold, and H1's p cannot move.** Both signs survive the whole range. H4
+  improves (0.0136 → 0.0088); H1 is already at the 1/5000 floor at 98 families and stays
+  there at 99, which is a p-value that *cannot* improve rather than one that did not.
+* **A fourth configuration is filed and marked `licensed_by_the_evidence: false`.**
+  Ranging *every* arm's cell over the whole rubric ignores that three of the four labels
+  are known — one by exact primary agreement, two by a filed adjudication — and under it
+  H2's raw p reaches 0.0528 and Holm retains it. It is recorded because a bound that
+  reports only the comfortable configuration is not a bound, and because the distance
+  between (c) and (d) is exactly the distance between "the label is known" and "the label
+  is missing", which is what the differential exclusion makes in ONE arm out of four.
+
+Pooled **H5** is bounded at the slope pooling implies: averaging four models'
+family-level estimands gives one arm's missing score a coefficient of −1/4 rather than
+−1. Its sign is negative at 98 families (−0.058699), negative at 99 (−0.057601), cannot
+flip over the missing label, and its worst p over that label is 0.0068.
+
+The Judge-B analysis is **retained verbatim** inside
+[`differential_censoring_bound.json`](outputs/iteration_11/analysis/differential_censoring/differential_censoring_bound.json)
+— hash-bound to the `cross_model_analysis.json` it was copied from — and re-labelled as
+what it is: an empirical sensitivity over the family set under one consistent,
+vision-ablated judge (`ministral3_3b` 0.0, `phi4_mm` 0.001361, `qwen35_2b` 0.004545,
+`qwen35_4b` 0.001505), **not** a worst-case bound on a label nobody produced. Deleting it
+to make room for a better number would be the same move as rewriting the sealed artifacts
+the correction enumerates; what changed is the claim attached to it.
+
+**What this does not do.** It is a sensitivity, not a re-run: the confirmatory comparison
+stays on the 98-family common panel where all four arms judged the same cells, because
+three arms at 99 families and one at 98 is not one panel. `CMST_795308` stays excluded
+everywhere — judge A's provider refused both of its cells in all four arms, so no arm has
+an ensemble label for it and 99 families is the largest panel any arm can reach, and only
+three of the four reach it. What is shown is that the exclusion is not what produces any
+of the verdicts.
+
+```
+python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify   # no calls, no credentials
+python3 scripts/iter11_differential_censoring_bound.py --verify  # re-derives the whole bound
+python3 scripts/iter11_adjudicate_sensitivity_cell.py --write    # re-file; spends a call only
+                                                                # where no filed one answers
 ```
 
 ## Schema Reports
