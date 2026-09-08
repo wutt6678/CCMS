@@ -152,7 +152,7 @@
       "qwen35_4b.judge_B": "c21fd9de7863c82de0f6fa20ccddd4136f69e6af686aa74766d1c45c9184fbc4",
       "qwen35_4b.replay": "6bc0610508b490f1fdc77eb2b50f1b71848ecb9234521256eab76539aeee7358",
       "qwen35_4b.report": "04defc74541602725fd3726fc1bd58b16692c3ff5add437fb142cbbaca42016f",
-      "sensitivity_labels": "ea68379012b8c53e97dca6c7607d5209504906e1353932ba52ae9ab61bfe8c10"
+      "sensitivity_labels": "316199078943003c8dbcc1b16d2668cc6a0cb5cd7d63a1ca81f8693a7bc27ea1"
     },
     "paths": {
       "committed_cross_model_analysis": "outputs/iteration_11/analysis/cross_model/cross_model_analysis.json",
@@ -217,10 +217,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -233,10 +234,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -249,13 +251,21 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           }
         ],
+        "no_exactness_booleans": {
+          "worst_mean_difference_over_these_probes": 0.0,
+          "mean_tolerance": 1e-12,
+          "worst_p_difference_over_these_probes_in_resample_steps": 0.0,
+          "p_tolerance_in_resample_steps": 16,
+          "why": "these probes used to file mean_exact and p_exact, and both flipped between CPython 3.10.20 and 3.12.13 on this evidence while every verdict, sign and count a hypothesis test reads stayed put. An exactness boolean has no headroom at all, so the last bit of a float decides it and the interpreter that summed the float decides the last bit. A tolerance boolean is decided by the arithmetic instead: the worst difference over these probes is filed beside a tolerance orders of magnitude wider, so the answer is the same under any interpreter that reads IEEE doubles. Asking the weaker question hides nothing, because both the difference and the tolerance are filed -- it is the only one of the two questions that has a stable answer"
+        },
         "grid": {
           "n_points": 401,
           "step": 0.0025,
@@ -268,6 +278,15 @@
         },
         "issues": [],
         "ok": true
+      },
+      "arithmetic_of_the_decomposition": {
+        "used": "an explicit left-to-right loop (_portable_sum)",
+        "portable_sum_of_the_family_column": -11.990000000000002,
+        "correctly_rounded_sum_of_the_same_column": -11.99,
+        "their_difference": -1.7763568394002505e-15,
+        "n_resample_intercepts_the_two_summations_disagree_on": 3641,
+        "n_resamples": 5000,
+        "why": "the two sums above are of one committed column of 99 floats and they are not the same float. The builtin sum() returns the first under CPython 3.10 and 3.11 and the second under CPython 3.12 and later, because 3.12 sums floats with Neumaier compensation, so the builtin is not portable in EITHER direction and is not used. The explicit loop is portable and is also what the frozen estimator computes under the certified interpreter, which is why this decomposition uses it: 3641 of the 5000 resample intercepts would be a different float under the correctly rounded summation, and at a zero crossing one such resample is one step of p. Reproduce the interpreter difference on any column of floats with: python3 -c \"import functools, math, operator; v=[0.1]*3+[0.2]*3+[1/3]*3; print(repr(functools.reduce(operator.add, v, 0.0)), repr(sum(v)), repr(math.fsum(v)))\""
       },
       "committed_at_98_families": {
         "reference_sign": "positive",
@@ -289,6 +308,22 @@
           1.0
         ],
         "n_breakpoints_evaluated": 2,
+        "breakpoint_margins": {
+          "n_breakpoints_inside_the_range": 0,
+          "n_distinct_breakpoints_inside_the_range": 0,
+          "n_exact_duplicates": 0,
+          "smallest_gap_between_distinct_breakpoints": null,
+          "nearest_breakpoint_to_a_range_endpoint": null,
+          "the_endpoint_it_is_nearest_to": null,
+          "its_distance_from_that_endpoint": null,
+          "float_tolerance": 1e-12,
+          "the_count_rests_on_a_margin_narrower_than_the_float_tolerance": false,
+          "nearest_breakpoint_p": null,
+          "nearest_endpoint_p": null,
+          "their_difference_in_resample_steps": null,
+          "why_exact_duplicates_are_not_a_margin": "two breakpoints can be the SAME float, which happens when two resamples draw the same multiset of families or two quotients round alike. A duplicate is not a last-bit hazard: it is one candidate under every interpreter, so it is counted separately from the smallest gap between DISTINCT breakpoints, which is the margin a rounding difference could actually close",
+          "what_it_means": "a breakpoint this close to an endpoint, or this close to another breakpoint, makes the count of evaluated candidates a last-bit question, so the count is reproducible only because every float behind it is one portable summation of a committed column, and it is filed with its margins rather than alone. The p-value is not last-bit sensitive in the same way: the two p-values above differ by the filed number of resample steps, which is inside the documented p tolerance, so no verdict reads the membership decision"
+        },
         "mean_range": [
           -0.13121212121212122,
           -0.12111111111111113
@@ -385,10 +420,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -401,10 +437,11 @@
             "mean_difference": 6.938893903907228e-18,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": false,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -417,10 +454,11 @@
             "mean_difference": 6.938893903907228e-18,
             "p_difference": 0.0003999999999999993,
             "p_difference_in_resample_steps": 0.9999999999999982,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": false,
-            "p_exact": false,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -433,13 +471,21 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           }
         ],
+        "no_exactness_booleans": {
+          "worst_mean_difference_over_these_probes": 6.938893903907228e-18,
+          "mean_tolerance": 1e-12,
+          "worst_p_difference_over_these_probes_in_resample_steps": 0.9999999999999982,
+          "p_tolerance_in_resample_steps": 16,
+          "why": "these probes used to file mean_exact and p_exact, and both flipped between CPython 3.10.20 and 3.12.13 on this evidence while every verdict, sign and count a hypothesis test reads stayed put. An exactness boolean has no headroom at all, so the last bit of a float decides it and the interpreter that summed the float decides the last bit. A tolerance boolean is decided by the arithmetic instead: the worst difference over these probes is filed beside a tolerance orders of magnitude wider, so the answer is the same under any interpreter that reads IEEE doubles. Asking the weaker question hides nothing, because both the difference and the tolerance are filed -- it is the only one of the two questions that has a stable answer"
+        },
         "grid": {
           "n_points": 401,
           "step": 0.0025,
@@ -452,6 +498,15 @@
         },
         "issues": [],
         "ok": true
+      },
+      "arithmetic_of_the_decomposition": {
+        "used": "an explicit left-to-right loop (_portable_sum)",
+        "portable_sum_of_the_family_column": -5.0,
+        "correctly_rounded_sum_of_the_same_column": -5.0,
+        "their_difference": 0.0,
+        "n_resample_intercepts_the_two_summations_disagree_on": 3533,
+        "n_resamples": 5000,
+        "why": "the two sums above are of one committed column of 99 floats and they are not the same float. The builtin sum() returns the first under CPython 3.10 and 3.11 and the second under CPython 3.12 and later, because 3.12 sums floats with Neumaier compensation, so the builtin is not portable in EITHER direction and is not used. The explicit loop is portable and is also what the frozen estimator computes under the certified interpreter, which is why this decomposition uses it: 3533 of the 5000 resample intercepts would be a different float under the correctly rounded summation, and at a zero crossing one such resample is one step of p. Reproduce the interpreter difference on any column of floats with: python3 -c \"import functools, math, operator; v=[0.1]*3+[0.2]*3+[1/3]*3; print(repr(functools.reduce(operator.add, v, 0.0)), repr(sum(v)), repr(math.fsum(v)))\""
       },
       "committed_at_98_families": {
         "reference_sign": "positive",
@@ -473,6 +528,22 @@
           1.0
         ],
         "n_breakpoints_evaluated": 17,
+        "breakpoint_margins": {
+          "n_breakpoints_inside_the_range": 16,
+          "n_distinct_breakpoints_inside_the_range": 15,
+          "n_exact_duplicates": 1,
+          "smallest_gap_between_distinct_breakpoints": 2.7755575615628914e-17,
+          "nearest_breakpoint_to_a_range_endpoint": 8.326672684688674e-17,
+          "the_endpoint_it_is_nearest_to": 0.0,
+          "its_distance_from_that_endpoint": 8.326672684688674e-17,
+          "float_tolerance": 1e-12,
+          "the_count_rests_on_a_margin_narrower_than_the_float_tolerance": true,
+          "nearest_breakpoint_p": 0.0112,
+          "nearest_endpoint_p": 0.0112,
+          "their_difference_in_resample_steps": 0.0,
+          "why_exact_duplicates_are_not_a_margin": "two breakpoints can be the SAME float, which happens when two resamples draw the same multiset of families or two quotients round alike. A duplicate is not a last-bit hazard: it is one candidate under every interpreter, so it is counted separately from the smallest gap between DISTINCT breakpoints, which is the margin a rounding difference could actually close",
+          "what_it_means": "a breakpoint this close to an endpoint, or this close to another breakpoint, makes the count of evaluated candidates a last-bit question, so the count is reproducible only because every float behind it is one portable summation of a committed column, and it is filed with its margins rather than alone. The p-value is not last-bit sensitive in the same way: the two p-values above differ by the filed number of resample steps, which is inside the documented p tolerance, so no verdict reads the membership decision"
+        },
         "mean_range": [
           -0.06060606060606061,
           -0.050505050505050504
@@ -567,10 +638,17 @@
           }
         },
         "closed_form_agrees_with_the_frozen_estimator": {
-          "mean": -0.052525252525252523,
-          "p": 0.0088,
-          "mean_matches": true,
-          "p_matches": true
+          "closed_form_mean": -0.052525252525252523,
+          "frozen_estimator_mean": -0.05252525252525253,
+          "mean_difference": 6.938893903907228e-18,
+          "mean_tolerance": 1e-12,
+          "mean_agrees_within_that_tolerance": true,
+          "closed_form_p": 0.0088,
+          "frozen_estimator_p": 0.0088,
+          "p_difference": 0.0,
+          "p_tolerance": 0.0064,
+          "p_agrees_within_that_tolerance": true,
+          "why_not_exactness": "the two fields here used to be mean_matches and p_matches, both compared with <= 1e-12. For a mean that is a float tolerance. For a p-value it is not a tolerance at all: a bootstrap p can only move in steps of 2/n_resamples, which at 5,000 resamples is 0.0004, so that comparison demanded an agreement eight orders of magnitude tighter than the quantity's own granularity and could pass only where the two float paths to the same number happened to land on the same side of every zero crossing. Each quantity is now held to the tolerance documented for its kind, with the difference and the tolerance both filed"
         }
       },
       "ab_bound": {
@@ -646,10 +724,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -662,10 +741,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -678,10 +758,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -694,13 +775,21 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           }
         ],
+        "no_exactness_booleans": {
+          "worst_mean_difference_over_these_probes": 0.0,
+          "mean_tolerance": 1e-12,
+          "worst_p_difference_over_these_probes_in_resample_steps": 0.0,
+          "p_tolerance_in_resample_steps": 16,
+          "why": "these probes used to file mean_exact and p_exact, and both flipped between CPython 3.10.20 and 3.12.13 on this evidence while every verdict, sign and count a hypothesis test reads stayed put. An exactness boolean has no headroom at all, so the last bit of a float decides it and the interpreter that summed the float decides the last bit. A tolerance boolean is decided by the arithmetic instead: the worst difference over these probes is filed beside a tolerance orders of magnitude wider, so the answer is the same under any interpreter that reads IEEE doubles. Asking the weaker question hides nothing, because both the difference and the tolerance are filed -- it is the only one of the two questions that has a stable answer"
+        },
         "grid": {
           "n_points": 401,
           "step": 0.0025,
@@ -713,6 +802,15 @@
         },
         "issues": [],
         "ok": true
+      },
+      "arithmetic_of_the_decomposition": {
+        "used": "an explicit left-to-right loop (_portable_sum)",
+        "portable_sum_of_the_family_column": -13.970000000000002,
+        "correctly_rounded_sum_of_the_same_column": -13.97,
+        "their_difference": -1.7763568394002505e-15,
+        "n_resample_intercepts_the_two_summations_disagree_on": 3598,
+        "n_resamples": 5000,
+        "why": "the two sums above are of one committed column of 99 floats and they are not the same float. The builtin sum() returns the first under CPython 3.10 and 3.11 and the second under CPython 3.12 and later, because 3.12 sums floats with Neumaier compensation, so the builtin is not portable in EITHER direction and is not used. The explicit loop is portable and is also what the frozen estimator computes under the certified interpreter, which is why this decomposition uses it: 3598 of the 5000 resample intercepts would be a different float under the correctly rounded summation, and at a zero crossing one such resample is one step of p. Reproduce the interpreter difference on any column of floats with: python3 -c \"import functools, math, operator; v=[0.1]*3+[0.2]*3+[1/3]*3; print(repr(functools.reduce(operator.add, v, 0.0)), repr(sum(v)), repr(math.fsum(v)))\""
       },
       "committed_at_98_families": {
         "reference_sign": "positive",
@@ -734,6 +832,22 @@
           1.0
         ],
         "n_breakpoints_evaluated": 2,
+        "breakpoint_margins": {
+          "n_breakpoints_inside_the_range": 0,
+          "n_distinct_breakpoints_inside_the_range": 0,
+          "n_exact_duplicates": 0,
+          "smallest_gap_between_distinct_breakpoints": null,
+          "nearest_breakpoint_to_a_range_endpoint": null,
+          "the_endpoint_it_is_nearest_to": null,
+          "its_distance_from_that_endpoint": null,
+          "float_tolerance": 1e-12,
+          "the_count_rests_on_a_margin_narrower_than_the_float_tolerance": false,
+          "nearest_breakpoint_p": null,
+          "nearest_endpoint_p": null,
+          "their_difference_in_resample_steps": null,
+          "why_exact_duplicates_are_not_a_margin": "two breakpoints can be the SAME float, which happens when two resamples draw the same multiset of families or two quotients round alike. A duplicate is not a last-bit hazard: it is one candidate under every interpreter, so it is counted separately from the smallest gap between DISTINCT breakpoints, which is the margin a rounding difference could actually close",
+          "what_it_means": "a breakpoint this close to an endpoint, or this close to another breakpoint, makes the count of evaluated candidates a last-bit question, so the count is reproducible only because every float behind it is one portable summation of a committed column, and it is filed with its margins rather than alone. The p-value is not last-bit sensitive in the same way: the two p-values above differ by the filed number of resample steps, which is inside the documented p tolerance, so no verdict reads the membership decision"
+        },
         "mean_range": [
           -0.15121212121212124,
           -0.14111111111111113
@@ -828,10 +942,17 @@
           }
         },
         "closed_form_agrees_with_the_frozen_estimator": {
-          "mean": -0.14969696969696972,
-          "p": 0.0002,
-          "mean_matches": true,
-          "p_matches": true
+          "closed_form_mean": -0.14969696969696972,
+          "frozen_estimator_mean": -0.14969696969696972,
+          "mean_difference": 0.0,
+          "mean_tolerance": 1e-12,
+          "mean_agrees_within_that_tolerance": true,
+          "closed_form_p": 0.0002,
+          "frozen_estimator_p": 0.0002,
+          "p_difference": 0.0,
+          "p_tolerance": 0.0064,
+          "p_agrees_within_that_tolerance": true,
+          "why_not_exactness": "the two fields here used to be mean_matches and p_matches, both compared with <= 1e-12. For a mean that is a float tolerance. For a p-value it is not a tolerance at all: a bootstrap p can only move in steps of 2/n_resamples, which at 5,000 resamples is 0.0004, so that comparison demanded an agreement eight orders of magnitude tighter than the quantity's own granularity and could pass only where the two float paths to the same number happened to land on the same side of every zero crossing. Each quantity is now held to the tolerance documented for its kind, with the difference and the tolerance both filed"
         }
       },
       "ab_bound": {
@@ -905,10 +1026,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -921,10 +1043,11 @@
             "mean_difference": 0.0,
             "p_difference": 0.0003999999999999976,
             "p_difference_in_resample_steps": 0.9999999999999939,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": true,
-            "p_exact": false,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           },
           {
@@ -937,13 +1060,21 @@
             "mean_difference": 1.3877787807814457e-17,
             "p_difference": 0.0,
             "p_difference_in_resample_steps": 0.0,
+            "mean_tolerance": 1e-12,
+            "mean_agrees_within_that_tolerance": true,
             "p_tolerance_licensed": 0.0064,
             "p_tolerance_documented": 0.0064,
-            "mean_exact": false,
-            "p_exact": true,
+            "p_agrees_within_the_licensed_tolerance": true,
             "ok": true
           }
         ],
+        "no_exactness_booleans": {
+          "worst_mean_difference_over_these_probes": 1.3877787807814457e-17,
+          "mean_tolerance": 1e-12,
+          "worst_p_difference_over_these_probes_in_resample_steps": 0.9999999999999939,
+          "p_tolerance_in_resample_steps": 16,
+          "why": "these probes used to file mean_exact and p_exact, and both flipped between CPython 3.10.20 and 3.12.13 on this evidence while every verdict, sign and count a hypothesis test reads stayed put. An exactness boolean has no headroom at all, so the last bit of a float decides it and the interpreter that summed the float decides the last bit. A tolerance boolean is decided by the arithmetic instead: the worst difference over these probes is filed beside a tolerance orders of magnitude wider, so the answer is the same under any interpreter that reads IEEE doubles. Asking the weaker question hides nothing, because both the difference and the tolerance are filed -- it is the only one of the two questions that has a stable answer"
+        },
         "grid": {
           "n_points": 401,
           "step": 0.0025,
@@ -956,6 +1087,15 @@
         },
         "issues": [],
         "ok": true
+      },
+      "arithmetic_of_the_decomposition": {
+        "used": "an explicit left-to-right loop (_portable_sum)",
+        "portable_sum_of_the_family_column": 9.2,
+        "correctly_rounded_sum_of_the_same_column": 9.200000000000001,
+        "their_difference": -1.7763568394002505e-15,
+        "n_resample_intercepts_the_two_summations_disagree_on": 4108,
+        "n_resamples": 5000,
+        "why": "the two sums above are of one committed column of 99 floats and they are not the same float. The builtin sum() returns the first under CPython 3.10 and 3.11 and the second under CPython 3.12 and later, because 3.12 sums floats with Neumaier compensation, so the builtin is not portable in EITHER direction and is not used. The explicit loop is portable and is also what the frozen estimator computes under the certified interpreter, which is why this decomposition uses it: 4108 of the 5000 resample intercepts would be a different float under the correctly rounded summation, and at a zero crossing one such resample is one step of p. Reproduce the interpreter difference on any column of floats with: python3 -c \"import functools, math, operator; v=[0.1]*3+[0.2]*3+[1/3]*3; print(repr(functools.reduce(operator.add, v, 0.0)), repr(sum(v)), repr(math.fsum(v)))\""
       },
       "committed_at_98_families": {
         "reference_sign": "positive",
@@ -977,6 +1117,22 @@
           1.0
         ],
         "n_breakpoints_evaluated": 73,
+        "breakpoint_margins": {
+          "n_breakpoints_inside_the_range": 76,
+          "n_distinct_breakpoints_inside_the_range": 71,
+          "n_exact_duplicates": 5,
+          "smallest_gap_between_distinct_breakpoints": 8.326672684688674e-17,
+          "nearest_breakpoint_to_a_range_endpoint": 6.661338147750939e-16,
+          "the_endpoint_it_is_nearest_to": 0.0,
+          "its_distance_from_that_endpoint": 6.661338147750939e-16,
+          "float_tolerance": 1e-12,
+          "the_count_rests_on_a_margin_narrower_than_the_float_tolerance": true,
+          "nearest_breakpoint_p": 0.0228,
+          "nearest_endpoint_p": 0.0224,
+          "their_difference_in_resample_steps": 1.0000000000000027,
+          "why_exact_duplicates_are_not_a_margin": "two breakpoints can be the SAME float, which happens when two resamples draw the same multiset of families or two quotients round alike. A duplicate is not a last-bit hazard: it is one candidate under every interpreter, so it is counted separately from the smallest gap between DISTINCT breakpoints, which is the margin a rounding difference could actually close",
+          "what_it_means": "a breakpoint this close to an endpoint, or this close to another breakpoint, makes the count of evaluated candidates a last-bit question, so the count is reproducible only because every float behind it is one portable summation of a committed column, and it is filed with its margins rather than alone. The p-value is not last-bit sensitive in the same way: the two p-values above differ by the filed number of resample steps, which is inside the documented p tolerance, so no verdict reads the membership decision"
+        },
         "mean_range": [
           0.08282828282828282,
           0.09292929292929292
@@ -1071,10 +1227,17 @@
           }
         },
         "closed_form_agrees_with_the_frozen_estimator": {
-          "mean": 0.09292929292929292,
-          "p": 0.0224,
-          "mean_matches": true,
-          "p_matches": true
+          "closed_form_mean": 0.09292929292929292,
+          "frozen_estimator_mean": 0.09292929292929292,
+          "mean_difference": 0.0,
+          "mean_tolerance": 1e-12,
+          "mean_agrees_within_that_tolerance": true,
+          "closed_form_p": 0.0224,
+          "frozen_estimator_p": 0.0224,
+          "p_difference": 0.0,
+          "p_tolerance": 0.0064,
+          "p_agrees_within_that_tolerance": true,
+          "why_not_exactness": "the two fields here used to be mean_matches and p_matches, both compared with <= 1e-12. For a mean that is a float tolerance. For a p-value it is not a tolerance at all: a bootstrap p can only move in steps of 2/n_resamples, which at 5,000 resamples is 0.0004, so that comparison demanded an agreement eight orders of magnitude tighter than the quantity's own granularity and could pass only where the two float paths to the same number happened to land on the same side of every zero crossing. Each quantity is now held to the tolerance documented for its kind, with the difference and the tolerance both filed"
         }
       },
       "ab_bound": {
@@ -1451,6 +1614,22 @@
         1.0
       ],
       "n_breakpoints_evaluated": 11,
+      "breakpoint_margins": {
+        "n_breakpoints_inside_the_range": 9,
+        "n_distinct_breakpoints_inside_the_range": 9,
+        "n_exact_duplicates": 0,
+        "smallest_gap_between_distinct_breakpoints": 0.010000000000001952,
+        "nearest_breakpoint_to_a_range_endpoint": 0.03000000000000169,
+        "the_endpoint_it_is_nearest_to": 0.0,
+        "its_distance_from_that_endpoint": 0.03000000000000169,
+        "float_tolerance": 1e-12,
+        "the_count_rests_on_a_margin_narrower_than_the_float_tolerance": false,
+        "nearest_breakpoint_p": 0.0068,
+        "nearest_endpoint_p": 0.0068,
+        "their_difference_in_resample_steps": 0.0,
+        "why_exact_duplicates_are_not_a_margin": "two breakpoints can be the SAME float, which happens when two resamples draw the same multiset of families or two quotients round alike. A duplicate is not a last-bit hazard: it is one candidate under every interpreter, so it is counted separately from the smallest gap between DISTINCT breakpoints, which is the margin a rounding difference could actually close",
+        "what_it_means": "a breakpoint this close to an endpoint, or this close to another breakpoint, makes the count of evaluated candidates a last-bit question, so the count is reproducible only because every float behind it is one portable summation of a committed column, and it is filed with its margins rather than alone. The p-value is not last-bit sensitive in the same way: the two p-values above differ by the filed number of resample steps, which is inside the documented p tolerance, so no verdict reads the membership decision"
+      },
       "mean_range": [
         -0.06012626262626262,
         -0.05760101010101009
@@ -1472,6 +1651,15 @@
         -0.01928598484848495
       ],
       "ci_envelope_is_a_bound_not_the_ci": true
+    },
+    "arithmetic_of_the_decomposition": {
+      "used": "an explicit left-to-right loop (_portable_sum)",
+      "portable_sum_of_the_family_column": -5.702499999999999,
+      "correctly_rounded_sum_of_the_same_column": -5.7025,
+      "their_difference": 8.881784197001252e-16,
+      "n_resample_intercepts_the_two_summations_disagree_on": 3683,
+      "n_resamples": 5000,
+      "why": "the two sums above are of one committed column of 99 floats and they are not the same float. The builtin sum() returns the first under CPython 3.10 and 3.11 and the second under CPython 3.12 and later, because 3.12 sums floats with Neumaier compensation, so the builtin is not portable in EITHER direction and is not used. The explicit loop is portable and is also what the frozen estimator computes under the certified interpreter, which is why this decomposition uses it: 3683 of the 5000 resample intercepts would be a different float under the correctly rounded summation, and at a zero crossing one such resample is one step of p. Reproduce the interpreter difference on any column of floats with: python3 -c \"import functools, math, operator; v=[0.1]*3+[0.2]*3+[1/3]*3; print(repr(functools.reduce(operator.add, v, 0.0)), repr(sum(v)), repr(math.fsum(v)))\""
     },
     "why_the_pooled_slope_is_a_quarter": "pooling averages the four models' family-level estimands, so one arm's missing score enters the pooled value for that family with coefficient -1/4 rather than -1; the bound is computed with that slope rather than the per-arm one",
     "what_it_shows": "the pooled sign is negative at 98 families and stays negative over the whole admissible range of the one label that is missing, so H5 is not an artifact of the exclusion either"
@@ -1593,9 +1781,9 @@
           ]
         },
         "p_over_the_whole_rubric": {
-          "worst": 0.0002,
-          "worst_at_score": 1.0,
-          "best": 0.0002,
+          "worst_p": 0.0002,
+          "worst_p_at_score": 1.0,
+          "best_p": 0.0002,
           "exceeds_alpha_anywhere": false,
           "smallest_score_whose_p_exceeds_alpha": null
         },
@@ -1630,9 +1818,9 @@
           ]
         },
         "p_over_the_whole_rubric": {
-          "worst": 0.0528,
-          "worst_at_score": 1.0,
-          "best": 0.0224,
+          "worst_p": 0.0528,
+          "worst_p_at_score": 1.0,
+          "best_p": 0.0224,
           "exceeds_alpha_anywhere": true,
           "smallest_score_whose_p_exceeds_alpha": 0.9000000000000011
         },
@@ -1667,9 +1855,9 @@
           ]
         },
         "p_over_the_whole_rubric": {
-          "worst": 0.0002,
-          "worst_at_score": 1.0,
-          "best": 0.0002,
+          "worst_p": 0.0002,
+          "worst_p_at_score": 1.0,
+          "best_p": 0.0002,
           "exceeds_alpha_anywhere": false,
           "smallest_score_whose_p_exceeds_alpha": null
         },
@@ -1706,9 +1894,9 @@
           ]
         },
         "p_over_the_whole_rubric": {
-          "worst": 0.0112,
-          "worst_at_score": 8.326672684688674e-17,
-          "best": 0.0048,
+          "worst_p": 0.0112,
+          "worst_p_at_score": 8.326672684688674e-17,
+          "best_p": 0.0048,
           "exceeds_alpha_anywhere": false,
           "smallest_score_whose_p_exceeds_alpha": null
         },

@@ -2,7 +2,7 @@
   "question": "can the family the differential exclusion cost be given back to the arms whose own providers did not refuse it",
   "produced_by": "scripts/iter11_adjudicate_sensitivity_cell.py",
   "kind": "iteration_11_sensitivity_labels_99f_v1",
-  "code_commit": "836d421e61d69f8ccf42ea7336aeb3b95ae49645",
+  "code_commit": "b287a6b9562ff2bb48fb1bc22e92023dbd8aefe6",
   "git_dirty": false,
   "code_dirty_paths": [],
   "untracked_code_paths": [],
@@ -11,7 +11,7 @@
     "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json"
   ],
   "excluded_cache_paths": [],
-  "generated_at": "2026-09-08T11:35:56+00:00",
+  "generated_at": "2026-09-08T19:05:56+00:00",
   "cell": "CMST_456921/text_only",
   "family": "CMST_456921",
   "variant": "text_only",
@@ -23,6 +23,13 @@
     "n": 2,
     "why": "a re-file is not a second measurement. The two calls were made once and their labels are filed; re-filing after a code commit rewrites the provenance block, not the evidence, so a filed label is reused wherever the request the frozen rule would send now hashes to the request that label answered",
     "bound_by": "request_hash, recomputed offline through the production call path with the transport stubbed",
+    "drawn_from": {
+      "path": "outputs/iteration_11/analysis/differential_censoring/call_receipts.sensitivity_99f.json",
+      "sha256": "8415394492c18dae52f6b77aad170cc506b956979d8647972a6b0dd1580c44b5",
+      "it_is_a_receipt": true,
+      "on_disk_when_filed": true,
+      "why_a_receipt_and_not_the_previous_artifact": "the previous version of this artifact is overwritten by the re-file that cites it, so a citation to it names bytes that stop existing at the moment of citation -- which is what happened, and the sha256 it produced resolves to nothing. A receipt is written once, refused thereafter, and committed before anything cites it, so the citation can be resolved by anyone"
+    },
     "refusals": {},
     "forced_fresh": false
   },
@@ -107,14 +114,17 @@
         "how": "LLMAdjudicator.adjudicate_item and MultimodalLLMJudge.judge run for real over the committed blinded item and the two committed primary judgments, with _call_api -- the only network call in the path -- replaced by a stub whose judgment is discarded. Nothing was sent; the hash is the one the real call would have carried"
       },
       "call_reused_from": {
-        "path": "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json",
-        "sha256": "2d00760c5035d9049d571a6517b2ffd7505d557ac630bf805c46a69d9bed268c",
-        "generated_at": "2026-09-08T11:04:10+00:00",
-        "code_commit": "fe455929575382e5e57e2346b271d095085d39ee",
-        "git_dirty_when_filed": false,
+        "path": "outputs/iteration_11/analysis/differential_censoring/call_receipts.sensitivity_99f.json",
+        "sha256": "8415394492c18dae52f6b77aad170cc506b956979d8647972a6b0dd1580c44b5",
+        "it_is_a_receipt": true,
+        "receipt_generated_at": "2026-09-08T18:40:56+00:00",
+        "receipt_code_commit": "5f24aa20bc478ffc69bc891cf4efba2ac122dc0c",
+        "n_calls_the_receipt_preserves": 2,
+        "extracted_from": "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json",
         "request_hash": "47a7dafd5e020eccad3a10ba77a2d7b48d9e66dbc8959846ac5043d957e13b62",
         "provider_response_id": "chatcmpl-0d71853f-cd0c-907b-80bd-749d9edd694d",
-        "bound_by": "the request hash recomputed from the committed blinded item and the two committed primary judgments, with the transport stubbed and nothing sent"
+        "bound_by": "the request hash recomputed from the committed blinded item and the two committed primary judgments, with the transport stubbed and nothing sent",
+        "how_the_citation_is_checked": "--verify resolves this path out of the git object store, hashes what it resolves, and requires that hash to equal the sha256 filed here. Which copy it resolved -- the blob a commit holds, or a working tree no commit holds yet -- is reported at verification time and deliberately NOT filed: a filed resolution goes stale the moment the file is committed, and a stale provenance statement is the defect this receipt exists to repair"
       },
       "call_reuse_refused": null,
       "ensemble_label": {
@@ -197,14 +207,17 @@
         "how": "LLMAdjudicator.adjudicate_item and MultimodalLLMJudge.judge run for real over the committed blinded item and the two committed primary judgments, with _call_api -- the only network call in the path -- replaced by a stub whose judgment is discarded. Nothing was sent; the hash is the one the real call would have carried"
       },
       "call_reused_from": {
-        "path": "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json",
-        "sha256": "2d00760c5035d9049d571a6517b2ffd7505d557ac630bf805c46a69d9bed268c",
-        "generated_at": "2026-09-08T11:04:10+00:00",
-        "code_commit": "fe455929575382e5e57e2346b271d095085d39ee",
-        "git_dirty_when_filed": false,
+        "path": "outputs/iteration_11/analysis/differential_censoring/call_receipts.sensitivity_99f.json",
+        "sha256": "8415394492c18dae52f6b77aad170cc506b956979d8647972a6b0dd1580c44b5",
+        "it_is_a_receipt": true,
+        "receipt_generated_at": "2026-09-08T18:40:56+00:00",
+        "receipt_code_commit": "5f24aa20bc478ffc69bc891cf4efba2ac122dc0c",
+        "n_calls_the_receipt_preserves": 2,
+        "extracted_from": "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json",
         "request_hash": "425f9e7490dc2ee0b922d8c919bae948f73d9e3f6ff9d89ebead76c7a6c02b08",
         "provider_response_id": "chatcmpl-e17a67d9-20a1-9158-b215-2091f8cf2584",
-        "bound_by": "the request hash recomputed from the committed blinded item and the two committed primary judgments, with the transport stubbed and nothing sent"
+        "bound_by": "the request hash recomputed from the committed blinded item and the two committed primary judgments, with the transport stubbed and nothing sent",
+        "how_the_citation_is_checked": "--verify resolves this path out of the git object store, hashes what it resolves, and requires that hash to equal the sha256 filed here. Which copy it resolved -- the blob a commit holds, or a working tree no commit holds yet -- is reported at verification time and deliberately NOT filed: a filed resolution goes stale the moment the file is committed, and a stale provenance statement is the defect this receipt exists to repair"
       },
       "call_reuse_refused": null,
       "ensemble_label": {
