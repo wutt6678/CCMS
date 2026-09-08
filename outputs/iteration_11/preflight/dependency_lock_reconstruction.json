@@ -1,0 +1,49 @@
+{
+  "question": "which environment was this evidence certified against, and could another machine build it",
+  "produced_by": "scripts/iter11_write_dependency_lock.py",
+  "kind": "iteration_11_dependency_lock_reconstruction_v1",
+  "code_commit": "4ca507730ba08ff70f66338fd183689e41290323",
+  "git_dirty": false,
+  "code_dirty_paths": [],
+  "untracked_code_paths": [],
+  "excluded_own_outputs": [],
+  "excluded_cache_paths": [],
+  "generated_at": "2026-09-08T04:14:42+00:00",
+  "lock_path": "outputs/iteration_11/preflight/resolved_models.lock.yaml",
+  "dependency_lock_sha256": "a5669f63da97c193e1aa0f486cf04be2bbbb967bef8da47744bde2f5aecb5e96",
+  "freeze_path": "outputs/iteration_11/preflight/dependency_freeze.lock.txt",
+  "freeze_sha256": "c03a5800ca95b02003c97f35c25db744c357f6d35b216c4836b8cb32e9f91014",
+  "recorded_pip_freeze_sha256": "c03a5800ca95b02003c97f35c25db744c357f6d35b216c4836b8cb32e9f91014",
+  "freeze_is_the_preimage_of_the_recorded_hash": true,
+  "n_packages": 100,
+  "recorded_n_packages": 100,
+  "python_version": "3.10.20",
+  "recorded_python_version": "3.10.20",
+  "pyproject_sha256": "d069e296edb0d6741f5d49ef7bdd48ff3c8d69a3316127ed9c7305e41fac8458",
+  "excluded_self_distributions": [
+    "causal-mllm"
+  ],
+  "numeric_packages": {
+    "numpy": "2.2.6",
+    "scipy": "1.15.3",
+    "torch": "2.8.0",
+    "pandas": "2.3.3"
+  },
+  "numeric_packages_named": [
+    "numpy",
+    "scipy",
+    "torch",
+    "pandas"
+  ],
+  "recreate_with": "conda create -n ccms-iter11 python=3.10.20 -y && conda activate ccms-iter11 && pip install -r outputs/iteration_11/preflight/dependency_freeze.lock.txt && pip install -e .",
+  "packages_whose_freeze_line_omits_a_local_version_segment": {
+    "torch": {
+      "freeze": "2.8.0",
+      "observed_by_the_preflight": "2.8.0+cu128",
+      "what_pip_install_r_would_fetch": "the default-index build of torch==2.8.0, not the 2.8.0+cu128 the preflight observed"
+    }
+  },
+  "reconstructible_from_the_freeze_alone": false,
+  "recreate_caveat": "pip install -r this freeze installs the DEFAULT-INDEX build of torch (2.8.0, where the preflight observed 2.8.0+cu128). pip freeze drops a version's local segment, so the CUDA build the evidence was actually produced under is not expressible in this file and has to be installed from the index it came from before the rest of the freeze is applied",
+  "why": "a lock that stores only a hash can be compared against but never rebuilt, so another machine could test whether it somehow possessed the certified environment and could not create it. That mattered: the exact-equality verifiers are unusable anywhere else, and the floating-point differences they report are a property of the interpreter that summed them. Committing the preimage of the already-bound hash makes the same environment reconstructible without moving any hash"
+}

@@ -499,3 +499,149 @@ class TestOneStandardGovernsEveryComparison:
         assert artifact["reproduction_check"]["tolerance"] \
             == reproduction.FLOAT_TOLERANCE
 
+
+
+# ---------------------------------------------------------------------------
+# The committed environment
+# ---------------------------------------------------------------------------
+
+RECORDED_FREEZE_SHA256 = (
+    "c03a5800ca95b02003c97f35c25db744c357f6d35b216c4836b8cb32e9f91014")
+RECORDED_N_PACKAGES = 100
+RECORDED_PYTHON = "3.10.20"
+RECORDED_NUMERIC_PACKAGES = {"numpy": "2.2.6", "scipy": "1.15.3",
+                             "torch": "2.8.0", "pandas": "2.3.3"}
+#: What the filed preflights observed, and what ``pip freeze`` could say about
+#: it. The gap is the reason the reconstruction report exists separately from
+#: the freeze text.
+TORCH_LOCAL_SEGMENT = "2.8.0+cu128"
+MODEL_KEYS = ("ministral3_3b", "phi4_mm", "qwen35_2b", "qwen35_4b")
+
+
+def _freeze_lines() -> list[str]:
+    assert WORLD_FREEZE.exists(), \
+        f"{WORLD_FREEZE} is the committed preimage of the lock's " \
+        f"pip_freeze_sha256; without it the certified environment can be " \
+        f"recognised but not rebuilt"
+    raw = WORLD_FREEZE.read_bytes()
+    assert not raw.endswith(b"\n"), \
+        "a trailing newline would make the file's own bytes hash to something " \
+        "other than what it lists"
+    return raw.decode("utf-8").split("\n")
+
+
+def _reconstruction_report() -> dict:
+    assert WORLD_REPORT.exists(), \
+        f"{WORLD_REPORT} is what says which script filed the freeze and how to " \
+        f"recreate the environment from it"
+    return json.loads(WORLD_REPORT.read_text(encoding="utf-8"))
+
+
+class TestTheCommittedFreezeIsTheEnvironmentTheEvidenceWasMadeIn:
+    def test_its_bytes_hash_to_the_value_every_artifact_already_binds(self):
+        lines = _freeze_lines()
+        assert len(lines) == RECORDED_N_PACKAGES
+        assert hashlib.sha256(
+            freeze_text(lines).encode("utf-8")).hexdigest() \
+            == RECORDED_FREEZE_SHA256
+        lock = yaml.safe_load(WORLD_LOCK.read_text(encoding="utf-8"))
+        assert lock["dependency_lock"]["pip_freeze_sha256"] \
+            == RECORDED_FREEZE_SHA256
+        assert lock["dependency_lock"]["n_packages"] == RECORDED_N_PACKAGES
+        assert lock["dependency_lock"]["python_version"] == RECORDED_PYTHON
+
+    def test_the_four_preflight_artifacts_bind_the_same_environment(self):
+        # The point of filing the preimage: it has to be the environment the
+        # EVIDENCE was certified in, not merely the one on this machine today.
+        for model_key in MODEL_KEYS:
+            artifact = json.loads(
+                (ROOT / "outputs" / "iteration_11" / "preflight" / model_key
+                 / "preflight.json").read_text(encoding="utf-8"))
+            assert artifact["environment"]["pip_freeze_sha256"] \
+                == RECORDED_FREEZE_SHA256, model_key
+            assert artifact["environment"]["n_packages"] \
+                == RECORDED_N_PACKAGES, model_key
+            assert artifact["lock"]["dependency_lock"]["pip_freeze_sha256"] \
+                == RECORDED_FREEZE_SHA256, model_key
+
+    def test_it_is_installable_and_carries_no_line_for_this_repository(self):
+        for line in _freeze_lines():
+            name, sep, version = line.partition("==")
+            assert sep and name and version and " " not in line, \
+                f"{line!r} is not a name==version line, so pip install -r " \
+                f"would not accept this file"
+            assert "causal-mllm" not in line, \
+                f"{line!r} is this project's own distribution, whose freeze " \
+                f"line embeds this repository's live HEAD and would make the " \
+                f"committed file move on every commit"
+
+    def test_it_names_the_packages_that_move_a_floating_point_result(self):
+        lines = _freeze_lines()
+        assert dict(line.split("==") for line in lines
+                    if line.split("==")[0] in RECORDED_NUMERIC_PACKAGES) \
+            == RECORDED_NUMERIC_PACKAGES
+
+    def test_the_verifier_accepts_the_committed_pair(self):
+        result = verify_committed_freeze(WORLD_FREEZE, WORLD_LOCK)
+        assert result["issues"] == []
+        assert result["matches_recorded_hash"] is True
+        assert result["matches_recorded_count"] is True
+        assert result["reconstructs_the_certified_environment"] is True
+        assert producer.verify(WORLD_LOCK) == 0
+
+
+class TestTheReconstructionReportSaysWhatTheTextCannot:
+    def test_it_binds_the_same_hash_and_names_its_producer(self):
+        report = _reconstruction_report()
+        assert report["produced_by"] == \
+            "scripts/iter11_write_dependency_lock.py"
+        assert report["freeze_sha256"] == RECORDED_FREEZE_SHA256
+        assert report["recorded_pip_freeze_sha256"] == RECORDED_FREEZE_SHA256
+        assert report["freeze_is_the_preimage_of_the_recorded_hash"] is True
+        assert report["n_packages"] == RECORDED_N_PACKAGES
+        assert report["python_version"] == RECORDED_PYTHON
+        assert report["numeric_packages"] == RECORDED_NUMERIC_PACKAGES
+
+    def test_it_was_filed_from_a_clean_tree_at_an_immutable_commit(self):
+        from causal_mllm.replay.registry import is_immutable_revision
+        report = _reconstruction_report()
+        assert is_immutable_revision(report["code_commit"]), \
+            f"code_commit {report['code_commit']!r} is not a 40-hex SHA"
+        assert report["git_dirty"] is False
+        assert report["code_dirty_paths"] == []
+        assert report["untracked_code_paths"] == []
+
+    def test_it_binds_the_lock_digest_the_gates_compare_against(self):
+        from causal_mllm.replay.registry import dependency_lock_sha256
+        report = _reconstruction_report()
+        assert report["dependency_lock_sha256"] \
+            == dependency_lock_sha256(WORLD_LOCK)
+
+    def test_it_records_the_one_thing_a_freeze_line_cannot_say(self):
+        # pip freeze reports torch 2.8.0+cu128 as torch==2.8.0. Following the
+        # recreate command literally would install the default-index build, so
+        # the report has to say so rather than let the command look complete.
+        report = _reconstruction_report()
+        gaps = report[
+            "packages_whose_freeze_line_omits_a_local_version_segment"]
+        assert sorted(gaps) == ["torch"]
+        assert gaps["torch"]["freeze"] == RECORDED_NUMERIC_PACKAGES["torch"]
+        assert gaps["torch"]["observed_by_the_preflight"] \
+            == TORCH_LOCAL_SEGMENT
+        assert report["reconstructible_from_the_freeze_alone"] is False
+        assert "pip freeze drops a version's local segment" \
+            in report["recreate_caveat"]
+
+    def test_the_preflight_artifacts_are_where_the_gap_was_measured(self):
+        for model_key in MODEL_KEYS:
+            artifact = json.loads(
+                (ROOT / "outputs" / "iteration_11" / "preflight" / model_key
+                 / "preflight.json").read_text(encoding="utf-8"))
+            assert artifact["environment"]["observed_versions"]["torch"] \
+                == TORCH_LOCAL_SEGMENT, model_key
+
+    def test_the_recreate_command_names_the_interpreter_and_the_file(self):
+        report = _reconstruction_report()
+        assert RECORDED_PYTHON in report["recreate_with"]
+        assert "pip install -r" in report["recreate_with"]
+        assert report["freeze_path"] in report["recreate_with"]
