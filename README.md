@@ -1385,6 +1385,8 @@ python3 scripts/iter11_cross_model_analysis.py --verify       # 11.8 verdicts, r
 python3 scripts/iter11_correct_exclusion_metadata.py --verify # the exclusion rename, and the 21 sealed artifacts it does not reach
 python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify # the restored cell's label: no calls, no credentials
 python3 scripts/iter11_differential_censoring_bound.py --verify # what the missing label could have cost, re-derived
+python3 scripts/iter11_transportability_decision.py --verify   # the sign-transport call, derived not declared
+python3 scripts/iter11_closeout_evidence_manifest.py --verify  # the closeout, rebuilt from the files on disk
 ```
 
 `iter11_replay_checks.py` used to be the exception to that sentence, and finding
@@ -1461,11 +1463,15 @@ soft 0 either: a check that could not run is not a check that passed, and
 exiting 0 would let a machine that holds none of the media claim to have
 verified the media's identity.
 
-Two things reach it. A section whose evidence lives outside the repository —
+Three things reach it. A section whose evidence lives outside the repository —
 `data/media`, which is gitignored apart from 20 individually negated source
-images — is recorded as `verifiable_here: false` and named. And a numeric
+images — is recorded as `verifiable_here: false` and named. A numeric
 comparison that needed the documented tolerance exits 3 and names the deviation
-that licensed it, rather than exiting 0 and looking like the stronger claim.
+that licensed it, rather than exiting 0 and looking like the stronger claim. And
+a checkout that has the files but not the history — an export, a tarball, the
+anonymous reproducibility package — can say that every hash on disk is sound and
+that it cannot say whether those files are the committed ones, which is a true
+statement about the checkout rather than either of the two flattering ones.
 What never reaches it is a genuine failure: a finding outranks incompleteness,
 because a checkout without the media can still find a leak in a payload or a
 prompt, and reporting that as merely incomplete would bury it.
@@ -1922,6 +1928,110 @@ python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify   # no calls, no 
 python3 scripts/iter11_differential_censoring_bound.py --verify  # re-derives the whole bound
 python3 scripts/iter11_adjudicate_sensitivity_cell.py --write    # re-file; spends a call only
                                                                 # where no filed one answers
+```
+
+### The transportability decision is filed, not left to a table
+
+The Iteration 10 result is a positive Δ<sub>TV</sub> in Qwen3.5-9B: multimodal censoring
+cost the model something, and the direction of that cost was the finding. Iteration 11
+replayed the same frozen panel through four more targets and asked, as its confirmatory
+family, whether the sign holds in each. It holds in one.
+
+[`iteration_11_transportability_decision.json`](outputs/iteration_11/closeout/iteration_11_transportability_decision.json)
+files that as **`model_specific_not_generally_transported`** with the measurement attached.
+One of four targets — `qwen35_4b`, +0.0932 — carries the reference sign; `ministral3_3b`
+(−0.1310), `phi4_mm` (−0.0508) and `qwen35_2b` (−0.1467) reverse it, each with the verdict
+`refuted` rather than `inconclusive`. The rule is stated before the count is taken:
+*generally transported* requires **every** target tested to carry the reference sign, so
+one reversal decides it, because a proportion of four hand-picked models is not a rate over
+a population of them.
+
+It is its own artifact for two reasons. It is the claim a reader is most likely to
+over-generalise from — "multimodal censoring hurts safety" is the sentence the 9B result
+invites and the four-target result refuses — and a claim only implied by a table gets
+restated in prose without its denominator. And it is the claim the differential-censoring
+bound has to be robust for, so both are filed where they can be compared.
+
+**Nothing in it is transcribed.** Every number is read out of `cross_model_analysis.json`
+and `differential_censoring_bound.json`, the call is derived from the sign comparison, and
+a filing whose own inputs would support the opposite call exits 1 rather than writing. It
+carries no timestamp, no commit and no tree state, so `--verify` rebuilds the whole
+document and compares it — including the sentence a paper would quote, which is generated
+from the counts it states and refused if it drifts from them.
+
+Two traps in this evidence are named in the artifact because the first draft of the stage
+fell into the first one:
+
+* **`for_every_admissible_score` asks about matching, not about flipping.** The bound's
+  field is False in exactly the three targets that reverse, so reading that column alone
+  says "three of four failed to survive the sensitivity" when it says the opposite: the
+  reversal holds at every score the missing label could have taken. Whether a sign *can*
+  flip is a separate question, answered from the mean's range over the rubric — and in all
+  four targets that range lies entirely on one side of zero, which is what makes the
+  decision survive the exclusion rather than depend on it.
+* **The two means are over different panels and do not nest.** The per-target mean is a
+  bootstrap mean over 98 families; the bound's range is a point mean over 99, the same
+  panel with the one differentially missing cell restored. Different numerator, different
+  denominator, one of them resampled — so for `qwen35_4b` the 98-family mean (+0.09319)
+  sits *above* the whole 99-family range (+0.08283 to +0.09293). That is filed with its
+  distance and its explanation rather than left for a reader to find as an arithmetic
+  error, and what the decision rests on is that both carry the same sign.
+
+It also says what it is not: it does not say the 9B result is wrong, does not say the
+effect is absent in the reversing targets (each has a significantly *negative* Δ<sub>TV</sub>,
+which is a finding in the opposite direction and is reported as one), does not name a
+mechanism — four targets and one reference cannot separate scale from family from training
+mixture — and does not license pooling five signs into a rate.
+
+```
+python3 scripts/iter11_transportability_decision.py --verify   # re-derives the whole document
+python3 scripts/iter11_transportability_decision.py --write    # re-file from the two analyses
+```
+
+### Iteration 11 closeout: the evidence manifest binds hashes, not history
+
+[`iteration_11_evidence_manifest.json`](outputs/iteration_11/closeout/iteration_11_evidence_manifest.json)
+is the closeout, and it differs from Scale-C's in one deliberate way. Scale-C bound each
+artifact by SHA-256 **and** by the commit that last touched it. That second binding is a
+property of the checkout that wrote the manifest: a document carrying it cannot be
+re-derived exactly anywhere else, and on a fresh clone the recorded commits may not be
+present at all, leaving the verifier to choose between failing a correct checkout for its
+history and silently dropping the claim.
+
+This one binds `path`, `sha256` and `bytes`, and nothing else. `--verify` therefore
+**rebuilds the entire document** from the files on disk and compares it against what is
+filed, rather than walking a list of fields somebody remembered to exclude from the
+comparison. Committed-ness is still checked — every bound file is resolved as a blob at
+`HEAD` and hashed there too, in one `ls-tree` and one `cat-file --batch` rather than two
+subprocesses per file — but as a *separate* claim, so a checkout with the files and no
+history reports exit 3 instead of exit 1.
+
+The bound set is **discovered, not listed**: every tracked file under
+`outputs/iteration_11/`, every `scripts/iter11_*.py`, every `tests/unit/test_iter11_*.py`,
+plus the eight library modules those verifiers import. The discovery repeats at
+verification time wherever an object store exists, so a file committed under a bound tree
+and left out of the manifest is a finding — the manifest stops being the closeout it claims
+to be — and a new stage in this iteration is bound by being committed rather than by being
+remembered.
+
+It also states what it does **not** bind. It cannot bind itself, so its integrity is the
+re-derivation: tampering with the manifest is tampering with a claim the bound files then
+contradict. It does not bind the media, because `data/media` is gitignored and no manifest
+committed here can bind bytes that are not in the repository — the
+[`media_manifest.json`](outputs/iteration_11/media_manifest.json) binds those 3,034 files by
+hash instead, and is itself bound here, which is why a checkout without the images can still
+verify everything committed and reports the media section as not verifiable here. And it
+binds no commit and no tree state, because those are properties of the machine that wrote
+it; the clean-tree precondition is enforced once, at generation, where it can still be
+enforced.
+
+Each of the eight entry points it files is checked to resolve inside the bound set and to
+name a verifier that really implements `--verify`. A pointer to a verifier with no verify
+mode is the same kind of claim as a citation to a commit nobody can reach.
+
+```
+python3 scripts/iter11_closeout_evidence_manifest.py --verify   # 0, or 3 without an object store
+python3 scripts/iter11_closeout_evidence_manifest.py --write    # from a clean tree only
 ```
 
 ## Schema Reports
