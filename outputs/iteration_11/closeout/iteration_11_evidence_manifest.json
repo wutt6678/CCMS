@@ -3,8 +3,8 @@
   "produced_by": "scripts/iter11_closeout_evidence_manifest.py",
   "question": "what is the evidence for Iteration 11, by hash, and can this checkout say so",
   "n_bound": 197,
-  "total_bytes": 52543152,
-  "rollup_sha256": "14cc5733a862ba59b3a122145bcd1174412956842d378a82feba11651e3e915c",
+  "total_bytes": 52560117,
+  "rollup_sha256": "f7b1561124d5c02e87679e46c5faf67c8c21446f6d8ba620bc0d72e9c137fa3d",
   "n_by_role": {
     "binding_for_the_untracked_media": 1,
     "closeout": 1,
@@ -896,8 +896,8 @@
     },
     {
       "path": "scripts/iter11_adjudicate_sensitivity_cell.py",
-      "sha256": "e0ac733c97e4e7492011128d9fd7475c09f7fbc4f3e377933a68280fdf055a11",
-      "bytes": 86591,
+      "sha256": "461097917e90442b86eed314ddab234008ce6780a2cb277bd48cd91fb425d557",
+      "bytes": 90389,
       "role": "verifier_or_generator"
     },
     {
@@ -926,8 +926,8 @@
     },
     {
       "path": "scripts/iter11_cross_model_analysis.py",
-      "sha256": "19d982823a419faed5d076bbf28fecc53143d134de3b02f2a1ad94a10a2498fe",
-      "bytes": 53408,
+      "sha256": "efcb1f3468d304070a4ab0de74091cec391d6b2e6c9ce558d673566c5133d54c",
+      "bytes": 53350,
       "role": "verifier_or_generator"
     },
     {
@@ -968,8 +968,8 @@
     },
     {
       "path": "scripts/iter11_reference_restriction.py",
-      "sha256": "b6aa81902dc56fbf82bf39c4624dc2bf39b6791bcab27259ad9b2a760bd4c4eb",
-      "bytes": 19955,
+      "sha256": "5f97ed5dc782360ab499aba48c0e90054b5beafaf50e7c424a592c88d4be526f",
+      "bytes": 19901,
       "role": "verifier_or_generator"
     },
     {
@@ -1046,8 +1046,8 @@
     },
     {
       "path": "src/causal_mllm/replay/reproduction.py",
-      "sha256": "1e08e032a5bea3473078f5ddeff2f132fbfa59ebb51712ecd3638a49365f2d20",
-      "bytes": 21723,
+      "sha256": "d602628c1e339b07d9bdeeec98a7c0d387f0d9ded9f1c29859e2021ad11786cb",
+      "bytes": 23413,
       "role": "library_the_verifiers_import"
     },
     {
@@ -1064,8 +1064,8 @@
     },
     {
       "path": "tests/unit/test_environment_reconstructibility.py",
-      "sha256": "61116450111a2bffe33d89c9f5a07f5b63c1085159e88d2a7616b9c7f677779e",
-      "bytes": 55419,
+      "sha256": "87656cd03da46ea5c89d0dfaeab53e679213e3cff325ab6a0211251775f672f9",
+      "bytes": 58948,
       "role": "test"
     },
     {
@@ -1082,8 +1082,8 @@
     },
     {
       "path": "tests/unit/test_iter11_closeout_evidence_manifest.py",
-      "sha256": "7d3edc044ff184a9f133f05d6e2eca1fe97b3bf3fc38d373e0af1f189db50934",
-      "bytes": 31285,
+      "sha256": "54ac45795d3c92fa61de3dceb9399614c4c15596be8393ded7cac52ee8040083",
+      "bytes": 31494,
       "role": "test"
     },
     {
@@ -1106,8 +1106,8 @@
     },
     {
       "path": "tests/unit/test_iter11_differential_censoring.py",
-      "sha256": "202930d23930f2c9c0f2929235b2ca38fa1444a28aeb380bbd9e6370f97c1f38",
-      "bytes": 104597,
+      "sha256": "fedf2caf39603be361130953a17dd54bb1b7d58a02f77497b7edc0ba8d724e53",
+      "bytes": 112448,
       "role": "test"
     },
     {
