@@ -1592,6 +1592,24 @@ not evidence that it deviates. A verification that needed the tolerance exits 3
 and names what licensed it, rather than exiting 0 and looking like the stronger
 claim:
 
+That rule was not holding, and the reason was one hyphen.
+`excluded_self_distributions` is a lock identity field, and pip reports this
+project's own distribution as either `causal-mllm` or `causal_mllm` depending on
+which of pip, setuptools or the build backend rendered it. The lock recorded one
+spelling and the live snapshot produced the other, so the certified environment
+compared against its own lock and was found to deviate: same interpreter, same
+executable, same `pip_freeze_sha256`, same `n_packages`. That is the worst
+direction for the error to fail in, because a demonstrated deviation is what
+licenses the tolerance — so every re-deriving gate was tolerating floats inside
+the one environment where exactness was available and was the point. The field
+is now compared up to PEP 503 name normalization, which folds `[-_.]+` to `-`
+and lowercases, and the spelling move is recorded in `informational_differences`
+with the reason attached rather than dropped: it names the distribution the
+snapshot EXCLUDES, so neither spelling is in the hashed package list and no
+spelling of it can move a result. No other identity field is compared loosely —
+normalizing `pip_freeze_sha256` would certify a different package list, which is
+the whole lock.
+
 ```
 $ python3 scripts/iter11_cross_model_analysis.py --verify             # 3.10.20
 VERIFY PASS: outputs/iteration_11/analysis/cross_model/cross_model_analysis.json -- reproduced exactly

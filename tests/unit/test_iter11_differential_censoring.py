@@ -979,7 +979,7 @@ class TestARefileSpendsNoCalls:
             raise AssertionError(f"a live call was made for {arm}")
 
         monkeypatch.setattr(adjudicator, "adjudicate", _no_calls)
-        doc = adjudicator.build(reuse_from=SENSITIVITY_ARTIFACT)
+        doc = adjudicator.build()
         assert doc["n_live_calls"] == 0
         assert doc["n_reused_calls"] == 2
         assert doc["call_failures"] == []
@@ -993,14 +993,37 @@ class TestARefileSpendsNoCalls:
             assert reused["request_hash"] == \
                 entry["call_provenance"]["request_hash"]
             assert reused["sha256"]
-            assert reused["path"].endswith(
-                "labels_adjudicated.sensitivity_99f.json")
+            assert reused["it_is_a_receipt"] is True
+            assert reused["path"] == adjudicator._rel(adjudicator.RECEIPT_PATH)
+
+    def test_drawing_on_this_stages_own_output_is_refused_before_the_write(
+            self, monkeypatch, capsys):
+        """The shape that produced the unusable citation, refused at the source.
+
+        Drawing on the artifact is not wrong because the labels in it are bad --
+        they are the same labels the receipt holds. It is wrong because the
+        re-file overwrites that file, so the sha256 filed beside the reuse names
+        bytes that stop existing at the moment of citation. --verify refuses the
+        document afterwards; refusing here instead is what keeps a re-file that
+        cannot be verified from replacing one that can.
+        """
+        monkeypatch.setattr(adjudicator, "adjudicate",
+                            lambda arm: pytest.fail("unexpected call"))
+        with pytest.raises(SystemExit) as exc:
+            adjudicator.build(reuse_from=SENSITIVITY_ARTIFACT)
+        assert exc.value.code == 2, (
+            "2 is 'could not proceed, wrote nothing'; 1 would say the frozen "
+            "rule disagreed, which sends a reader to the wrong half of the "
+            "artifact")
+        err = capsys.readouterr().err
+        assert "this stage's own output" in err
+        assert adjudicator._rel(adjudicator.RECEIPT_PATH) in err
 
     def test_the_two_arms_that_need_no_call_still_need_none(self, monkeypatch,
                                                             filed_sensitivity):
         monkeypatch.setattr(adjudicator, "adjudicate",
                             lambda arm: pytest.fail("unexpected call"))
-        doc = adjudicator.build(reuse_from=SENSITIVITY_ARTIFACT)
+        doc = adjudicator.build()
         assert doc["per_arm"]["qwen35_4b"]["adjudicated_by"] == \
             "primary_agreement"
         assert doc["per_arm"]["qwen35_4b"]["call_reused_from"] is None
@@ -1023,8 +1046,7 @@ class TestARefileSpendsNoCalls:
             }
 
         monkeypatch.setattr(adjudicator, "adjudicate", _fake)
-        doc = adjudicator.build(fresh_calls=True,
-                               reuse_from=SENSITIVITY_ARTIFACT)
+        doc = adjudicator.build(fresh_calls=True)
         assert sorted(made) == sorted(ADJUDICATED_ARMS)
         assert doc["n_live_calls"] == 2
         assert doc["n_reused_calls"] == 0
@@ -1046,8 +1068,7 @@ class TestARefileSpendsNoCalls:
 
         monkeypatch.setattr(adjudicator, "adjudicate", _drifted)
         with pytest.raises(SystemExit) as exc:
-            adjudicator.build(fresh_calls=True,
-                              reuse_from=SENSITIVITY_ARTIFACT)
+            adjudicator.build(fresh_calls=True)
         assert exc.value.code == 1
         err = capsys.readouterr().err
         assert "offline" in err and "unsound" in err
@@ -1074,7 +1095,7 @@ class TestARefileSpendsNoCalls:
 
         monkeypatch.setattr(adjudicator, "reusable_call", _refuse)
         monkeypatch.setattr(adjudicator, "adjudicate", _fake)
-        doc = adjudicator.build(reuse_from=SENSITIVITY_ARTIFACT)
+        doc = adjudicator.build()
         assert doc["n_reused_calls"] == 0
         assert doc["n_live_calls"] == 2
         refusals = doc["calls_reused_rather_than_remade"]["refusals"]
@@ -1107,8 +1128,7 @@ class TestARefileSpendsNoCalls:
             raise RuntimeError("HTTP 400 data_inspection_failed")
 
         monkeypatch.setattr(adjudicator, "adjudicate", _refused)
-        doc = adjudicator.build(fresh_calls=True,
-                               reuse_from=SENSITIVITY_ARTIFACT)
+        doc = adjudicator.build(fresh_calls=True)
         assert len(doc["call_failures"]) == 2
         assert doc["n_live_calls"] == 0
         for arm in ADJUDICATED_ARMS:
@@ -1121,8 +1141,8 @@ class TestARefileSpendsNoCalls:
         """Two re-files agree on everything but the clock and the tree."""
         monkeypatch.setattr(adjudicator, "adjudicate",
                             lambda arm: pytest.fail("unexpected call"))
-        first = adjudicator.build(reuse_from=SENSITIVITY_ARTIFACT)
-        second = adjudicator.build(reuse_from=SENSITIVITY_ARTIFACT)
+        first = adjudicator.build()
+        second = adjudicator.build()
         volatile = {"generated_at", "code_commit", "git_dirty",
                     "code_dirty_paths", "untracked_code_paths",
                     "excluded_own_outputs", "excluded_cache_paths"}
@@ -1163,7 +1183,7 @@ class TestVerifyAcceptsWhatWasFiled:
     def test_a_refile_of_it_verifies(self, monkeypatch, filed_sensitivity):
         monkeypatch.setattr(adjudicator, "adjudicate",
                             lambda arm: pytest.fail("unexpected call"))
-        doc = adjudicator.build(reuse_from=SENSITIVITY_ARTIFACT)
+        doc = adjudicator.build()
         assert doc["n_live_calls"] == 0
         path = SENSITIVITY_ARTIFACT.parent / ".verify_roundtrip.json"
         try:

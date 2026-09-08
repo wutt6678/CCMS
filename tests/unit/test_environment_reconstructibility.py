@@ -46,7 +46,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from causal_mllm.replay import reproduction
+from causal_mllm.replay import registry, reproduction
 from causal_mllm.replay.registry import freeze_text, verify_committed_freeze
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -477,6 +477,164 @@ class TestTheToleranceIsLicensedByADemonstratedDeviationOnly:
         assert deviation["recorded_python_version"] == "3.10.20"
         assert isinstance(deviation["deviates"], bool)
         assert isinstance(deviation["package_set_comparable"], bool)
+
+
+class TestTheCertifiedEnvironmentIsNotCertifiedAgainstItself:
+    """A hyphen was licensing the numeric tolerance where it must not be.
+
+    ``excluded_self_distributions`` is in :data:`registry.LOCK_IDENTITY_FIELDS`,
+    and pip reports this project's own distribution as either ``causal-mllm`` or
+    ``causal_mllm`` depending on which of pip, setuptools or the build backend
+    rendered it. The lock recorded one spelling and the active snapshot produced
+    the other, so the certified environment was compared against its own lock
+    and found to deviate -- same interpreter, same executable, same
+    ``pip_freeze_sha256``, same ``n_packages``, one hyphen.
+
+    That is the worst direction for the error to fail in. A demonstrated
+    deviation is what LICENSES the numeric tolerance, so every re-deriving gate
+    was tolerating floats inside the one environment where the last bit is
+    reproducible and a difference is a defect -- the exact rule the tolerance
+    exists to protect.
+    """
+
+    def test_a_distribution_name_is_one_name_under_pep_503(self):
+        for spelling in ("causal_mllm", "causal-mllm", "Causal.MLLM",
+                         "causal__mllm"):
+            assert registry._normalized_distribution_name(spelling) \
+                == "causal-mllm"
+
+    def test_a_spelling_move_is_recorded_and_is_not_a_difference(self):
+        difference = registry._identity_difference(
+            "excluded_self_distributions", ["causal-mllm"], ["causal_mllm"])
+        assert difference["locked"] == ["causal-mllm"]
+        assert difference["active"] == ["causal_mllm"]
+        assert "PEP 503" in difference["why_not_a_difference"]
+        assert "EXCLUDES" in difference["why_not_a_difference"], (
+            "the reason has to say why this field of all fields is safe to "
+            "normalize: it names what is NOT in the hashed package list")
+
+    def test_no_other_identity_field_is_compared_loosely(self):
+        # The normalization is a fact about one field. Applied to the hash it
+        # would certify a different package list, which is the whole lock.
+        assert registry._identity_difference(
+            "excluded_self_distributions", ["causal-mllm"], ["causal-mllm"]) \
+            is None
+        for name, locked, active in (
+                ("pip_freeze_sha256", "a" * 64, "b" * 64),
+                ("n_packages", 100, 99),
+                ("python_version", "3.10.20", "3.12.13"),
+                ("pyproject_sha256", "a" * 64, "b" * 64),
+                ("excluded_self_distributions", ["causal-mllm"],
+                 ["causal-mllm", "something-else"])):
+            difference = registry._identity_difference(name, locked, active)
+            assert difference == {"locked": locked, "active": active}, name
+            assert "why_not_a_difference" not in difference, name
+
+    def test_a_lock_differing_only_by_that_spelling_verifies(self, tmp_path):
+        """End to end, and machine-independent: the lock is built from the
+        snapshot of whatever environment is running the test."""
+        snapshot = registry.dependency_lock_snapshot()
+        names = list(snapshot["excluded_self_distributions"])
+        if not names:
+            pytest.skip("this environment excludes no self distribution, so "
+                        "there is no spelling for the lock to disagree about")
+        respelled = dict(snapshot, excluded_self_distributions=[
+            n.replace("_", "-") if "_" in n else n.replace("-", "_")
+            for n in names])
+        assert respelled["excluded_self_distributions"] != names
+        lock = tmp_path / "resolved_models.lock.yaml"
+        lock.write_text(yaml.safe_dump({"dependency_lock": respelled}),
+                        encoding="utf-8")
+        result = registry.verify_active_dependency_lock(lock, strict=False)
+        assert result["differences"] == {}, (
+            "a respelling of the excluded distribution was counted as a "
+            "difference in what is installed")
+        info = result["informational_differences"][
+            "excluded_self_distributions"]
+        assert sorted(info["active"]) == names
+        assert sorted(info["locked"]) == sorted(
+            respelled["excluded_self_distributions"])
+        assert info["locked"] != info["active"], (
+            "the two sides have to be different spellings, or this run proved "
+            "nothing about normalization")
+        assert "PEP 503" in info["why_not_a_difference"]
+        if not result["third_party_editable_installs"]:
+            assert result["verified"] is True
+
+    def test_strict_mode_still_raises_on_a_real_identity_difference(
+            self, tmp_path):
+        """Normalizing one field must not loosen the gate that uses all of them.
+
+        ``strict=True`` is what a confirmatory or eligibility run certifies
+        under, so this is the assertion that makes the fix safe rather than
+        merely convenient.
+        """
+        from causal_mllm.replay.errors import ReplayError
+
+        snapshot = registry.dependency_lock_snapshot()
+        if snapshot.get("editable_installs"):
+            pytest.skip("a third-party editable install makes strict mode raise "
+                        "for a different and stronger reason, which "
+                        "test_iter11_evidence_integrity pins")
+        moved = dict(snapshot, n_packages=snapshot["n_packages"] - 1)
+        lock = tmp_path / "resolved_models.lock.yaml"
+        lock.write_text(yaml.safe_dump({"dependency_lock": moved}),
+                        encoding="utf-8")
+        with pytest.raises(ReplayError, match="does not match the recorded"):
+            registry.verify_active_dependency_lock(lock, strict=True)
+
+    def test_strict_mode_does_not_raise_on_the_spelling_alone(self, tmp_path):
+        # A confirmatory run in the certified environment was being refused
+        # over the name of the one distribution the snapshot excludes.
+        snapshot = registry.dependency_lock_snapshot()
+        if snapshot.get("editable_installs"):
+            pytest.skip("a third-party editable install raises in strict mode "
+                        "whatever the identity fields say")
+        names = list(snapshot["excluded_self_distributions"])
+        if not names:
+            pytest.skip("this environment excludes no self distribution")
+        respelled = dict(snapshot, excluded_self_distributions=[
+            n.replace("_", "-") if "_" in n else n.replace("-", "_")
+            for n in names])
+        lock = tmp_path / "resolved_models.lock.yaml"
+        lock.write_text(yaml.safe_dump({"dependency_lock": respelled}),
+                        encoding="utf-8")
+        result = registry.verify_active_dependency_lock(lock, strict=True)
+        assert result["differences"] == {}
+
+    def test_the_committed_lock_reports_no_identity_difference_here(self):
+        # Conditional on purpose: CI installs from pyproject and its package
+        # set is not the certified one, so it legitimately deviates. What has
+        # to hold everywhere is that the spelling is never the reason.
+        deviation = reproduction.environment_deviation(WORLD_LOCK)
+        assert "excluded_self_distributions" not in deviation["differences"]
+        if deviation["package_set_comparable"] and not deviation["differences"]:
+            assert deviation["certified"] is True
+            assert deviation["deviates"] is False
+            assert deviation["reason"] == (
+                "the active environment matches the recorded dependency lock "
+                "on every identity field")
+
+    def test_certification_is_what_decides_the_tolerance(self):
+        """The consequence, so the fix is tested as the rule and not as a field.
+
+        ``tolerate_numerics`` is the deviation flag. A spelling move that made
+        the certified environment look like a deviating one therefore did not
+        merely print a note: it widened every float comparison in the lane to
+        1e-12 and every p-value to 16 resample steps, on the machine where
+        exactness was available and was the point.
+        """
+        deviation = reproduction.environment_deviation(WORLD_LOCK)
+        licensed = deviation["deviates"]
+        comparison = reproduction.compare(
+            {"mean": 0.11506760000000027},
+            {"mean": 0.11506759999999999}, tolerate_numerics=licensed)
+        code, conclusion, _ = reproduction.verdict(comparison, deviation)
+        if deviation["certified"]:
+            assert licensed is False
+            assert code == 1 and conclusion == reproduction.DIFFERS
+        else:
+            assert code == 3 and conclusion == reproduction.WITHIN_TOLERANCE
 
 
 class TestOneStandardGovernsEveryComparison:

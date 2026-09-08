@@ -22,6 +22,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -618,6 +619,52 @@ LOCK_IDENTITY_FIELDS = (
 LOCK_OPERATIONAL_FIELDS = ("executable", "editable_vcs_revisions")
 
 
+def _normalized_distribution_name(name: str) -> str:
+    """A distribution name under PEP 503: lowercased, ``[-_.]+`` folded to ``-``."""
+    return re.sub(r"[-_.]+", "-", str(name)).lower()
+
+
+def _comparable_identity_value(name: str, value: Any) -> Any:
+    """The form of one lock identity field that two environments can be compared in.
+
+    Every identity field is compared as recorded except
+    ``excluded_self_distributions``, which is compared up to PEP 503 name
+    normalization. It names the ONE distribution the snapshot excludes, and pip
+    reports that name as either ``causal-mllm`` or ``causal_mllm`` depending on
+    which of pip, setuptools or the build backend rendered it. Both spellings
+    name the same distribution, neither appears in the hashed package list, and
+    no spelling of an excluded name can move a floating-point result.
+
+    Comparing it literally decided ``certified``, so the certified environment
+    was reported as deviating from its own lock: same interpreter, same
+    executable, same ``pip_freeze_sha256``, same ``n_packages``, one hyphen.
+    That is the worst possible direction for the error to fail in, because a
+    demonstrated deviation is what LICENSES the numeric tolerance -- so every
+    re-deriving gate was tolerating floats inside the one environment where the
+    last bit is reproducible and a difference is a defect.
+    """
+    if name == "excluded_self_distributions" and isinstance(value, (list, tuple)):
+        return sorted(_normalized_distribution_name(v) for v in value)
+    return value
+
+
+def _identity_difference(name: str, locked: Any, active: Any) -> dict | None:
+    """A real difference in one identity field, or None if only the spelling moved."""
+    if locked == active:
+        return None
+    if _comparable_identity_value(name, locked) \
+            == _comparable_identity_value(name, active):
+        return {
+            "locked": locked, "active": active,
+            "why_not_a_difference": (
+                f"{name} names the distribution the snapshot EXCLUDES, and "
+                "the two spellings are one name under PEP 503 normalization. "
+                "Neither is in the hashed package list, so nothing that can "
+                "move a result differs"),
+        }
+    return {"locked": locked, "active": active}
+
+
 def load_dependency_lock(lock_path: str | Path | None = None) -> dict | None:
     """The recorded ``dependency_lock`` block, or None if not captured.
 
@@ -703,18 +750,24 @@ def verify_active_dependency_lock(
     # prove which dependency source would execute, so refusing is the only
     # sound answer.
     offenders = dict(active.get("editable_installs") or {})
-    differences = {
-        f: {"locked": locked.get(f), "active": active.get(f)}
-        for f in LOCK_IDENTITY_FIELDS
-        if locked.get(f) != active.get(f)
-    }
+    differences: dict = {}
+    spelling_only: dict = {}
+    for f in LOCK_IDENTITY_FIELDS:
+        difference = _identity_difference(f, locked.get(f), active.get(f))
+        if difference is None:
+            continue
+        if "why_not_a_difference" in difference:
+            spelling_only[f] = difference
+        else:
+            differences[f] = difference
     # Operational drift is RECORDED but not by itself fatal: a different
     # interpreter path does not change what this project has installed.
-    informational = {
+    informational = dict(spelling_only)
+    informational.update({
         f: {"locked": locked.get(f), "active": active.get(f)}
         for f in LOCK_OPERATIONAL_FIELDS
         if locked.get(f) != active.get(f)
-    }
+    })
     result = {
         "verified": not differences and not offenders,
         "lock_path": str(resolved_path),

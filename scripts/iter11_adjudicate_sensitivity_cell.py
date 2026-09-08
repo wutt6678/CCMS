@@ -997,6 +997,16 @@ def build(fresh_calls: bool = False,
     sealed = sealed_label_sets()
     rubric = rubric_identity()
     reuse_path = RECEIPT_PATH if reuse_from is None else Path(reuse_from)
+    if reuse_path.resolve() == OUT_PATH.resolve():
+        fatal(f"--reuse-from names {_rel(OUT_PATH)}, this stage's own output. "
+              f"A re-file overwrites it, so the sha256 filed beside the reuse "
+              f"would name bytes that stop existing at the moment of citation "
+              f"-- which is exactly what the superseded citation did, and "
+              f"--verify refuses the document afterwards. Drawing on it is "
+              f"refused here instead, before anything is written, because a "
+              f"re-file that cannot be verified must not replace one that can. "
+              f"Draw on {_rel(RECEIPT_PATH)}, or on a copy of the artifact at "
+              f"a path this stage does not write", 2)
     reuse_per_arm, reuse_sha, reuse_doc = reuse_source(reuse_from)
 
     # First pass: what the frozen rule says, what request it would send, and
