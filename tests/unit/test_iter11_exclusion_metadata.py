@@ -695,6 +695,195 @@ class TestNoSourceFileStillAssertsTheClaim:
 
 
 # ---------------------------------------------------------------------------
+# The committed correction
+# ---------------------------------------------------------------------------
+
+CARRIERS = 21
+OCCURRENCES = 2384
+JUDGE_SCOPE_FILES = 20
+PANEL_SCOPE_FILES = 9
+
+#: Four ``evaluation_outputs.jsonl`` files carry the claim once per record, so
+#: they are why the occurrence count is in the thousands while the carrier count
+#: is 21. Pinning both keeps a future scan that quietly stopped reading the JSONL
+#: from looking like a correction that got smaller.
+PER_RECORD_CARRIERS = 4
+PER_RECORD_OCCURRENCES = 588
+
+#: Five artifacts per arm plus the cross-model analysis: 4 * 5 + 1 == 21.
+PER_ARM_CARRIERS = (
+    "judge_coverage.json",
+    "final_evaluation_report.json",
+    "llm_labels_adjudicated.json",
+    "evaluation_results/evaluation_report.json",
+    "evaluation_results/evaluation_outputs.jsonl",
+)
+ANALYSIS_CARRIER = ("outputs/iteration_11/analysis/cross_model/"
+                    "cross_model_analysis.json")
+CORRECTION_PATH = ROOT / CORRECTION_ARTIFACT
+
+
+@pytest.fixture(scope="module")
+def filed():
+    assert CORRECTION_PATH.exists(), (
+        f"{CORRECTION_ARTIFACT} is not committed. Run "
+        f"scripts/iter11_correct_exclusion_metadata.py from a clean tree -- "
+        f"it is evidence about sealed evidence, so it has to name the commit "
+        f"it was filed against")
+    return json.loads(CORRECTION_PATH.read_text(encoding="utf-8"))
+
+
+def filed_carriers() -> list[str]:
+    return list(json.loads(CORRECTION_PATH.read_text(
+        encoding="utf-8"))["artifacts"])
+
+
+class TestTheCommittedCorrection:
+    def test_it_enumerates_the_sealed_artifacts_it_refuses_to_rewrite(
+            self, filed):
+        assert filed["n_artifacts_carrying_the_superseded_key"] == CARRIERS
+        assert len(filed["artifacts"]) == CARRIERS
+        assert filed["n_occurrences"] == OCCURRENCES
+
+    def test_the_enumeration_is_five_artifacts_per_arm_plus_the_analysis(
+            self, filed):
+        paths = set(filed["artifacts"])
+        expected = {ANALYSIS_CARRIER}
+        for arm in ARMS:
+            expected.update(f"outputs/iteration_11/judge/{arm}/{name}"
+                            for name in PER_ARM_CARRIERS)
+        assert paths == expected
+        assert len(expected) == CARRIERS
+
+    def test_every_carrier_is_committed_evidence(self, filed):
+        # The reason they are not rewritten. An untracked carrier would be a
+        # different kind of finding, and would not be sealed by anything.
+        assert filed["n_tracked_carriers"] == CARRIERS
+        assert filed["n_untracked_carriers"] == 0
+        assert all(e["tracked_in_git"] is True
+                   for e in filed["artifacts"].values())
+
+    def test_the_per_record_carriers_explain_the_occurrence_count(self, filed):
+        jsonl = [rel for rel in filed["artifacts"]
+                 if rel.endswith("evaluation_outputs.jsonl")]
+        assert len(jsonl) == PER_RECORD_CARRIERS
+        for rel in jsonl:
+            assert filed["artifacts"][rel]["n_occurrences"] == \
+                PER_RECORD_OCCURRENCES
+        assert sum(filed["artifacts"][rel]["n_occurrences"] for rel in jsonl) \
+            < OCCURRENCES
+
+    def test_the_two_sentences_are_the_two_the_producers_wrote(self, filed):
+        assert filed["distinct_superseded_values"] == [
+            JUDGE_SCOPE_TEXT, PANEL_SCOPE_TEXT]
+        by_scope = {c["scope"]: c for c in filed["corrections"]}
+        assert sorted(by_scope) == ["the excluded set",
+                                    "the surviving family set"]
+        assert len(by_scope["the excluded set"]["written_by"]) == \
+            JUDGE_SCOPE_FILES
+        assert len(by_scope["the surviving family set"]["written_by"]) == \
+            PANEL_SCOPE_FILES
+
+    def test_each_correction_is_the_shared_wording_for_its_own_scope(
+            self, filed):
+        # Not a transcription: the filed text has to be what the module the
+        # producers import returns, or the artifact and the code have drifted.
+        for correction in filed["corrections"]:
+            expected = exclusion_metadata(correction["scope"])
+            assert correction["label_blind"] == expected["label_blind"]
+            assert correction["response_dependent"] == \
+                expected["response_dependent"]
+
+    def test_it_was_filed_from_a_clean_tree_by_named_code(self, filed):
+        assert filed["produced_by"] == \
+            "scripts/iter11_correct_exclusion_metadata.py"
+        assert len(filed["code_commit"]) == 40
+        assert all(c in "0123456789abcdef" for c in filed["code_commit"])
+        assert filed["git_dirty"] is False
+        assert filed["code_dirty_paths"] == []
+        assert filed["untracked_code_paths"] == []
+
+    def test_the_measurement_it_carries_is_the_probe_s(self, filed):
+        probe = json.loads((ROOT / EVIDENCE_ARTIFACT).read_text(
+            encoding="utf-8"))
+        measured = filed["measurement_behind_the_correction"]
+        assert measured["full_payload_status"] == probe["full_payload_status"]
+        assert measured["arms_that_disagree_now"] == \
+            probe["arms_that_disagree_now"] == [DIFFERENTIAL_CELL]
+        assert measured["arms_unmeasured_now"] == []
+        assert measured["differential_target"] == DIFFERENTIAL_TARGET
+        assert measured["what_it_shows"][DIFFERENTIAL_CELL][
+            "n_arms_refusing"] == 1
+        for cell in UNIFORM_CELLS:
+            assert measured["what_it_shows"][cell]["n_arms_refusing"] == 4
+
+    def test_it_names_the_producers_it_checked_and_their_state(self, filed):
+        assert sorted(filed["producers"]) == sorted(corrector.PRODUCERS)
+        for rel, state in filed["producers"].items():
+            assert state["emits_superseded_key"] is False, rel
+            assert state["imports_exclusion_metadata"] is True, rel
+
+    def test_the_correction_is_excluded_from_its_own_scan(self, filed):
+        # Load-bearing rather than cosmetic: the artifact states the claim in
+        # prose in order to describe what it corrects, so scanning it would
+        # enumerate the correction inside itself.
+        text = CORRECTION_PATH.read_text(encoding="utf-8")
+        assert corrector.PROSE_CLAIM_RE.search(text), \
+            "the artifact does name the claim, so the path exclusion is what " \
+            "keeps it out of its own enumeration"
+        assert CORRECTION_ARTIFACT not in filed["artifacts"]
+        assert CORRECTION_ARTIFACT not in corrector.scan()
+        assert filed["n_artifacts_carrying_the_superseded_key"] == CARRIERS
+
+    def test_it_verifies_against_the_tree_it_was_filed_from(self):
+        code, issues = corrector.verify(CORRECTION_PATH)
+        assert code == 0, issues
+        assert issues == []
+
+    def test_verifying_it_writes_nothing(self):
+        before = CORRECTION_PATH.read_bytes()
+        assert corrector.verify(CORRECTION_PATH)[0] == 0
+        assert CORRECTION_PATH.read_bytes() == before
+
+    def test_the_live_scan_still_finds_exactly_these_carriers(self):
+        # The enumeration is a statement about the tree, so it is re-measured
+        # here rather than trusted: this is the check that fails when a new
+        # artifact is filed with the old claim.
+        assert sorted(corrector.scan()) == sorted(filed_carriers())
+
+    def test_the_readme_documents_the_correction_without_making_the_claim(
+            self):
+        # The README is scanned, and it has to quote the claim to explain what
+        # was wrong with it. It quotes it in a shape that is NOT the claim: the
+        # key on its own line rather than as a JSON field, and the probe
+        # script's overclaim paraphrased. Reproducing either form byte-for-byte
+        # would make the page that explains the correction a 22nd carrier of it.
+        text = (ROOT / "README.md").read_text(encoding="utf-8")
+        assert corrector.carries_the_claim(text) == (0, 0)
+        assert "README.md" not in corrector.scan()
+        flat = " ".join(text.split())
+        assert "label-blind and response-dependent" in flat
+        assert "src/causal_mllm/evaluation/censoring.py" in flat
+        assert CORRECTION_ARTIFACT in flat
+        assert "not rewritten" in flat
+
+    def test_the_numbers_the_readme_quotes_are_the_artifact_s(self, filed):
+        # Prose and artifact measured against each other, because a README that
+        # quotes a stale count is indistinguishable from one that never checked.
+        # Flattened first: the README wraps mid-phrase, so an assertion against
+        # the raw text passes or fails on where a line happened to break.
+        flat = " ".join((ROOT / "README.md").read_text(encoding="utf-8")
+                        .split())
+        assert filed["n_occurrences"] == OCCURRENCES
+        assert filed["n_tracked_carriers"] == CARRIERS
+        assert f"{OCCURRENCES:,} occurrences across {CARRIERS} tracked files" \
+            in flat
+        assert f"{PER_RECORD_OCCURRENCES} each" in flat
+        assert f"one in {JUDGE_SCOPE_FILES} files" in flat
+        assert f"one in {PANEL_SCOPE_FILES}" in flat
+
+
+# ---------------------------------------------------------------------------
 # The superseded sentences quoted in the tests are the ones on disk
 # ---------------------------------------------------------------------------
 

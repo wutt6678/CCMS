@@ -1537,6 +1537,76 @@ difference in it is itself the demonstrated deviation — reported with
 `package_set_comparable: false`. Denying the tolerance to a machine with no pip
 would deny it to exactly the machine that needs it.
 
+### The exclusion is label-blind, which is not the claim the metadata made
+
+The judge and evaluation artifacts filed one key carrying two claims:
+
+```
+outcome_independent:
+  "which cells a provider refuses is a function of the request bytes, so the
+   surviving family set was fixed before any label existed"
+```
+
+(Quoted in this shape on purpose. The scan that enforces the rename looks for the
+key used as a JSON field and for the claim asserted in prose, and a README that
+reproduced either byte-for-byte would be a carrier of the claim it is documenting
+— the same reason the correction artifact is excluded from its own scan by path.)
+
+The second half is true, and is the reason the exclusion is defensible at all. The
+first half is false, and filing both as one sentence let the true half carry the
+false one — "a function of the request bytes" reads as "not a function of what the
+model said", and the request a provider moderates *carries the evaluated response*.
+The moderation note had already said the censoring is correlated with model
+behaviour, contradicting the metadata filed beside it.
+
+It is settled by measurement rather than argument. Of the three cells the four arms
+lost, `CMST_456921/text_only` was refused in the `ministral3_3b` arm alone (HTTP 400)
+and served in the other three (200) at the same moment, while both `CMST_795308`
+cells were refused in all four. A refusal that tracks the arm tracks that arm's
+reply. So the exclusion is **label-blind and response-dependent**, and those are now
+two fields written by one module, `src/causal_mllm/evaluation/censoring.py`, imported
+by both producers — one wording rather than a copy each, because the two copies of
+the original claim had already drifted apart.
+
+The 21 committed artifacts still carrying the key are **not rewritten**. They are
+sealed judge and evaluation evidence: regenerating a `final_evaluation_report.json`
+means re-running a pipeline whose adjudication pass re-calls the adjudicator, so it
+would come back with different bytes and different provenance, and rewriting them
+would delete the record that the claim was ever made. They are enumerated, quoted
+and corrected beside themselves in
+[`exclusion_metadata_correction.json`](outputs/iteration_11/diagnostics/exclusion_metadata_correction.json):
+2,384 occurrences across 21 tracked files — four `evaluation_outputs.jsonl` carry it
+once per record, 588 each — reducing to two distinct sentences, the judge-coverage one
+in 20 files and the panel-restriction one in 9. `--verify` on that file is
+load-bearing in both directions: a NEW carrier fails, so the rename is enforced
+forward, and a carrier whose sha256 moved fails, so the correction cannot be
+"applied" by quietly editing the evidence it corrects.
+
+The detection rule matches the *claim* — the key used as a JSON field, or the same
+claim asserted in prose — and deliberately not the bare token. The corrected wording
+has to name the wording it replaces, so a token scan flags every artifact the fixed
+producers write and the forward gate fails on the repair it exists to protect.
+
+The prose needed the same pass as the fields. THREE docstrings survived the first
+rename, which fixed what the code emitted and stopped there: the coverage builder in
+`run_llm_judge_pipeline.py`, `iter11_probe_judge_moderation.py` — which claimed to
+establish that the exclusion did not depend on the outcome, when what it establishes
+is label-blindness — and the moderation test module. A docstring is not an artifact
+and no gate read it. The corrector's producer check caught the first by refusing to
+file, and a test now holds the allowlist of source files permitted to name the claim
+to exactly the two that must quote it, checked in both directions.
+
+This is the metadata half of the finding. It does not by itself settle what the
+differential exclusion does to the verdicts: the 0.004545 Judge-B shift reported for
+it is an empirical sensitivity measured under a different, vision-ablated instrument,
+not a worst-case bound on the missing ensemble outcome, and no arm has an ensemble
+label for that cell at all.
+
+```
+python3 scripts/iter11_correct_exclusion_metadata.py --verify   # read, writes nothing
+python3 scripts/iter11_correct_exclusion_metadata.py            # re-file (explicit)
+```
+
 ## Schema Reports
 
 Pre-computed schema reports from programmatic inspection of all three source datasets are available in [`outputs/schema/`](outputs/schema/):

@@ -1,0 +1,416 @@
+{
+  "question": "the exclusion metadata claimed the exclusion was outcome-independent; which committed artifacts still say so, and what replaces it",
+  "produced_by": "scripts/iter11_correct_exclusion_metadata.py",
+  "kind": "iteration_11_exclusion_metadata_correction_v1",
+  "code_commit": "b2da7f5e5c5efa953373ab782505c065e9876a26",
+  "git_dirty": false,
+  "code_dirty_paths": [],
+  "untracked_code_paths": [],
+  "excluded_own_outputs": [],
+  "excluded_cache_paths": [],
+  "generated_at": "2026-09-08T07:34:23+00:00",
+  "superseded_key": "outcome_independent",
+  "replaced_by": [
+    "label_blind",
+    "response_dependent"
+  ],
+  "single_source_of_the_correction": "src/causal_mllm/evaluation/censoring.py",
+  "n_artifacts_carrying_the_superseded_key": 21,
+  "n_occurrences": 2384,
+  "n_untracked_carriers": 0,
+  "n_carriers_git_cannot_answer_for": 0,
+  "n_tracked_carriers": 21,
+  "artifacts": {
+    "outputs/iteration_11/analysis/cross_model/cross_model_analysis.json": {
+      "sha256": "524084e518b5f8fe03d8f7a6a8fcab3422438f71d7c5e912bd47ad9a6f5c3215",
+      "bytes": 38459,
+      "tracked_in_git": true,
+      "n_key_uses": 4,
+      "n_prose_claims": 0,
+      "n_occurrences": 4,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_outputs.jsonl": {
+      "sha256": "149334d1de30a79b1af1a8e705432eed0a327ceb2d19fd270953b03cfcaa5ad8",
+      "bytes": 4657978,
+      "tracked_in_git": true,
+      "n_key_uses": 588,
+      "n_prose_claims": 0,
+      "n_occurrences": 588,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_report.json": {
+      "sha256": "ed264817f13ab6bc5f846f2b800bf2c8a737eefa7fcfe739288a6dec9e408431",
+      "bytes": 19518,
+      "tracked_in_git": true,
+      "n_key_uses": 2,
+      "n_prose_claims": 0,
+      "n_occurrences": 2,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/ministral3_3b/final_evaluation_report.json": {
+      "sha256": "943e158d86e0f1b4bcc32e04c967c15c2daec1de07ba636f2fa227ef0876ca65",
+      "bytes": 40730,
+      "tracked_in_git": true,
+      "n_key_uses": 3,
+      "n_prose_claims": 0,
+      "n_occurrences": 3,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/ministral3_3b/judge_coverage.json": {
+      "sha256": "8dd5f7efa9481dc11bca62091c65903a901c7e07a6cd144e1560b1ada82e1949",
+      "bytes": 5357,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/ministral3_3b/llm_labels_adjudicated.json": {
+      "sha256": "d39c742bd9d8b52275ab1cf7b2ee23240ff5e5be8eefad96ad1239bc83836e37",
+      "bytes": 595570,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_outputs.jsonl": {
+      "sha256": "8c48c54639c80df6ed62f556ea334bf8c8c8983a1b8a96362047d16a2e0b07c2",
+      "bytes": 3868030,
+      "tracked_in_git": true,
+      "n_key_uses": 588,
+      "n_prose_claims": 0,
+      "n_occurrences": 588,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_report.json": {
+      "sha256": "7e0249708c58e416dc53eb96697ec63471edff9303b648ccf4674f71c9aee1ba",
+      "bytes": 19225,
+      "tracked_in_git": true,
+      "n_key_uses": 2,
+      "n_prose_claims": 0,
+      "n_occurrences": 2,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/phi4_mm/final_evaluation_report.json": {
+      "sha256": "dbe650eaf30ae2a73a7795e572b521fb2c5d79ec9214ef2ed47be0f11ffae6cc",
+      "bytes": 37681,
+      "tracked_in_git": true,
+      "n_key_uses": 3,
+      "n_prose_claims": 0,
+      "n_occurrences": 3,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/phi4_mm/judge_coverage.json": {
+      "sha256": "17742b395e01ab98a52e14f3f838fa983ba0ca2ceb3ea9ae1c8f2d410517e0f7",
+      "bytes": 4583,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/phi4_mm/llm_labels_adjudicated.json": {
+      "sha256": "e84df6b9977aad17418b406e9459ff0a3dd5d2b3063735445aa7f1dd918854c7",
+      "bytes": 564977,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_outputs.jsonl": {
+      "sha256": "97f99a9ebbb3fc640cc86a6855666051bb7746e2b7ef7b0b73be86ca882ef382",
+      "bytes": 4653171,
+      "tracked_in_git": true,
+      "n_key_uses": 588,
+      "n_prose_claims": 0,
+      "n_occurrences": 588,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_report.json": {
+      "sha256": "058a6b3d7c1e11d0e23a57b0e26889f249e79c54a3c71139e58339715b858502",
+      "bytes": 20239,
+      "tracked_in_git": true,
+      "n_key_uses": 2,
+      "n_prose_claims": 0,
+      "n_occurrences": 2,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_2b/final_evaluation_report.json": {
+      "sha256": "e641499ffee0061c5b310683ada6e90dadea7b0eaaa1f2230e53795437d25022",
+      "bytes": 40362,
+      "tracked_in_git": true,
+      "n_key_uses": 3,
+      "n_prose_claims": 0,
+      "n_occurrences": 3,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_2b/judge_coverage.json": {
+      "sha256": "0bcf09ff974585b018b0bbac263ac8125e139d7f7b1812ec1e2d55ec6dc8c081",
+      "bytes": 4583,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_2b/llm_labels_adjudicated.json": {
+      "sha256": "b4bd4581d6300a2002a4aea9deed31da477e1dc42f134b55e60ad64bc436eed6",
+      "bytes": 592123,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_outputs.jsonl": {
+      "sha256": "9a955fc7907abf993583de3dd10b8e49d7a1c6df4c0c0989c61f51ab7a57a475",
+      "bytes": 4454087,
+      "tracked_in_git": true,
+      "n_key_uses": 588,
+      "n_prose_claims": 0,
+      "n_occurrences": 588,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_report.json": {
+      "sha256": "04defc74541602725fd3726fc1bd58b16692c3ff5add437fb142cbbaca42016f",
+      "bytes": 21134,
+      "tracked_in_git": true,
+      "n_key_uses": 2,
+      "n_prose_claims": 0,
+      "n_occurrences": 2,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_4b/final_evaluation_report.json": {
+      "sha256": "a67889b9734ff435a8d0fbf9311f1795b7e71e1718b416fc99577ef2ec6b45f3",
+      "bytes": 42278,
+      "tracked_in_git": true,
+      "n_key_uses": 3,
+      "n_prose_claims": 0,
+      "n_occurrences": 3,
+      "n_quoted_values": 2,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+        "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_4b/judge_coverage.json": {
+      "sha256": "6bca45f8b38a0b0658a866ec87a47b4c3740d0cf61deb14456dd07e8578f6706",
+      "bytes": 4583,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    },
+    "outputs/iteration_11/judge/qwen35_4b/llm_labels_adjudicated.json": {
+      "sha256": "9d654afb3993c5a675ede7956c2874ce9a50c13745f86b1e4e21e5f0a6c27f3b",
+      "bytes": 581303,
+      "tracked_in_git": true,
+      "n_key_uses": 1,
+      "n_prose_claims": 0,
+      "n_occurrences": 1,
+      "n_quoted_values": 1,
+      "superseded_values": [
+        "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed"
+      ]
+    }
+  },
+  "distinct_superseded_values": [
+    "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+    "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed"
+  ],
+  "corrections": [
+    {
+      "superseded_value": "a provider refusal is a function of the request bytes alone, so this set was fixed before any label existed",
+      "scope": "the excluded set",
+      "written_by": [
+        "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_outputs.jsonl",
+        "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/ministral3_3b/final_evaluation_report.json",
+        "outputs/iteration_11/judge/ministral3_3b/judge_coverage.json",
+        "outputs/iteration_11/judge/ministral3_3b/llm_labels_adjudicated.json",
+        "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_outputs.jsonl",
+        "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/phi4_mm/final_evaluation_report.json",
+        "outputs/iteration_11/judge/phi4_mm/judge_coverage.json",
+        "outputs/iteration_11/judge/phi4_mm/llm_labels_adjudicated.json",
+        "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_outputs.jsonl",
+        "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_2b/final_evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_2b/judge_coverage.json",
+        "outputs/iteration_11/judge/qwen35_2b/llm_labels_adjudicated.json",
+        "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_outputs.jsonl",
+        "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_4b/final_evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_4b/judge_coverage.json",
+        "outputs/iteration_11/judge/qwen35_4b/llm_labels_adjudicated.json"
+      ],
+      "label_blind": "the excluded set is settled before any judge has scored anything, so no label -- no score, no compliance level, no refusal type -- influenced which cells survived, and no arm's family set was chosen after seeing how it came out. That half of the claim formerly filed as 'outcome_independent' is true and is kept",
+      "response_dependent": "the excluded set is NOT independent of the outcome, and the key that said so was wrong. The request a provider moderates carries the evaluated response, so which cells are excluded is a function of what the model said as well as of the request's other bytes. Measured, not argued: CMST_456921/text_only was refused in the ministral3_3b arm alone and served in the other three, while CMST_795308/cross_modal and CMST_795308/shuffle were refused in all four -- a refusal that tracks the arm tracks that arm's reply, which is differential censoring and is correlated with the outcome by construction (outputs/iteration_11/diagnostics/judge_moderation/cell_probe_exclusion_union_reprobe.json). The uniformly refused pair is consistent with a request-bytes cause, at roughly 1.55 MB of image payload that the provider's input moderation rejects, but consistency is not independence and those cells travel in the same request as the response. This exclusion is therefore LABEL-BLIND and RESPONSE-DEPENDENT; the superseded 'outcome_independent' claimed the stronger and false thing, and the artifacts still carrying it are enumerated and corrected in outputs/iteration_11/diagnostics/exclusion_metadata_correction.json rather than rewritten, because they are sealed judge and evaluation evidence"
+    },
+    {
+      "superseded_value": "which cells a provider refuses is a function of the request bytes, so the surviving family set was fixed before any label existed",
+      "scope": "the surviving family set",
+      "written_by": [
+        "outputs/iteration_11/analysis/cross_model/cross_model_analysis.json",
+        "outputs/iteration_11/judge/ministral3_3b/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/ministral3_3b/final_evaluation_report.json",
+        "outputs/iteration_11/judge/phi4_mm/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/phi4_mm/final_evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_2b/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_2b/final_evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_4b/evaluation_results/evaluation_report.json",
+        "outputs/iteration_11/judge/qwen35_4b/final_evaluation_report.json"
+      ],
+      "label_blind": "the surviving family set is settled before any judge has scored anything, so no label -- no score, no compliance level, no refusal type -- influenced which cells survived, and no arm's family set was chosen after seeing how it came out. That half of the claim formerly filed as 'outcome_independent' is true and is kept",
+      "response_dependent": "the surviving family set is NOT independent of the outcome, and the key that said so was wrong. The request a provider moderates carries the evaluated response, so which cells are excluded is a function of what the model said as well as of the request's other bytes. Measured, not argued: CMST_456921/text_only was refused in the ministral3_3b arm alone and served in the other three, while CMST_795308/cross_modal and CMST_795308/shuffle were refused in all four -- a refusal that tracks the arm tracks that arm's reply, which is differential censoring and is correlated with the outcome by construction (outputs/iteration_11/diagnostics/judge_moderation/cell_probe_exclusion_union_reprobe.json). The uniformly refused pair is consistent with a request-bytes cause, at roughly 1.55 MB of image payload that the provider's input moderation rejects, but consistency is not independence and those cells travel in the same request as the response. This exclusion is therefore LABEL-BLIND and RESPONSE-DEPENDENT; the superseded 'outcome_independent' claimed the stronger and false thing, and the artifacts still carrying it are enumerated and corrected in outputs/iteration_11/diagnostics/exclusion_metadata_correction.json rather than rewritten, because they are sealed judge and evaluation evidence"
+    }
+  ],
+  "measurement_behind_the_correction": {
+    "source": "outputs/iteration_11/diagnostics/judge_moderation/cell_probe_exclusion_union_reprobe.json",
+    "source_sha256": "30f77697737fa6e1dff460cd77e7fd25f38dbd73c56a652aaffcca79e4a75f83",
+    "probed_at": "2026-09-07T06:23:18.811328+00:00",
+    "n_requests": 84,
+    "full_payload_status": {
+      "CMST_456921/text_only": {
+        "ministral3_3b": 400,
+        "phi4_mm": 200,
+        "qwen35_2b": 200,
+        "qwen35_4b": 200
+      },
+      "CMST_795308/cross_modal": {
+        "ministral3_3b": 400,
+        "phi4_mm": 400,
+        "qwen35_2b": 400,
+        "qwen35_4b": 400
+      },
+      "CMST_795308/shuffle": {
+        "ministral3_3b": 400,
+        "phi4_mm": 400,
+        "qwen35_2b": 400,
+        "qwen35_4b": 400
+      }
+    },
+    "arms_that_disagree_now": [
+      "CMST_456921/text_only"
+    ],
+    "arms_unmeasured_now": [],
+    "differential_cell": "CMST_456921/text_only",
+    "differential_target": "ministral3_3b",
+    "refused_in_every_arm": [
+      "CMST_795308/cross_modal",
+      "CMST_795308/shuffle"
+    ],
+    "what_it_shows": {
+      "CMST_456921/text_only": {
+        "n_arms_refusing": 1,
+        "arms": {
+          "ministral3_3b": 400,
+          "phi4_mm": 200,
+          "qwen35_2b": 200,
+          "qwen35_4b": 200
+        }
+      },
+      "CMST_795308/cross_modal": {
+        "n_arms_refusing": 4,
+        "arms": {
+          "ministral3_3b": 400,
+          "phi4_mm": 400,
+          "qwen35_2b": 400,
+          "qwen35_4b": 400
+        }
+      },
+      "CMST_795308/shuffle": {
+        "n_arms_refusing": 4,
+        "arms": {
+          "ministral3_3b": 400,
+          "phi4_mm": 400,
+          "qwen35_2b": 400,
+          "qwen35_4b": 400
+        }
+      }
+    }
+  },
+  "producers": {
+    "scripts/run_llm_judge_pipeline.py": {
+      "exists": true,
+      "sha256": "464259ff79945c75b870709bf8749cdcc351180b7820356b2a642a6c1dd26144",
+      "emits_superseded_key": false,
+      "imports_exclusion_metadata": true
+    },
+    "src/causal_mllm/evaluation/runner.py": {
+      "exists": true,
+      "sha256": "822dc03b5528da4548ca2951052f317ffce8e9cbc6feda6bbfb8dde5f207b175",
+      "emits_superseded_key": false,
+      "imports_exclusion_metadata": true
+    }
+  },
+  "why_the_artifacts_are_not_rewritten": "21 of 21 artifact(s) carrying 'outcome_independent' are committed to git, and are enumerated here rather than edited. They are sealed judge and evaluation evidence: regenerating one means re-running a pipeline whose adjudication pass re-calls the adjudicator, so the artifact would come back with different bytes and different provenance and the seal that makes it evidence would be gone. Rewriting them would also delete the record that the claim was ever made, and a correction that erases the thing it corrects cannot be checked. --verify enforces both directions: a new carrier fails, and a carrier whose sha256 moved fails"
+}
