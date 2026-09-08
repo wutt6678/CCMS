@@ -3,8 +3,8 @@
   "produced_by": "scripts/iter11_closeout_evidence_manifest.py",
   "question": "what is the evidence for Iteration 11, by hash, and can this checkout say so",
   "n_bound": 197,
-  "total_bytes": 52560117,
-  "rollup_sha256": "f7b1561124d5c02e87679e46c5faf67c8c21446f6d8ba620bc0d72e9c137fa3d",
+  "total_bytes": 52560732,
+  "rollup_sha256": "069a5cca911003ac136c53b32aada9b8dcebd7cec2b317b0071a7cb33f55375a",
   "n_by_role": {
     "binding_for_the_untracked_media": 1,
     "closeout": 1,
@@ -1064,8 +1064,8 @@
     },
     {
       "path": "tests/unit/test_environment_reconstructibility.py",
-      "sha256": "87656cd03da46ea5c89d0dfaeab53e679213e3cff325ab6a0211251775f672f9",
-      "bytes": 58948,
+      "sha256": "719e2205de691f535db41c52d005a1e7b404fc60bebd3ea9cfebabe3fe40a45d",
+      "bytes": 59816,
       "role": "test"
     },
     {
@@ -1106,8 +1106,8 @@
     },
     {
       "path": "tests/unit/test_iter11_differential_censoring.py",
-      "sha256": "fedf2caf39603be361130953a17dd54bb1b7d58a02f77497b7edc0ba8d724e53",
-      "bytes": 112448,
+      "sha256": "66e68ed19000bc2019947d9f2c4315e4821e080baf2578fe38e71c7738737e5d",
+      "bytes": 112195,
       "role": "test"
     },
     {
