@@ -85,11 +85,17 @@ object store, hashes what it resolves, and compares that hash with the cited one
 Exit codes: 0 verified / written; 1 a disagreement with the frozen rule, a
 missing primary label where one is required, a filed label that does not answer
 the request the frozen rule would send, a frozen label file that moved, a reuse
-citation that does not resolve to the bytes it names or that no commit holds, or
-an attempt to overwrite the receipt; 2 no artifact to verify against, or --write
-needing a call it has no credentials for (nothing is written, so a failed call
-cannot overwrite a filed one); 3 the adjudicator refused a cell, so the label
-could not be produced here.
+citation that does not resolve to the bytes it names or that no commit holds when
+there is a commit to ask, or an attempt to overwrite the receipt; 2 no artifact to
+verify against, or --write needing a call it has no credentials for (nothing is
+written, so a failed call cannot overwrite a filed one); 3 something could not be
+done or checked HERE rather than anywhere -- the adjudicator refused a cell so the
+label could not be produced, or this checkout has no git object store so a
+citation's committed-ness is unanswerable from it. The second is not a soft 1: the
+cited bytes are on disk, they hash to what the artifact cites, and only the
+history that would prove them committed is absent -- which is what an export or
+the anonymous reproducibility package is. A finding still outranks it, so a
+citation that resolves to the WRONG bytes exits 1 in a historyless checkout too.
 """
 
 from __future__ import annotations
@@ -238,6 +244,23 @@ def _git(*args: str) -> tuple[int, bytes]:
                              else proc.stderr)
 
 
+def object_store_here() -> bool:
+    """Can this checkout answer a question about what HEAD holds?
+
+    An export, a tarball and the anonymous reproducibility package all have the
+    files and none of the history. That is a statement about the checkout and not
+    about the evidence, so a citation whose committed-ness cannot be checked from
+    there gets exit 3 rather than borrowing the code that means the citation
+    resolves to bytes no commit holds -- which is a finding, and was the whole
+    reason the receipt exists.
+    """
+    code, inside = _git("rev-parse", "--is-inside-work-tree")
+    if code != 0 or inside.decode("utf-8", "replace").strip() != "true":
+        return False
+    code, _ = _git("rev-parse", "--verify", "HEAD")
+    return code == 0
+
+
 def resolve_evidence(path: Path) -> dict:
     """Resolve a cited artifact out of the object store, not off this disk.
 
@@ -248,8 +271,16 @@ def resolve_evidence(path: Path) -> dict:
     same check and get the same answer. An untracked file falls back to the
     working tree and SAYS SO, because "resolved" and "resolved from the commit"
     are different statements and the difference is the whole point.
+
+    ``object_store_here`` is filed beside that fallback because the two reasons a
+    blob lookup can fail are not the same claim. In a checkout with history, HEAD
+    not holding the path means the file is uncommitted, which is the defect the
+    receipt was written to end. In an export with no history at all, the same
+    failed lookup says nothing about the file: the bytes are there, they hash to
+    what was cited, and only the committed-ness is unanswerable from here.
     """
     rel = _rel(path)
+    history = object_store_here()
     out: dict = {
         "path": rel,
         "exists_on_disk": path.exists(),
@@ -258,6 +289,7 @@ def resolve_evidence(path: Path) -> dict:
         "bytes_sha256": None,
         "git_blob_sha1": None,
         "head_commit": None,
+        "object_store_here": history,
         "why_not": None,
     }
     code, head = _git("rev-parse", "HEAD")
@@ -277,11 +309,15 @@ def resolve_evidence(path: Path) -> dict:
                           f"{content.decode('utf-8', 'replace').strip()[:200]}")
     else:
         out["why_not"] = (
+            "this checkout has no git object store, so no commit can be asked "
+            "about it" if not history else
             f"no commit reachable from HEAD holds {rel}: "
             f"{blob.decode('utf-8', 'replace').strip()[:200]}")
     if path.exists():
-        out["resolved_from"] = ("the working tree, which no commit reachable "
-                                "from HEAD holds")
+        out["resolved_from"] = (
+            "the working tree, which cannot be compared with any commit from "
+            "here" if not history else
+            "the working tree, which no commit reachable from HEAD holds")
         out["bytes_sha256"] = out["working_tree_sha256"]
     return out
 
@@ -1254,22 +1290,31 @@ def source_shape(doc: dict) -> str:
 
 def check_the_reuse_citations(
         doc: dict,
-        under_verification: Path | None = None) -> tuple[list[str], dict]:
+        under_verification: Path | None = None
+        ) -> tuple[list[str], dict, list[str]]:
     """Resolve every source a reused call cites, out of the git object store.
 
-    The check this replaces asked only whether the cited ``sha256`` was a
-    non-empty string, which is how an artifact came to cite bytes that exist
-    nowhere: the sha256 of a file that was overwritten before it was ever
-    committed is still a perfectly formed 64-character string. Resolving the
-    cited path in git, hashing what comes back, and comparing that hash to the
-    cited one is the difference between a citation and a claim.
+    ``(issues, resolutions, unverifiable_here)``. The check this replaces asked
+    only whether the cited ``sha256`` was a non-empty string, which is how an
+    artifact came to cite bytes that exist nowhere: the sha256 of a file that was
+    overwritten before it was ever committed is still a perfectly formed
+    64-character string. Resolving the cited path in git, hashing what comes
+    back, and comparing that hash to the cited one is the difference between a
+    citation and a claim.
 
-    A citation that resolves only in the working tree is refused as well. It is
-    not a reviewer-resolvable citation, and accepting it would leave the receipt
-    free to be exactly as unreachable as the pointer it replaced -- so the
-    receipt is committed before anything cites it.
+    A citation that resolves only in the working tree is refused as well -- where
+    there is a working tree to refuse it from. It is not a reviewer-resolvable
+    citation, and accepting it would leave the receipt free to be exactly as
+    unreachable as the pointer it replaced, so the receipt is committed before
+    anything cites it. In a checkout with no object store at all the same lookup
+    fails for a different reason and says something different: the bytes are on
+    disk, they hash to what was cited, and only the committed-ness is
+    unanswerable from here. That goes in ``unverifiable_here`` and reaches exit
+    3, because reporting an export's blind spot as an unreachable citation tells
+    a reviewer to go looking for a defect the receipt already fixed.
     """
     issues: list[str] = []
+    unverifiable: list[str] = []
     citations: dict[str, dict] = {}
     for arm in ARMS:
         reused = ((doc.get("per_arm") or {}).get(arm)
@@ -1320,10 +1365,18 @@ def check_the_reuse_citations(
                 f"{str(cited['sha256'])[:16]} but the bytes that resolve there "
                 f"hash to {str(resolution['bytes_sha256'])[:16]}")
         if resolution["git_blob_sha1"] is None:
-            issues.append(
-                f"{arms}: {path} resolves only from "
-                f"{resolution['resolved_from']}, so no clone can repeat this "
-                f"check; commit it beside the artifact that cites it")
+            if resolution["object_store_here"]:
+                issues.append(
+                    f"{arms}: {path} resolves only from "
+                    f"{resolution['resolved_from']}, so no clone can repeat this "
+                    f"check; commit it beside the artifact that cites it")
+            else:
+                unverifiable.append(
+                    f"{arms}: {path} is on disk here and hashes to "
+                    f"{str(resolution['bytes_sha256'])[:16]}, matching the "
+                    f"cited sha256, but this checkout has no git object store, "
+                    f"so whether any commit holds those bytes cannot be said "
+                    f"from here")
         if cited["claims_receipt"] and target != RECEIPT_PATH:
             issues.append(
                 f"{arms}: the reuse block says it cites the receipt but names "
@@ -1371,15 +1424,20 @@ def check_the_reuse_citations(
                 issues.append(
                     f"{path} preserves {claimed_calls} call(s) but {citing} "
                     f"arm(s) cite it as their source")
-    return issues, resolved
+    return issues, resolved, unverifiable
 
 
-def verify(path: Path | None = None) -> tuple[int, list[str]]:
-    """Check the artifact without calling anything, and without credentials."""
+def verify(path: Path | None = None) -> tuple[int, list[str], list[str]]:
+    """``(code, issues, unverifiable_here)``: no calls, and no credentials.
+
+    The third element is what this checkout could not check, kept out of
+    ``issues`` because conflating the two is what made a fresh checkout report a
+    contradiction where the evidence was sound and the history was missing.
+    """
     path = OUT_PATH if path is None else path
     if not path.exists():
         return 2, [f"no sensitivity label artifact at {_rel(path)}; run this "
-                   f"script with --write to produce one"]
+                   f"script with --write to produce one"], []
     doc = load_json(path)
     issues: list[str] = []
 
@@ -1405,7 +1463,7 @@ def verify(path: Path | None = None) -> tuple[int, list[str]]:
                       f"arms {sorted(ARMS)}")
 
     # Where the reused calls say they came from, resolved rather than believed.
-    citation_issues, citations = check_the_reuse_citations(
+    citation_issues, citations, unverifiable = check_the_reuse_citations(
         doc, under_verification=path)
     issues.extend(citation_issues)
 
@@ -1609,10 +1667,12 @@ def verify(path: Path | None = None) -> tuple[int, list[str]]:
     if doc.get("call_failures"):
         return 3, issues + [
             f"{len(doc['call_failures'])} adjudicator call(s) failed, so the "
-            f"label could not be produced here: {doc['call_failures']}"]
+            f"label could not be produced here: {doc['call_failures']}"], []
     if issues:
-        return 1, issues
-    return 0, []
+        return 1, issues, unverifiable
+    if unverifiable:
+        return 3, [], unverifiable
+    return 0, [], []
 
 
 def citation_resolutions(path: Path) -> dict:
@@ -1665,7 +1725,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_call_receipt(args.out)
 
     if args.verify or not args.write:
-        code, issues = verify(args.out)
+        code, issues, unverifiable = verify(args.out)
         if code == 0:
             print("\nSENSITIVITY LABELS: VERIFIED — the frozen rule still "
                   "gives what was filed, every filed label still answers the "
@@ -1682,13 +1742,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"\nSENSITIVITY LABELS: NOT FILED — {issues[0]}")
             return 2
         if code == 3:
-            print(f"\nSENSITIVITY LABELS: INCOMPLETE ({len(issues)} issue(s))")
+            print(f"\nSENSITIVITY LABELS: INCOMPLETE "
+                  f"({len(issues) + len(unverifiable)} note(s)) — nothing "
+                  f"failed, and something could not be checked here")
             for issue in issues:
                 print(f"  - {issue}")
+            for note in unverifiable:
+                print(f"  not checkable here: {note}")
             return 3
         print(f"\nSENSITIVITY LABELS: FAIL ({len(issues)} issue(s))")
         for issue in issues:
             print(f"  - {issue}")
+        for note in unverifiable:
+            print(f"  not checkable here: {note}")
         return 1
 
     doc = build(fresh_calls=args.fresh_calls,

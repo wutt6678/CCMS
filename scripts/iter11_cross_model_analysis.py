@@ -1047,8 +1047,7 @@ def main(argv: list[str] | None = None) -> int:
                   f"every non-numeric leaf is exact")
             print(f"  licensed by: {deviation['reason']}")
             for field, both in sorted(deviation["differences"].items()):
-                print(f"    {field}: locked {both.get('locked')!r} "
-                      f"active {both.get('active')!r}")
+                print(reproduction.format_difference(field, both))
         for issue in issues:
             print(f"  NOTE {issue}")
         exit_code = code

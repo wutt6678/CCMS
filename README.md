@@ -1471,10 +1471,17 @@ that licensed it, rather than exiting 0 and looking like the stronger claim. And
 a checkout that has the files but not the history — an export, a tarball, the
 anonymous reproducibility package — can say that every hash on disk is sound and
 that it cannot say whether those files are the committed ones, which is a true
-statement about the checkout rather than either of the two flattering ones.
+statement about the checkout rather than either of the two flattering ones. Two
+verifiers answer that way: the closeout manifest, whose committed-ness check is
+separate from its hash check, and the sensitivity labels' reuse citations, where
+the cited receipt is on disk and hashes to what the artifact cites and only the
+question "does a commit hold these bytes" is unanswerable. Reporting that as an
+unreachable citation — the finding the receipt was written to end — would send a
+reviewer looking for a defect that is not there.
 What never reaches it is a genuine failure: a finding outranks incompleteness,
 because a checkout without the media can still find a leak in a payload or a
-prompt, and reporting that as merely incomplete would bury it.
+prompt, a historyless checkout still hashes a cited receipt and still fails it if
+the bytes are wrong, and reporting either as merely incomplete would bury it.
 
 ### The freeze's preimage is committed, which is not the same as a rebuild
 

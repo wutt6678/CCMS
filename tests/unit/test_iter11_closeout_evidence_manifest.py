@@ -133,7 +133,11 @@ class TestTheBoundSetIsDiscoveredRatherThanListed:
         tracked = {line for line in
                    _git("ls-files", "--", "outputs/iteration_11/").splitlines()
                    if line}
-        assert tracked <= paths, sorted(tracked - paths)[:10]
+        assert sorted(tracked - paths) == [SELF], (
+            "the manifest binds its own path in nothing, so it is the only "
+            f"tracked output it may leave out; left out: "
+            f"{sorted(tracked - paths)}")
+        assert tracked - {SELF} <= paths
 
     def test_every_iteration_11_script_and_test_is_bound(self):
         paths = set(manifest.discover())

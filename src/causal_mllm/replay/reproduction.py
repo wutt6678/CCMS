@@ -364,7 +364,18 @@ def environment_deviation(lock_path: str | Path | None = None) -> dict:
     differences.update(active.get("differences") or {})
     offenders = dict(active.get("third_party_editable_installs") or {})
     if offenders:
-        differences["third_party_editable_installs"] = sorted(offenders)
+        # The same ``{"locked": ..., "active": ...}`` shape every other entry in
+        # ``differences`` has. It used to be a bare sorted list of names, which
+        # made the deviation printers in ``iter11_reference_restriction.py`` and
+        # ``iter11_cross_model_analysis.py`` raise AttributeError -- on the one
+        # machine that had a third-party editable install, which is to say in the
+        # exact report whose whole job is to explain why a numeric comparison was
+        # tolerated rather than exact. The locked side is worth naming too: the
+        # lock certifies an environment with no such install, and "active has
+        # one" reads differently from "the two differ".
+        differences["third_party_editable_installs"] = {
+            "locked": sorted(recorded.get("editable_installs") or {}),
+            "active": sorted(offenders)}
     deviates = bool(differences)
     return {
         "certified": not deviates,
@@ -385,6 +396,23 @@ def environment_deviation(lock_path: str | Path | None = None) -> dict:
         "recorded_executable": active.get("locked_executable"),
         "dependency_lock_sha256": active.get("dependency_lock_sha256"),
     }
+
+
+def format_difference(field: str, both: object) -> str:
+    """One indented line of a deviation report, whatever shape the value has.
+
+    :func:`environment_deviation` maps each differing field to
+    ``{"locked": ..., "active": ...}``, and a printer that assumes that shape
+    crashes on the first entry which is not a dict -- which is exactly what two
+    verifiers did, on the one machine whose deviation they were explaining. A
+    rendering loop has no business raising on the value it renders: the report is
+    the reason a numeric comparison was tolerated rather than exact, so a
+    verifier that dies printing it reports neither the tolerance nor the finding.
+    """
+    if isinstance(both, dict) and {"locked", "active"} <= both.keys():
+        return (f"    {field}: locked {both['locked']!r} "
+                f"active {both['active']!r}")
+    return f"    {field}: {both!r}"
 
 
 #: What a verification concluded. Kept as constants because three scripts print

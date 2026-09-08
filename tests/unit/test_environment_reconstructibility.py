@@ -1089,3 +1089,74 @@ class TestEveryPDerivedFieldIsClassifiedByWhatItHolds:
             f"{unregistered} hold floats, are named as p-values, and are not "
             f"in P_VALUE_FIELD_NAMES, so a re-derivation on another "
             f"interpreter would hold a count of resamples to a float epsilon")
+
+
+class TestTheDeviationReportRendersWhateverItIsGiven:
+    """A rendering loop that raises on its own value reports neither.
+
+    ``environment_deviation``'s ``differences`` maps each differing field to
+    ``{"locked": ..., "active": ...}``. One entry used to be a bare sorted list
+    of names -- the third-party editable installs -- and the two verifiers that
+    print the deviation therefore raised ``AttributeError: 'list' object has no
+    attribute 'get'``. Only on a machine that HAS such an install, which is to
+    say only on a machine whose deviation the report existed to explain, and
+    only after the verdict line had already printed, so the run looked like a
+    pass followed by a crash. Both the shape and the printers are fixed and both
+    are pinned here, because a printer that assumes a shape will be handed
+    another one eventually.
+    """
+
+    @pytest.mark.parametrize("value", [
+        {"locked": 100, "active": 111},
+        {"locked": [], "active": ["some_package"]},
+        ["some_package"],
+        "a string",
+        3,
+        None,
+        {"locked": 1},
+        {},
+    ])
+    def test_format_difference_renders_every_shape(self, value):
+        line = reproduction.format_difference("field", value)
+        assert line.startswith("    field: ")
+        if isinstance(value, dict) and {"locked", "active"} <= value.keys():
+            assert "locked" in line and "active" in line
+
+    def test_the_pair_shape_is_rendered_as_a_pair(self):
+        assert reproduction.format_difference(
+            "n_packages", {"locked": 100, "active": 111}) == \
+            "    n_packages: locked 100 active 111"
+
+    def test_a_bare_list_is_rendered_rather_than_raised_on(self):
+        assert reproduction.format_difference(
+            "third_party_editable_installs", ["some_package"]) == \
+            "    third_party_editable_installs: ['some_package']"
+
+    def test_every_difference_the_live_measurement_reports_is_a_pair(self):
+        deviation = reproduction.environment_deviation()
+        for field, both in deviation["differences"].items():
+            assert isinstance(both, dict), (
+                f"{field} is {both!r}, and a printer over differences has to "
+                f"be able to rely on one shape")
+            assert {"locked", "active"} <= both.keys(), field
+
+    def test_an_editable_install_names_the_side_the_lock_certified(self):
+        """The locked half is the informative one: the lock certified none."""
+        deviation = reproduction.environment_deviation()
+        entry = deviation["differences"].get("third_party_editable_installs")
+        if entry is None:
+            pytest.skip(
+                "this environment has no third-party editable install, which "
+                "is what the certified Iteration 11 environment is for")
+        recorded = registry.load_dependency_lock() or {}
+        assert entry["locked"] == sorted(recorded.get("editable_installs") or {})
+        assert entry["active"] and entry["active"] != entry["locked"]
+
+    def test_neither_verifier_formats_a_deviation_by_hand_any_more(self):
+        for name in ("iter11_reference_restriction.py",
+                     "iter11_cross_model_analysis.py"):
+            source = (ROOT / "scripts" / name).read_text(encoding="utf-8")
+            assert "reproduction.format_difference(" in source, name
+            assert "both.get('locked')" not in source, (
+                f"{name} still renders a difference by assuming its shape, "
+                f"which is what crashed")

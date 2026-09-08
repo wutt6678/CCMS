@@ -1168,7 +1168,8 @@ def _forge(filed_sensitivity, tmp_path, mutate, name="forged.json"):
     mutate(doc)
     path = tmp_path / name
     path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-    return adjudicator.verify(path)
+    code, issues, _ = adjudicator.verify(path)
+    return code, issues
 
 
 def _entry(doc, arm):
@@ -1177,7 +1178,7 @@ def _entry(doc, arm):
 
 class TestVerifyAcceptsWhatWasFiled:
     def test_the_committed_artifact_verifies(self):
-        code, issues = adjudicator.verify(SENSITIVITY_ARTIFACT)
+        code, issues, _ = adjudicator.verify(SENSITIVITY_ARTIFACT)
         assert code == 0, issues
 
     def test_a_refile_of_it_verifies(self, monkeypatch, filed_sensitivity):
@@ -1188,13 +1189,13 @@ class TestVerifyAcceptsWhatWasFiled:
         path = SENSITIVITY_ARTIFACT.parent / ".verify_roundtrip.json"
         try:
             path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
-            code, issues = adjudicator.verify(path)
+            code, issues, _ = adjudicator.verify(path)
             assert code == 0, issues
         finally:
             path.unlink(missing_ok=True)
 
     def test_no_artifact_is_a_missing_input_not_a_failure(self, tmp_path):
-        code, issues = adjudicator.verify(tmp_path / "absent.json")
+        code, issues, _ = adjudicator.verify(tmp_path / "absent.json")
         assert code == 2
         assert "--write" in issues[0]
 
@@ -1464,15 +1465,66 @@ def rederived_bound():
     return code, conclusion, issues
 
 
-class TestTheCommittedBoundReDerives:
-    def test_the_whole_document_comes_back_exactly(self, rederived_bound):
-        code, conclusion, issues = rederived_bound
-        assert code == 0, issues
-        assert "EXACT" in conclusion.upper() or issues == [] or all(
-            "environment" in issue for issue in issues)
+def _what_this_environment_owes_the_bound() -> tuple[int, str]:
+    """The answer ``bound.verify()`` is contracted to give, on THIS machine.
 
-    def test_the_verify_command_exits_zero(self, rederived_bound):
-        assert rederived_bound[0] == 0
+    Exact inside the certified environment, where the last bit is reproducible
+    and a difference is a defect. Within the documented numeric tolerance under
+    a deviation the report names, which is exit 3 and not exit 0 -- "the numbers
+    agree to 1e-12 under a different interpreter" is a weaker statement than
+    "the numbers are the same numbers", and the weaker one must not be printed
+    in the stronger one's words.
+
+    Asserting only the first makes the suite green under one interpreter and red
+    under another, which is the portability defect this whole lane exists to
+    close: a test that encodes its own machine as the only correct one is not a
+    test of the artifact.
+    """
+    if reproduction.environment_deviation()["deviates"]:
+        return 3, reproduction.WITHIN_TOLERANCE
+    return 0, reproduction.EXACT
+
+
+class TestTheCommittedBoundReDerives:
+    def test_the_document_comes_back_as_this_environment_permits(
+            self, rederived_bound):
+        code, conclusion, issues = rederived_bound
+        expected_code, expected_conclusion = _what_this_environment_owes_the_bound()
+        assert code == expected_code, issues
+        assert conclusion == expected_conclusion
+        assert issues == [], (
+            "neither answer carries issues: a tolerated numeric difference is "
+            "named in the report's own tolerance block, and a real one is "
+            "exit 1")
+
+    def test_exactness_is_demanded_only_where_it_is_available(self):
+        code, conclusion = _what_this_environment_owes_the_bound()
+        deviation = reproduction.environment_deviation()
+        if deviation["certified"]:
+            assert (code, conclusion) == (0, reproduction.EXACT), (
+                "inside the certified environment the last bit is reproducible, "
+                "so a difference is a defect and not a tolerance")
+        else:
+            assert (code, conclusion) == (
+                3, reproduction.WITHIN_TOLERANCE)
+            assert deviation["reason"], (
+                "a tolerance with no named deviation licensing it is a "
+                "tolerance that applies everywhere, which is no tolerance at "
+                "all")
+
+    def test_a_deviation_that_licenses_the_tolerance_is_a_measured_one(self):
+        """Exit 3 is earned by a measurement, not by an interpreter's name."""
+        deviation = reproduction.environment_deviation()
+        if not deviation["deviates"]:
+            pytest.skip("this environment is the certified one, so no "
+                        "tolerance is licensed and none is needed")
+        assert deviation["differences"], (
+            "deviates is True with nothing differing, so the tolerance would be "
+            "licensed by an empty report")
+        for field, both in deviation["differences"].items():
+            assert isinstance(both, dict), field
+            assert {"locked", "active"} <= both.keys(), field
+            assert both["locked"] != both["active"], field
 
     def test_every_closed_form_check_passed_before_anything_was_filed(
             self, filed_bound):
@@ -1951,7 +2003,7 @@ class TestTheSourceEvidenceIsResolvedRatherThanBelieved:
         doc = {"per_arm": {"phi4_mm": {"call_reused_from": {
             "path": "outputs/definitely/not/committed.json",
             "sha256": "a" * 64}}}}
-        issues, _ = adjudicator.check_the_reuse_citations(doc)
+        issues, _, _ = adjudicator.check_the_reuse_citations(doc)
         assert any("nothing resolves there" in i for i in issues), issues
 
     def test_the_superseded_citation_is_measured_not_asserted(self):
@@ -2084,7 +2136,7 @@ class TestTheTwoShapesOfASourceAreToldApart:
                          encoding="utf-8")
         doc = {"per_arm": {"phi4_mm": {"call_reused_from": {
             "path": adjudicator._rel(stray), "sha256": "a" * 64}}}}
-        issues, _ = adjudicator.check_the_reuse_citations(doc)
+        issues, _, _ = adjudicator.check_the_reuse_citations(doc)
         assert any("neither a call receipt nor a sensitivity artifact" in i
                    for i in issues), issues
 
@@ -2122,7 +2174,7 @@ class TestACitationIsResolvedOutOfTheObjectStore:
     """
 
     def test_the_hash_the_object_store_returns_is_accepted(self, citable_sha):
-        issues, resolved = adjudicator.check_the_reuse_citations(
+        issues, resolved, _ = adjudicator.check_the_reuse_citations(
             _citing(citable_sha))
         assert resolved[CITABLE]["bytes_sha256"] == citable_sha
         assert not any("hash to" in i for i in issues), issues
@@ -2130,12 +2182,12 @@ class TestACitationIsResolvedOutOfTheObjectStore:
     def test_a_cited_hash_of_none_is_not_a_citation(self, citable_sha):
         # The old check asked only whether the sha256 was a non-empty string, so
         # None failed by accident of truthiness and "b" * 64 did not fail at all.
-        issues, _ = adjudicator.check_the_reuse_citations(_citing(None))
+        issues, _, _ = adjudicator.check_the_reuse_citations(_citing(None))
         assert any("but the bytes that resolve there hash to" in i
                    for i in issues), issues
 
     def test_a_well_formed_hash_of_nothing_is_refused_too(self, citable_sha):
-        issues, _ = adjudicator.check_the_reuse_citations(_citing("b" * 64))
+        issues, _, _ = adjudicator.check_the_reuse_citations(_citing("b" * 64))
         assert any("but the bytes that resolve there hash to" in i
                    for i in issues), issues
         assert any(citable_sha[:16] in i for i in issues), (
@@ -2147,7 +2199,7 @@ class TestACitationIsResolvedOutOfTheObjectStore:
         doc = _citing(citable_sha, arms=("qwen35_2b",))
         doc["per_arm"]["phi4_mm"] = {"call_reused_from": {
             "path": CITABLE, "sha256": "d" * 64}}
-        issues, _ = adjudicator.check_the_reuse_citations(doc)
+        issues, _, _ = adjudicator.check_the_reuse_citations(doc)
         assert any("while another arm cites the same path" in i
                    for i in issues), issues
 
@@ -2159,7 +2211,7 @@ class TestACitationIsResolvedOutOfTheObjectStore:
         written. That is a property of the shape and not of one unlucky sha256,
         which is why it is refused before anything is hashed.
         """
-        issues, resolved = adjudicator.check_the_reuse_citations(
+        issues, resolved, _ = adjudicator.check_the_reuse_citations(
             _citing("c" * 64, path=adjudicator._rel(adjudicator.OUT_PATH)))
         assert any("this artifact itself" in i for i in issues), issues
         assert resolved == {}, "a self-citation is refused, not resolved"
@@ -2169,26 +2221,131 @@ class TestACitationIsResolvedOutOfTheObjectStore:
         # The same shape reached through --verify of a copy elsewhere: the
         # cited path is not OUT_PATH but it IS the document being checked.
         copy = tmp_path / "artifact.json"
-        issues, _ = adjudicator.check_the_reuse_citations(
+        issues, _, _ = adjudicator.check_the_reuse_citations(
             _citing("c" * 64, path=adjudicator._rel(copy)),
             under_verification=copy)
         assert any("this artifact itself" in i for i in issues), issues
 
     def test_a_block_claiming_to_cite_the_receipt_has_to_name_it(
             self, citable_sha):
-        issues, _ = adjudicator.check_the_reuse_citations(
+        issues, _, _ = adjudicator.check_the_reuse_citations(
             _citing(citable_sha, it_is_a_receipt=True))
         assert any("says it cites the receipt but names" in i
                    for i in issues), issues
 
     def test_a_citation_with_no_path_has_nothing_to_resolve(self):
-        issues, resolved = adjudicator.check_the_reuse_citations(
+        issues, resolved, _ = adjudicator.check_the_reuse_citations(
             {"per_arm": {"phi4_mm": {"call_reused_from": {"sha256": "a" * 64}}}})
         assert any("cites no path at all" in i for i in issues), issues
         assert resolved == {}
 
     def test_an_arm_that_reused_nothing_is_not_asked_for_a_source(self):
         doc = {"per_arm": {arm: {"call_reused_from": None} for arm in ARMS}}
-        issues, resolved = adjudicator.check_the_reuse_citations(doc)
+        issues, resolved, _ = adjudicator.check_the_reuse_citations(doc)
         assert issues == []
         assert resolved == {}
+
+
+class TestACitationInACheckoutWithNoHistoryIsIncompleteNotUnreachable:
+    """The export lane: the bytes are there and the object store is not.
+
+    A tarball, a ``git archive`` export and the anonymous reproducibility
+    package all hold every committed file and none of the history. The blob
+    lookup that proves a citation resolvable therefore fails there for a reason
+    that says nothing about the citation, and reporting it as an unreachable
+    source -- the finding the receipt was written to end -- sends a reviewer
+    looking for a defect that is not there. The bytes are still hashed and still
+    compared, so a citation to the WRONG bytes fails in a historyless checkout
+    exactly as it does in a clone.
+
+    Simulated by making every git question fail rather than by patching
+    ``object_store_here`` alone: that flag only words the failure, and a checkout
+    with no history is one where the lookup itself does not answer.
+    """
+
+    @pytest.fixture
+    def no_object_store(self, monkeypatch):
+        real_git = adjudicator._git
+
+        def historyless(*args):
+            if args and args[0] in ("rev-parse", "cat-file", "ls-tree"):
+                return 128, b"fatal: not a git repository"
+            return real_git(*args)
+
+        monkeypatch.setattr(adjudicator, "_git", historyless)
+        assert adjudicator.object_store_here() is False
+        return historyless
+
+    def test_a_resolvable_citation_becomes_unverifiable_rather_than_wrong(
+            self, no_object_store):
+        disk_sha = adjudicator.sha256_file(ROOT / CITABLE)
+        issues, resolved, unverifiable = \
+            adjudicator.check_the_reuse_citations(_citing(disk_sha))
+        assert resolved[CITABLE]["bytes_sha256"] == disk_sha
+        assert resolved[CITABLE]["git_blob_sha1"] is None
+        assert resolved[CITABLE]["object_store_here"] is False
+        assert not any("resolves only from" in i for i in issues), issues
+        assert not any("hash to" in i for i in issues), issues
+        assert len(unverifiable) == 1
+        assert "no git object store" in unverifiable[0]
+        assert disk_sha[:16] in unverifiable[0], (
+            "the note has to say what DID check out, or it reads as a refusal")
+
+    def test_a_citation_to_the_wrong_bytes_still_fails_there(
+            self, no_object_store):
+        issues, _, unverifiable = adjudicator.check_the_reuse_citations(
+            _citing("b" * 64))
+        assert any("but the bytes that resolve there hash to" in i
+                   for i in issues), (
+                "a finding outranks incompleteness: the hash comparison runs "
+                f"against the working tree, so a wrong citation is still wrong "
+                f"here -- {issues}")
+        assert unverifiable
+
+    def test_the_committed_artifact_exits_three_there_with_no_issues(
+            self, no_object_store):
+        code, issues, unverifiable = adjudicator.verify(SENSITIVITY_ARTIFACT)
+        assert code == 3, (code, issues, unverifiable)
+        assert issues == [], (
+            "the filed artifact's citation resolves to the receipt's bytes on "
+            f"disk; only the committed-ness is unanswerable: {issues}")
+        assert len(unverifiable) == 1
+        assert adjudicator._rel(adjudicator.RECEIPT_PATH) in unverifiable[0]
+
+    def test_the_same_artifact_exits_zero_where_history_exists(self):
+        assert adjudicator.object_store_here() is True
+        code, issues, unverifiable = adjudicator.verify(SENSITIVITY_ARTIFACT)
+        assert code == 0, (issues, unverifiable)
+        assert unverifiable == []
+
+    def test_an_uncommitted_citation_is_still_a_finding_where_history_exists(
+            self):
+        """The case the receipt exists for, unchanged by the export lane."""
+        stray = ROOT / "outputs" / "iteration_11" / "closeout" \
+            / "_uncommitted_citation.json"
+        stray.write_text(json.dumps({"per_arm": {}}), encoding="utf-8")
+        try:
+            issues, resolved, unverifiable = \
+                adjudicator.check_the_reuse_citations(
+                    _citing(adjudicator.sha256_file(stray),
+                            path=adjudicator._rel(stray)))
+            assert unverifiable == []
+            assert any("resolves only from" in i and
+                       "no commit reachable from HEAD holds" in i
+                       for i in issues), issues
+            assert resolved[adjudicator._rel(stray)]["git_blob_sha1"] is None
+        finally:
+            stray.unlink()
+
+    def test_the_two_reasons_a_blob_lookup_fails_say_different_things(
+            self, no_object_store):
+        stray = ROOT / "outputs" / "iteration_11" / "closeout" \
+            / "_uncommitted_citation.json"
+        stray.write_text("{}", encoding="utf-8")
+        try:
+            without = adjudicator.resolve_evidence(stray)
+        finally:
+            stray.unlink()
+        assert without["object_store_here"] is False
+        assert "cannot be compared with any commit" in without["resolved_from"]
+        assert "no git object store" in without["why_not"]
