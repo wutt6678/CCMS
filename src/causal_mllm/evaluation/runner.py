@@ -26,6 +26,7 @@ from causal_mllm.data.io import read_jsonl, write_jsonl
 from causal_mllm.data.logging import get_logger
 from causal_mllm.data.schemas import CausalFamily
 from causal_mllm.evaluation.bootstrap import paired_bootstrap_ci
+from causal_mllm.evaluation.censoring import exclusion_metadata
 from causal_mllm.evaluation.config import EvalConfig
 from causal_mllm.evaluation.errors import EvaluationError
 from causal_mllm.evaluation.estimands import (
@@ -336,9 +337,7 @@ def restrict_panel_to_labels(
             "a cell no judge could label is dropped, and so is every remaining "
             "cell of a family that lost one: the frozen estimator needs all "
             "six variants of a family to produce any of its five estimands"),
-        "outcome_independent": (
-            "which cells a provider refuses is a function of the request bytes, "
-            "so the surviving family set was fixed before any label existed"),
+        **exclusion_metadata("the surviving family set"),
     }
     log.warning(
         "Evaluation: panel restricted to the labelled cells -- %d of %d "

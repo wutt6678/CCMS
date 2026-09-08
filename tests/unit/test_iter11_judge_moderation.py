@@ -23,8 +23,10 @@ The resolution is exclusion, not repair: ``compute_pairwise_agreement``
 requires full mutual coverage and raises without it, so a cell one primary
 could not judge must be dropped from EVERY arm rather than labelled by the
 other primary alone. That keeps the arms on one identical panel, and the
-exclusion is outcome-independent -- a refusal is a function of the request
-bytes, so the excluded set was fixed before any label existed.
+exclusion is LABEL-BLIND -- no judge had scored anything when the excluded set
+was fixed, so no label chose it. It is not independent of the OUTCOME, and this
+docstring said it was until the paragraph below refuted that: the request a
+provider moderates carries the evaluated response.
 
 The confirmatory run then showed that "the request bytes" include the target's
 own reply: judge A additionally refused CMST_456921/text_only in ONE arm and
@@ -440,7 +442,16 @@ class TestCoverage:
             {"A": [], "B": []}, [], _items(4), ("a-model", "b-model"))
         assert coverage["n_excluded"] == 0
         assert "every arm" in coverage["exclusion_rule"].lower()
-        assert "before any label existed" in coverage["outcome_independent"]
+        # Two claims, two fields. The old single key asserted the stronger and
+        # false one -- that exclusion is a function of the request bytes -- and
+        # the request a provider moderates carries the evaluated response.
+        assert "before any judge has scored anything" \
+            in coverage["label_blind"]
+        assert "NOT independent of the outcome" \
+            in coverage["response_dependent"]
+        assert "CMST_456921/text_only" in coverage["response_dependent"]
+        assert "ministral3_3b" in coverage["response_dependent"]
+        assert "outcome_independent" not in coverage
         assert coverage["per_judge"]["A"]["model_id"] == "a-model"
         assert coverage["per_judge"]["B"]["model_id"] == "b-model"
 
@@ -1010,7 +1021,10 @@ class TestTheCommittedScanCountedVerdictsNotConnections:
         That they name the same cells under the same provider code is the
         evidence that the exclusion set is a property of the payloads and not
         of one run's circumstances -- which is what makes the exclusion
-        outcome-independent rather than merely asserted to be.
+        LABEL-BLIND rather than merely asserted to be. It is not evidence of
+        independence from the outcome: the payload these two runs agree on
+        CONTAINS the response, and one cell of the three was refused in one
+        arm alone because of what that arm's model said.
         """
         sidecar = ROOT / "outputs" / "iteration_11" / "judge" / "qwen35_2b" \
             / "llm_labels_judge_A.refusals.json"

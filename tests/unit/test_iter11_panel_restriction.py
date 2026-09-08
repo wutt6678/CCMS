@@ -128,7 +128,14 @@ class TestRestrictPanelToLabels:
     def test_the_restriction_states_why_and_that_it_was_not_chosen(self):
         _, restriction = restrict_panel_to_labels(_panel(), REFUSED_CELLS)
         assert "all six variants" in restriction["rule"]
-        assert "before any label existed" in restriction["outcome_independent"]
+        assert "before any judge has scored anything" \
+            in restriction["label_blind"]
+        # Label-blind is not the same claim as independent of the outcome, and
+        # the restriction says so rather than letting the first imply the
+        # second.
+        assert "NOT independent of the outcome" \
+            in restriction["response_dependent"]
+        assert "outcome_independent" not in restriction
 
     def test_the_excluded_cells_are_listed_by_name(self):
         _, restriction = restrict_panel_to_labels(_panel(), REFUSED_CELLS)

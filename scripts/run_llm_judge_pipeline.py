@@ -32,6 +32,7 @@ from causal_mllm.evaluation.adjudication import (
     ENSEMBLE_BACKEND,
     LLMAdjudicator,
 )
+from causal_mllm.evaluation.censoring import exclusion_metadata
 from causal_mllm.evaluation.ensemble import (
     finalize_ensemble,
     primary_checkpoint_fingerprint,
@@ -603,9 +604,17 @@ def build_judge_coverage(by_judge: dict, stale: list,
     in this arm's completed ``llm_labels_judge_*.json``, which the exclusion
     filter never touches. Each excluded cell records which of the two it was.
 
-    The exclusion is outcome-independent: a provider refusal is a function of
-    the request bytes alone, so the excluded set was fixed before any label
-    existed and cannot have been chosen by what the cells turned out to say.
+    The exclusion is LABEL-BLIND: it is settled before any judge has scored
+    anything, so no label chose which cells survived. It is NOT independent of
+    the outcome, and this docstring used to say it was. The request a provider
+    moderates carries the evaluated response, so which cells are excluded is a
+    function of what the model said as well as of the request's other bytes --
+    measured, not argued, in
+    ``outputs/iteration_11/diagnostics/judge_moderation/``:
+    ``CMST_456921/text_only`` was refused in the ``ministral3_3b`` arm alone
+    and served in the other three. Both halves are filed as separate fields by
+    ``causal_mllm.evaluation.censoring``, which is the only copy of the
+    wording.
     """
     items_by_id = {it["item_id"]: it for it in blinded_items}
     cell_of_item = {it["item_id"]: (it["family_id"], it["variant"])
@@ -658,9 +667,7 @@ def build_judge_coverage(by_judge: dict, stale: list,
         "exclusion_rule": (
             "the union of cells any primary's provider refused is dropped "
             "from EVERY arm, so all arms judge one identical panel"),
-        "outcome_independent": (
-            "a provider refusal is a function of the request bytes alone, so "
-            "this set was fixed before any label existed"),
+        **exclusion_metadata("the excluded set"),
         "per_judge": {
             j: {"n_refused": len(rs),
                 "model_id": (primary_model_ids[0] if j == "A"

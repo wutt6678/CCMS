@@ -855,14 +855,20 @@ class TestThePipelineAppliesTheUnion:
 
     def test_a_single_arm_coverage_artifact_is_unchanged(self, group):
         # scale_b and scale_c are sealed. Same input, no group: the artifact
-        # must carry exactly the keys it carried before, in the same order.
+        # must carry exactly the keys it carried before, in the same order --
+        # with one deliberate exception. ``outcome_independent`` asserted that
+        # a provider refusal is a function of the request bytes alone, and the
+        # moderated request carries the evaluated response, so it is now the two
+        # claims it conflated: label-blind, and response-dependent. No sealed
+        # scale_b or scale_c artifact carries the old key, so nothing committed
+        # is contradicted by the rename.
         by_judge, _ = self._own(group, "t1", refused=[REFUSED])
         coverage, _ = pipeline.build_judge_coverage(
             by_judge, [], group["items"], ("a-model", "b-model"))
         assert list(coverage) == [
             "n_panel_items", "n_excluded", "n_judged", "excluded_item_ids",
-            "excluded_cells", "exclusion_rule", "outcome_independent",
-            "per_judge", "stale_refusals_ignored"]
+            "excluded_cells", "exclusion_rule", "label_blind",
+            "response_dependent", "per_judge", "stale_refusals_ignored"]
         assert list(coverage["excluded_cells"][0]) == [
             "item_id", "family_id", "variant", "response_sha256",
             "refused_by", "reason"]

@@ -36,7 +36,15 @@ recorded in the artifact because both were plausible:
 The consequence for the run is handled in
 :mod:`scripts.run_llm_judge_pipeline`: a refusal is recorded per cell and the
 cell is excluded from EVERY arm. This script is what establishes that the
-exclusion is outcome-independent rather than merely asserting it.
+exclusion is LABEL-BLIND rather than merely asserting it — no judge had scored
+anything when the excluded set was fixed. It does NOT establish that the
+exclusion is independent of the outcome, and this paragraph claimed it did
+until the reading immediately below refuted the claim: the request a provider
+moderates carries the evaluated response, so a refusal can track what the model
+said. ``causal_mllm.evaluation.censoring`` is where the two claims are now kept
+apart, and
+``outputs/iteration_11/diagnostics/exclusion_metadata_correction.json``
+enumerates the sealed artifacts that still file the older, stronger one.
 
 UNIFORMITY DID NOT SURVIVE THE CONFIRMATORY RUN, and the paragraph above is
 kept as the 2026-09-06 reading rather than rewritten over: judge A additionally

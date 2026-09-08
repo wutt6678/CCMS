@@ -143,17 +143,31 @@ union runs across targets as well as across primaries), the cells it dropped,
 which identity refused each, whether the refusal came from this arm or another
 one, and the provider's reason.
 
-The exclusion is **outcome-independent**: a refusal is a function of the
-request bytes alone, so the excluded set was fixed before any label existed
-and cannot have been chosen by what those cells turned out to say. What the
-confirmatory run showed is that "the request bytes" include the target's own
-reply, so the exclusion is NOT uniform across arms before the union is taken —
-the surviving panel is identical in all four only because the union makes it
-so, and one of the three excluded cells was excluded because of what one model
-said. That is a statement about the LABELS; the analysis panel is smaller
-again, for a reason given under "Consequence for the analysis" below, and the
-differential censoring is a limitation 11.8 has to bound rather than a property
-that can be designed away here.
+The exclusion is **label-blind**: it is settled before any judge has scored
+anything, so no label — no score, no compliance level, no refusal type — chose
+which cells survived, and no arm's family set was picked after seeing how that
+arm came out. That half of what this section used to claim is true, and is kept.
+
+It is **not independent of the outcome**, which is the stronger claim this
+section used to make under the single key `outcome_independent`. The request a
+provider moderates carries the evaluated response, so which cells are excluded
+is a function of what the model said as well as of the request's other bytes.
+What the confirmatory run showed is exactly that: "the request bytes" include
+the target's own reply, so the exclusion is NOT uniform across arms before the
+union is taken — the surviving panel is identical in all four only because the
+union makes it so, and one of the three excluded cells was excluded because of
+what one model said. That is a statement about the LABELS; the analysis panel
+is smaller again, for a reason given under "Consequence for the analysis"
+below, and the differential censoring is a limitation 11.8 has to bound rather
+than a property that can be designed away here.
+
+Both halves are now filed as two separate fields by
+`src/causal_mllm/evaluation/censoring.py`, so neither carries the other. The
+sealed artifacts that still hold the older single key are enumerated, quoted and
+corrected beside themselves in
+`outputs/iteration_11/diagnostics/exclusion_metadata_correction.json` rather than
+rewritten, and `--verify` on that file fails if a new artifact grows the key
+back or if one of the enumerated ones is edited.
 
 ## The verdict is not stable over time
 
@@ -285,8 +299,10 @@ So this panel contains two different moderation triggers, and they have
 different consequences:
 
 * `CMST_795308` — the shared history. Refused identically in all four arms.
-  Uniform censoring: it costs coverage and nothing else, and the exclusion is
-  outcome-independent in the strong sense the earlier section claims.
+  Uniform censoring: it costs coverage and nothing else. It is *consistent*
+  with a request-bytes cause — roughly 1.55 MB of image payload that the
+  provider's input moderation rejects — but consistency is not independence,
+  and these cells travel in the same request as the response they censor.
 * `CMST_456921` — one target's reply. Refused in one arm only. **Differential
   censoring, correlated with that model's behaviour**, which is the mechanism
   the earlier section recorded as ruled out by evidence. It was ruled out for
