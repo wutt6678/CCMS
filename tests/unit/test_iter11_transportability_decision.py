@@ -22,6 +22,11 @@ read better than the numbers under it:
   reversal as a weakness in the decision instead of as the decision;
 * every prose count is generated from the count it describes, so moving a sign
   moves the sentence;
+* the aggregation rule that turns four per-target verdicts into one label is
+  filed as POST-SPECIFIED, and that is measured against the protocol document
+  rather than asserted -- the protocol freezes four per-model sign-match
+  statements and a correction, and files no aggregation rule, so a document
+  claiming otherwise has to be searched for and refuted rather than trusted;
 * the panel arithmetic is stated where two numbers that look as though one
   should contain the other do not: the per-target mean is a bootstrap mean over
   98 families and the bound's range is a point mean over 99, and for one target
@@ -70,6 +75,11 @@ SHARED_CELLS = ["CMST_795308/cross_modal", "CMST_795308/shuffle"]
 def _filed() -> dict:
     assert FILED.is_file(), f"{FILED} is committed evidence; run the stage"
     return json.loads(FILED.read_text(encoding="utf-8"))
+
+
+def _protocol() -> dict:
+    """The frozen protocol, read once. Committed evidence, like every input here."""
+    return json.loads(decision.PROTOCOL.read_text(encoding="utf-8"))
 
 
 def _analysis(signs: dict[str, str], means: dict[str, float] | None = None) -> dict:
@@ -156,7 +166,13 @@ POS_RANGES = {arm: (0.08, 0.09) for arm in ARMS}
 def _as_filed(signs: dict[str, str],
               ranges: dict[str, tuple[float, float]],
               holds: dict[str, bool] | None = None) -> dict:
-    """What the committed evidence looks like: matching signs, pinned ranges."""
+    """What the committed evidence looks like: matching signs, pinned ranges.
+
+    Complete rather than partial. A synthesised document that omits a block the
+    real one files would trip that block's check in every test that is about
+    something else entirely, and the resulting failures would say nothing about
+    what those tests came to ask.
+    """
     analysis = _analysis(signs)
     bound = _bound(ranges, holds)
     reference = decision.reference_of(analysis)
@@ -173,6 +189,11 @@ def _as_filed(signs: dict[str, str],
             "the_two_facts_read_out_of_the_bound":
                 measurement["what_surviving_the_exclusion_required"]},
         **decision.where_the_two_means_part_company(targets),
+        "how_this_rule_was_specified":
+            decision.how_the_rule_was_specified(_protocol()),
+        "inputs": {"frozen_protocol": {
+            "path": decision._rel(decision.PROTOCOL),
+            "sha256": decision.sha256_file(decision.PROTOCOL)}},
     }
 
 
@@ -667,6 +688,236 @@ class TestTheDocumentReDerivesExactly:
 
 
 # ---------------------------------------------------------------------------
+# The aggregation rule is post-specified, and that is measured not asserted
+# ---------------------------------------------------------------------------
+
+class TestTheRuleWasNotWrittenDownBeforeTheTableExisted:
+    """The one claim here a reader cannot check from the table under it.
+
+    Everything else in the document is arithmetic on filed numbers. "The frozen
+    protocol does not pre-specify this aggregation rule" is a statement about a
+    different document, so it is pinned by reading that document again -- at
+    build time and again at verify time -- rather than by being written down
+    once in a paragraph that nothing checks.
+
+    The direction that matters is the flattering one. A decision that reads
+    "model-specific, not transported" carries more weight if the rule that
+    produced it was frozen before anybody saw the four verdicts, and the first
+    draft of this stage described it as though it had been. It had not: the
+    protocol freezes four per-model sign-match statements and a correction, and
+    files no rule for turning four verdicts into one label.
+    """
+
+    @pytest.fixture
+    def protocol(self) -> dict:
+        return _protocol()
+
+    def test_the_document_says_post_specified_and_not_pre_specified(self):
+        spec = decision.build()["how_this_rule_was_specified"]
+        assert spec["specified_when"] == decision.SPECIFIED_POST
+        assert spec["specified_when"] != decision.SPECIFIED_PRE
+
+    def test_the_rule_filed_beside_the_decision_says_so_too(self):
+        """The label has to be where a reader meets the decision, not only below."""
+        measurement = decision.build()["the_measurement"]
+        assert measurement["rule"].startswith(decision.THE_CLASSIFICATION_RULE)
+        assert "POST-SPECIFIED" in measurement["rule"]
+        assert "POST-SPECIFIED" in decision.__doc__
+
+    def test_the_protocol_really_does_not_carry_the_rule(self):
+        """Searched in the bytes as committed, not in a re-serialised copy.
+
+        The stage searches ``json.dumps`` of the loaded protocol, which is the
+        right thing for it to search. This searches the file, so a rule smuggled
+        in by a serialisation difference -- different indentation, an escaped
+        character -- is still caught by something.
+        """
+        raw = decision.PROTOCOL.read_text(encoding="utf-8")
+        assert decision.THE_CLASSIFICATION_RULE not in raw
+        assert "aggregation" not in raw.lower(), (
+            "the protocol mentions aggregation, so what_the_protocol_does_not_"
+            "pre_specify may no longer describe it")
+
+    def test_the_search_is_repeated_and_can_find_the_rule(self, protocol):
+        """A protocol that later freezes the rule must change the claim."""
+        doc = decision.build()
+        assert decision.check_the_decision(doc, protocol) == []
+        protocol["multiplicity"]["aggregation_rule"] = \
+            decision.THE_CLASSIFICATION_RULE
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("has to change to pre-specified" in issue for issue in issues), \
+            issues
+
+    def test_the_label_follows_the_search_in_both_directions(self, protocol):
+        """Upgrading the label on an empty search is the same defect, mirrored.
+
+        Checking only "post-specified while the protocol contains the rule"
+        would leave the flattering direction unpinned, and the flattering
+        direction is the one a document drifts into.
+        """
+        doc = decision.build()
+        doc["how_this_rule_was_specified"]["specified_when"] = \
+            decision.SPECIFIED_PRE
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("cannot be moved without the protocol moving" in issue
+                   for issue in issues), issues
+
+    def test_a_label_nobody_has_defined_is_refused(self, protocol):
+        doc = decision.build()
+        doc["how_this_rule_was_specified"]["specified_when"] = "post_hoc"
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("not one of" in issue for issue in issues), issues
+
+    def test_the_per_target_statements_are_split_out_as_a_bijection(self, protocol):
+        """Four statements, four targets, each named exactly once.
+
+        Derived from the protocol's own marketed labels rather than listed,
+        because the pooled H5 is a hypothesis too and folding it in would make
+        the rule the conjunction of five statements -- one of which aggregates
+        the very models the rule refuses to aggregate.
+        """
+        pre = decision.build()["how_this_rule_was_specified"][
+            "what_the_protocol_pre_specifies"]
+        per_target = pre["per_target_statements"]
+        assert sorted(per_target) == ["H1", "H2", "H3", "H4"]
+        assert sorted(e["target"] for e in per_target.values()) == sorted(ARMS)
+        assert len({e["target"] for e in per_target.values()}) == len(ARMS)
+        leftover = pre["statements_that_are_not_about_one_target"]
+        assert sorted(leftover) == ["H5"], (
+            "a hypothesis in neither dict has been quietly dropped, which is "
+            "how a conjunction comes to look complete")
+        assert leftover["H5"]["targets_it_names"] == []
+        assert set(pre["per_target_statements"]) | set(leftover) == {
+            key for key in (protocol.get("hypotheses") or {})
+            if key.startswith("H")}
+
+    def test_folding_the_pooled_statement_in_is_refused(self, protocol):
+        doc = decision.build()
+        pre = doc["how_this_rule_was_specified"]["what_the_protocol_pre_specifies"]
+        pre["per_target_statements"]["H5"] = dict(
+            pre["per_target_statements"]["H1"], target="qwen35_4b")
+        pre["statements_that_are_not_about_one_target"] = {}
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("not the split the protocol's own" in issue for issue in issues)
+        assert any("make the conjunction look complete" in issue for issue in issues)
+
+    def test_the_conjunction_counts_agree_with_the_protocol(self, protocol):
+        conjunction = decision.build()["how_this_rule_was_specified"][
+            "the_rule_is_the_conjunction_of_those_statements"]
+        declared = protocol["multiplicity"]["n_confirmatory_model_tests"]
+        assert conjunction["n_statements_conjoined"] == declared == len(ARMS) == 4
+        assert conjunction["the_three_counts_agree"] is True
+        assert conjunction["every_target_is_covered_exactly_once"] is True
+
+    def test_a_conjunction_over_the_wrong_number_of_statements_is_refused(
+            self, protocol):
+        doc = decision.build()
+        conjunction = doc["how_this_rule_was_specified"][
+            "the_rule_is_the_conjunction_of_those_statements"]
+        conjunction["n_statements_conjoined"] = 5
+        conjunction["the_three_counts_agree"] = False
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("not the set that was pre-specified" in issue for issue in issues)
+
+    def test_the_searched_rule_and_the_applied_rule_are_one_string(self, protocol):
+        doc = decision.build()
+        doc["how_this_rule_was_specified"]["the_rule"] = \
+            "a majority of targets must match"
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("a search for a different sentence" in issue for issue in issues), (
+            "an absent-from-the-protocol result means nothing if the sentence "
+            "that was searched for is not the sentence the stage applies")
+
+    def test_the_protocol_is_bound_twice_and_identically(self, protocol):
+        doc = decision.build()
+        spec = doc["how_this_rule_was_specified"]["the_protocol_document"]
+        assert spec["path"] == "outputs/iteration_11/protocol/" \
+                               "iteration_11_protocol.json"
+        assert spec["sha256"] == doc["inputs"]["frozen_protocol"]["sha256"]
+        assert spec["sha256"] == decision.sha256_file(decision.PROTOCOL)
+        doc["inputs"]["frozen_protocol"]["sha256"] = "0" * 64
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("bound twice in one document" in issue for issue in issues)
+
+    def test_the_claim_needs_the_protocol_to_have_been_frozen_first(self, protocol):
+        """Post-specified is only a qualification if there was a 'before'."""
+        doc = decision.build()
+        assert doc["how_this_rule_was_specified"]["the_protocol_document"][
+            "frozen_before_any_target_generation"] is True
+        protocol["protocol"]["frozen_before_any_target_generation"] = False
+        issues = decision.check_the_decision(doc, protocol)
+        assert any("has no 'before' to be relative to" in issue
+                   for issue in issues), (
+            "the protocol itself was not frozen first, so the qualification is "
+            f"not about anything: {issues}")
+
+    def test_the_freeze_check_reads_the_protocol_and_not_its_echo(self, protocol):
+        """A document filing True is not evidence that the protocol says True.
+
+        Same shape as the defect the closeout manifest had: the check compared
+        the artifact against a copy of itself, so a forged value passed. Here
+        the filed copy stays True while the protocol moves, and the check has to
+        notice the protocol.
+        """
+        doc = decision.build()
+        protocol["protocol"]["frozen_before_any_target_generation"] = False
+        filed = doc["how_this_rule_was_specified"]["the_protocol_document"]
+        assert filed["frozen_before_any_target_generation"] is True
+        issues = decision.check_the_decision(doc, protocol)
+        assert len([i for i in issues
+                    if "frozen" in i]) >= 2, (
+            "one issue is the mismatch with the filed echo; the other is the "
+            f"substantive one about the protocol: {issues}")
+
+    def test_a_missing_specification_block_is_a_finding_not_a_pass(self, protocol):
+        """The state the committed artifact was in before this check existed."""
+        doc = decision.build()
+        del doc["how_this_rule_was_specified"]
+        issues = decision.check_the_decision(doc, protocol)
+        assert issues == [
+            "how_this_rule_was_specified is missing or empty, so the document "
+            "files a transportability label without saying whether the rule "
+            "that produced it was pre-specified"]
+
+    def test_the_check_loads_the_protocol_itself_when_not_given_one(self):
+        """So a caller cannot skip the measurement by omitting the argument."""
+        assert decision.check_the_specification(decision.build()) == []
+
+    def test_an_unreadable_protocol_makes_the_claim_unmeasured_not_true(
+            self, tmp_path):
+        doc = decision.build()
+        original = decision.PROTOCOL
+        try:
+            decision.PROTOCOL = tmp_path / "absent.json"
+            issues = decision.check_the_specification(doc)
+        finally:
+            decision.PROTOCOL = original
+        assert any("a claim about a document that was not read is an assertion"
+                   in issue for issue in issues), issues
+
+    def test_the_correction_is_printed_where_somebody_reads_it(self):
+        """The finding was a characterisation, so the fix goes where eyes are."""
+        line = decision._specification_line(decision.build())
+        assert "post specified descriptive" in line
+        assert "files no aggregation rule" in line
+
+    def test_verify_prints_it(self, tmp_path, capsys):
+        target = tmp_path / "decision.json"
+        target.write_text(json.dumps(decision.build(), indent=2),
+                          encoding="utf-8")
+        assert decision.main(["--verify", "--out", str(target)]) == 0
+        assert "post specified descriptive" in capsys.readouterr().out
+
+    def test_the_committed_artifact_carries_the_corrected_claim(self):
+        """The filed evidence, not just a fresh build, has to say it."""
+        spec = _filed().get("how_this_rule_was_specified") or {}
+        assert spec.get("specified_when") == decision.SPECIFIED_POST, (
+            "the committed decision still describes the aggregation rule as "
+            "though the protocol pre-specified it; re-file the stage")
+        assert spec.get("the_rule_is_not_a_quotation_from_the_protocol") is True
+
+
+# ---------------------------------------------------------------------------
 # Exit codes: one test per documented code
 # ---------------------------------------------------------------------------
 
@@ -716,7 +967,7 @@ class TestTheExitCodes:
         """Every input to this stage is committed, so no checkout lacks one."""
         docstring = decision.__doc__
         assert "3  not reachable for this stage" in docstring
-        for path in (decision.CROSS_MODEL, decision.BOUND):
+        for path in (decision.CROSS_MODEL, decision.BOUND, decision.PROTOCOL):
             tracked = subprocess.run(
                 ["git", "ls-files", "--error-unmatch",
                  str(path.relative_to(ROOT))],

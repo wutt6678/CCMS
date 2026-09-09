@@ -107,6 +107,60 @@ def filed_sensitivity() -> dict:
     return _read(SENSITIVITY_ARTIFACT)
 
 
+def _credential_free(*_args, **_kwargs):
+    raise EnvironmentError(
+        "LLM_JUDGE_API_KEY is required. Set the environment variable "
+        "LLM_JUDGE_API_KEY, or copy configs/evaluation/"
+        "llm_judge_credentials.conf.example to llm_judge_credentials.conf "
+        "(simulated here, not read from this machine)")
+
+
+@pytest.fixture
+def no_credentials(monkeypatch):
+    """This checkout holds no adjudicator credentials.
+
+    A fresh clone has neither ``LLM_JUDGE_API_KEY`` nor the gitignored
+    credentials conf, so loading the pipeline raises ``EnvironmentError`` and
+    :func:`adjudicator.adjudicator_config` falls back to the pinned constants
+    with ``sendable=False``. Patched at the loader rather than by moving a file,
+    because the credentials on this machine are this machine's and a test that
+    deleted them would be a test about the author's checkout.
+
+    Both caches are cleared either side: ``adjudicator_config`` memoises, so a
+    test that patched the loader without clearing the cache would read an answer
+    computed before the patch and pass for the wrong reason.
+    """
+    monkeypatch.setattr(adjudicator, "_pipeline", _credential_free)
+    adjudicator._CONFIG_CACHE.clear()
+    adjudicator._PIPELINE_CACHE.clear()
+    assert adjudicator.adjudicator_config()[2] is False
+    yield _credential_free
+    adjudicator._CONFIG_CACHE.clear()
+    adjudicator._PIPELINE_CACHE.clear()
+
+
+@pytest.fixture
+def sendable_adjudicator(monkeypatch):
+    """Credentials present, so ``build()`` will reach the transport.
+
+    The transport stays stubbed by whichever test asks for this; what changes is
+    only whether this checkout COULD send, which ``build()`` establishes before it
+    calls anything. A test that stubs the transport but not sendability passes on
+    a machine holding a key and exits 2 in CI, where nobody holds one -- a lane
+    that only works where the author ran it is not the documented offline lane.
+    """
+    real = adjudicator.adjudicator_config
+
+    def sendable():
+        config, source, _sendable = real()
+        return config, source, True
+
+    monkeypatch.setattr(adjudicator, "adjudicator_config", sendable)
+    adjudicator._CONFIG_CACHE.clear()
+    yield sendable
+    adjudicator._CONFIG_CACHE.clear()
+
+
 # ---------------------------------------------------------------------------
 # Synthetic estimands: enough families to bootstrap, no repository files
 # ---------------------------------------------------------------------------
@@ -814,13 +868,16 @@ class TestTheRequestTheFrozenRuleWouldSendIsRecomputable:
         assert config.temperature == adjudicator.ADJUDICATOR_TEMPERATURE
 
     def test_the_stand_in_config_hashes_the_same_request(self, monkeypatch):
-        """The credential-free path CI takes must give the same hash.
+        """The credential-free path CI takes must file the SAME request block.
 
         ``request_hash`` binds the prompt, the image hashes, the model id, the
         temperature and the seed -- not the key and not the base_url -- so
-        substituting stand-ins for those two cannot move it. Asserted rather
-        than argued, because the whole offline check, and every reuse decision
-        that rests on it, is only credential-free if this holds.
+        substituting stand-ins for those two cannot move it. But the hash is not
+        the only thing compared: a re-file checks a preserved call against the
+        whole filed block, so a block that differs in ANY field makes the reuse
+        depend on the local credential state. The whole block is asserted equal,
+        not just the hash, because the hash was already equal when the offline
+        lane still failed without credentials.
         """
         from causal_mllm.evaluation.llm_judge import LLMJudgeConfig
 
@@ -838,10 +895,13 @@ class TestTheRequestTheFrozenRuleWouldSendIsRecomputable:
             lambda: (stand_in, "the pinned constants, no key here", False))
         without = adjudicator.expected_request(arm)
         assert without["available"] is True
-        assert without["request_hash"] == with_credentials["request_hash"]
-        assert without["prompt_sha256"] == with_credentials["prompt_sha256"]
-        assert without["config_source"] == "the pinned constants, no key here"
+        assert without == with_credentials, (
+            "the filed request block depends on whether this checkout holds "
+            "credentials, so a preserved call written somewhere else stops being "
+            "reusable here and a no-call re-file stops matching the artifact it "
+            "re-files")
         assert stand_in.api_key not in json.dumps(without)
+        assert adjudicator.HASHING_ONLY_BASE_URL not in json.dumps(without)
 
     def test_the_stubbed_transport_judgment_is_never_filed(
             self, filed_sensitivity):
@@ -1032,6 +1092,7 @@ class TestARefileSpendsNoCalls:
             "ensemble_label_status"] == "not_derivable"
 
     def test_fresh_calls_ignores_every_filed_call(self, monkeypatch,
+                                                  sendable_adjudicator,
                                                   filed_sensitivity):
         made = []
 
@@ -2340,3 +2401,172 @@ class TestACitationInACheckoutWithNoHistoryIsIncompleteNotUnreachable:
         assert without["object_store_here"] is False
         assert "cannot be compared with any commit" in without["resolved_from"]
         assert "no git object store" in without["why_not"]
+
+
+class TestTheDocumentedOfflineLaneNeedsNoCredentials:
+    """No part of the offline lane may depend on this machine holding a key.
+
+    The module docstring promises a CI-safe file: no test calls the gateway, and
+    the request-hash recomputation needs no credentials. Both were true of the
+    hash and not of everything around it. ``build()`` establishes whether a call
+    COULD be sent before it calls the stubbed transport, so a test that stubbed
+    the transport and not sendability exited 2 where no key exists. And the filed
+    request block carried ``config_source``, a string describing where the local
+    config came from, so a receipt written with credentials compared unequal to a
+    re-file made without them -- the receipt looked like evidence about a
+    different call when it differed only in whose machine wrote it.
+
+    Each test here runs under :func:`no_credentials`, which patches the pipeline
+    loader rather than moving a credentials file, so the lane is tested in the
+    state CI is in without touching this machine's key.
+    """
+
+    def test_a_no_call_refile_round_trips_where_there_are_no_credentials(
+            self, monkeypatch, no_credentials, tmp_path):
+        monkeypatch.setattr(adjudicator, "adjudicate",
+                            lambda arm: pytest.fail("a call was attempted"))
+        doc = adjudicator.build()
+        assert doc["n_live_calls"] == 0
+        path = tmp_path / "refiled.json"
+        path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        code, issues, unverifiable = adjudicator.verify(path)
+        assert code == 0, (issues, unverifiable)
+
+    def test_every_preserved_call_is_reusable_where_there_are_no_credentials(
+            self, monkeypatch, no_credentials):
+        monkeypatch.setattr(adjudicator, "adjudicate",
+                            lambda arm: pytest.fail("a call was attempted"))
+        doc = adjudicator.build()
+        assert doc["n_reused_calls"] == len(ADJUDICATED_ARMS)
+        assert doc["n_live_calls"] == 0
+        for arm in ADJUDICATED_ARMS:
+            assert doc["per_arm"][arm]["call_reused_from"] is not None
+
+    def test_the_superseded_field_is_enumerated_rather_than_dropped(
+            self, monkeypatch, no_credentials):
+        """An exemption that is not written down is a comparison nobody ran."""
+        monkeypatch.setattr(adjudicator, "adjudicate",
+                            lambda arm: pytest.fail("a call was attempted"))
+        record = adjudicator.build()[
+            "fields_the_preserved_call_and_the_artifact_do_not_share"]
+        assert record["where"] == adjudicator._rel(adjudicator.RECEIPT_PATH)
+        assert sorted(record["superseded"]) == sorted(
+            adjudicator.SUPERSEDED_REQUEST_FIELDS)
+        entry = record["superseded"]["config_source"]
+        assert sorted(entry["arms_whose_preserved_call_carries_it"]) == \
+            sorted(ADJUDICATED_ARMS)
+        assert entry["the_values_it_holds"], \
+            "the value the receipt holds is reported, not deleted"
+        assert entry["what_it_described"] == \
+            adjudicator.SUPERSEDED_REQUEST_FIELDS["config_source"]
+        assert record["what_replaced_the_superseded_ones"]["config_identity"] \
+            == adjudicator.FILED_CONFIG_IDENTITY
+        assert "record of what happened" in \
+            record["why_the_source_is_not_rewritten"]
+
+    def test_the_field_that_replaced_it_is_also_enumerated(
+            self, monkeypatch, no_credentials):
+        """The receipt predates the replacement, so that gap is written down too.
+
+        A receipt is immutable and was written before ``config_identity``
+        existed, so the two blocks differ in that key permanently. Enumerating it
+        is what separates a reasoned set-aside from a comparison that was quietly
+        narrowed until nothing could fail it.
+        """
+        monkeypatch.setattr(adjudicator, "adjudicate",
+                            lambda arm: pytest.fail("a call was attempted"))
+        record = adjudicator.build()[
+            "fields_the_preserved_call_and_the_artifact_do_not_share"]
+        introduced = record["introduced_since_the_calls_were_preserved"]
+        assert sorted(introduced) == sorted(
+            adjudicator.FIELDS_INTRODUCED_SINCE_THE_CALLS_WERE_PRESERVED)
+        assert sorted(introduced["config_identity"][
+            "arms_whose_preserved_call_predates_it"]) == sorted(ADJUDICATED_ARMS)
+        assert "receipt is not rewritten" in introduced["config_identity"][
+            "what_it_is"]
+
+    def test_the_machine_state_is_reported_at_run_time_and_not_filed(
+            self, monkeypatch, no_credentials):
+        state = adjudicator.credential_state()
+        assert "no credentials here" in state
+        monkeypatch.setattr(adjudicator, "adjudicate",
+                            lambda arm: pytest.fail("a call was attempted"))
+        text = json.dumps(adjudicator.build())
+        assert state not in text
+        assert adjudicator.HASHING_ONLY_API_KEY not in text
+        assert adjudicator.HASHING_ONLY_BASE_URL not in text
+
+    def test_a_difference_in_a_field_that_is_not_exempt_still_fails(
+            self, monkeypatch, no_credentials, tmp_path):
+        """The one exemption must not blind the comparison beside it."""
+        monkeypatch.setattr(adjudicator, "adjudicate",
+                            lambda arm: pytest.fail("a call was attempted"))
+        doc = adjudicator.build()
+        arm = ADJUDICATED_ARMS[0]
+        block = doc["per_arm"][arm]["request_the_frozen_rule_would_send"]
+        block["request_hash"] = "f" * 64
+        path = tmp_path / "mutated.json"
+        path.write_text(json.dumps(doc, indent=2), encoding="utf-8")
+        code, issues, _unverifiable = adjudicator.verify(path)
+        assert code == 1
+        assert any("request" in issue for issue in issues), issues
+
+
+class TestTheRequestBlockComparisonIsNotAnExclusionList:
+    """The exemption is two named fields, not a list of the fields that matter."""
+
+    def test_a_field_nobody_has_heard_of_is_compared_by_default(self):
+        held = {"request_hash": "a" * 64, "something_added_later": 1}
+        filed = {"request_hash": "a" * 64, "something_added_later": 2}
+        differences, _superseded, _predates = \
+            adjudicator.compare_request_blocks(held, filed)
+        assert any("something_added_later" in difference
+                   for difference in differences), (
+            "a field added to the request block in future would be skipped by a "
+            "comparison written over a list of the keys that matter today")
+
+    def test_a_key_only_one_side_has_is_reported_not_passed_over(self):
+        held = {"request_hash": "a" * 64}
+        filed = {"request_hash": "a" * 64, "a_key_only_the_artifact_has": 1}
+        differences, _superseded, predates = \
+            adjudicator.compare_request_blocks(held, filed)
+        assert differences == []
+        assert predates == ["a_key_only_the_artifact_has"], (
+            "a key only one side has cannot be value-compared, and treating it "
+            "as equal is how a comparison stops covering the block it names")
+
+    def test_the_exempt_fields_are_reported_and_not_compared(self):
+        held = {"request_hash": "a" * 64, "config_source": "a machine with a key"}
+        filed = {"request_hash": "a" * 64,
+                 "config_identity": adjudicator.FILED_CONFIG_IDENTITY}
+        differences, superseded, predates = \
+            adjudicator.compare_request_blocks(held, filed)
+        assert differences == []
+        assert predates == []
+        assert len(superseded) == 1
+        assert superseded[0].startswith("config_source=")
+        assert "a machine with a key" in superseded[0]
+
+    def test_only_the_named_fields_are_exempt(self):
+        assert sorted(adjudicator.SUPERSEDED_REQUEST_FIELDS) == ["config_source"]
+        assert sorted(
+            adjudicator.FIELDS_INTRODUCED_SINCE_THE_CALLS_WERE_PRESERVED) == \
+            ["config_identity"]
+        assert adjudicator.NOT_COMPARED == frozenset({
+            "config_source", "config_identity"})
+        assert adjudicator.REQUEST_BLOCK in adjudicator.RECEIPT_CALL_FIELDS
+
+
+class TestTheFiledArtifactCarriesNoMachineState:
+    def test_the_artifact_states_the_identity_and_not_the_checkout(
+            self, filed_sensitivity):
+        text = json.dumps(filed_sensitivity)
+        if "config_source" in text:
+            pytest.skip(
+                "the filed artifact still carries config_source. It is re-filed "
+                "from a clean tree in this lane, spending no calls, and this test "
+                "runs once it is -- skipping with the reason rather than passing "
+                "over an artifact that has not been re-filed yet")
+        assert "config_identity" in text
+        assert adjudicator.FILED_CONFIG_IDENTITY in text
+        assert "fields_the_preserved_call_and_the_artifact_do_not_share" in text

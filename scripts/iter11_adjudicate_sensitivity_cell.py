@@ -174,11 +174,31 @@ FROZEN_LABEL_COUNT = 597
 #: the gitignored credentials file does not -- CI, and any checkout that has not
 #: been given a key. ``request_hash`` is built from the prompt hash, the image
 #: hashes, the model id, the temperature and the seed (see
-#: ``MultimodalLLMJudge.judge``), so neither value can reach it, and the
-#: artifact records which source the identity came from rather than leaving the
-#: substitution to be inferred from a hash that happens to match.
+#: ``MultimodalLLMJudge.judge``), so neither value can reach it.
 HASHING_ONLY_BASE_URL = "https://credentials-absent.invalid/v1"
 HASHING_ONLY_API_KEY = "not-a-key: request_hash binds neither this nor base_url"
+
+#: What the artifact files about the adjudicator's configuration. It is the same
+#: string whether or not this checkout holds a key, and that is not a simplifying
+#: omission -- it is what makes the offline path sound.
+#:
+#: The request hash binds the model id, the temperature and the seed, so the
+#: credential state cannot move it. But the hash is not the only thing compared:
+#: a re-file checks a preserved call against the WHOLE filed
+#: ``request_the_frozen_rule_would_send`` block, and when that block carried a
+#: string describing where the local config came from, a receipt written on a
+#: machine with credentials could not be reused on one without them, and a
+#: no-call re-file disagreed with the artifact it re-filed. Both failures were
+#: about the machine and neither was about the evidence, so the machine's answer
+#: is printed at run time by :func:`credential_state` and never filed.
+FILED_CONFIG_IDENTITY = (
+    "the frozen adjudicator identity pinned by this script -- model_id, "
+    "provider, temperature and model_seed -- and cross-checked against the "
+    "pipeline's own ADJUDICATOR_CONFIG wherever credentials exist, so there is "
+    "one definition of the frozen adjudicator and not two that can drift. "
+    "api_key and base_url enter no hash, so nothing about the checkout that "
+    "computed this block is filed in it and nothing about that checkout can "
+    "change it")
 
 #: The judgment the stubbed transport returns. It is DISCARDED -- only the
 #: provenance the production code computes alongside it is kept -- and it is
@@ -466,6 +486,20 @@ def adjudicator_config() -> tuple[object, str, bool]:
     return config, source, False
 
 
+def credential_state() -> str:
+    """Whether this checkout could send a call, for the run log and not the file.
+
+    The answer depends on the machine, so it is printed and never filed: a field
+    that changes with the local credential state makes a preserved call unreusable
+    somewhere it is still valid, and makes a re-file differ from the artifact it
+    re-files, and in both cases the disagreement is about where the check ran
+    rather than about the evidence.
+    """
+    _config, source, sendable = adjudicator_config()
+    return ("sendable, this checkout holds credentials" if sendable
+            else f"hashing only, no credentials here ({source})")
+
+
 def rubric_identity() -> dict:
     """The rubric the adjudicator sends, read from the judge that loads it.
 
@@ -478,12 +512,12 @@ def rubric_identity() -> dict:
     """
     from causal_mllm.evaluation.llm_judge import MultimodalLLMJudge
 
-    config, source, _sendable = adjudicator_config()
+    config, _source, _sendable = adjudicator_config()
     judge = MultimodalLLMJudge(config, judge_id=ADJUDICATOR_JUDGE_ID)
     return {"rubric_version": judge.rubric_version,
             "rubric_sha256": judge.rubric_sha256,
             "rubric_path": _rel(judge.rubric_path),
-            "source": source}
+            "config_identity": FILED_CONFIG_IDENTITY}
 
 
 def _stub_transport(judge) -> None:
@@ -521,12 +555,12 @@ def expected_request(arm: str) -> dict:
     if absent:
         return {"available": False, "request_hash": None,
                 "prompt_sha256": None, "image_hashes": None,
-                "config_source": None,
+                "config_identity": None,
                 "why_not": "no request exists to hash: "
                            + ", ".join(absent)
                            + " is not in the committed evidence for this arm"}
 
-    config, source, _sendable = adjudicator_config()
+    config, _source, _sendable = adjudicator_config()
     judge = MultimodalLLMJudge(config, judge_id=ADJUDICATOR_JUDGE_ID)
     _stub_transport(judge)
     adjudicator = LLMAdjudicator(judge, seed=ORDER_SEED)
@@ -541,7 +575,7 @@ def expected_request(arm: str) -> dict:
     except Exception as exc:  # noqa: BLE001 - a payload this checkout cannot
         return {"available": False, "request_hash": None,   # build is evidence
                 "prompt_sha256": None, "image_hashes": None,
-                "config_source": source,
+                "config_identity": FILED_CONFIG_IDENTITY,
                 "why_not": f"the request could not be built offline: "
                            f"{type(exc).__name__}: {exc}"}
     return {
@@ -551,7 +585,7 @@ def expected_request(arm: str) -> dict:
         "image_hashes": provenance.image_hashes,
         "rubric_sha256": provenance.rubric_sha256,
         "rubric_version": provenance.rubric_version,
-        "config_source": source,
+        "config_identity": FILED_CONFIG_IDENTITY,
         "how": "LLMAdjudicator.adjudicate_item and MultimodalLLMJudge.judge "
                "run for real over the committed blinded item and the two "
                "committed primary judgments, with _call_api -- the only "
@@ -802,6 +836,132 @@ RECEIPT_CALL_FIELDS = (
     "adjudicated_by", "adjudicator", "call_provenance",
     "request_the_frozen_rule_would_send",
 )
+
+#: Fields INSIDE ``request_the_frozen_rule_would_send`` that described the machine
+#: which computed the block rather than the request it hashed. ``config_source``
+#: said whether the checkout that wrote it could reach the pipeline's own
+#: ADJUDICATOR_CONFIG, which is to say whether it held a key -- and because the
+#: receipt was compared against the artifact field by field, that one string made
+#: a preserved call unusable on a machine that differed only in having no
+#: credentials, and made a no-call re-file disagree with the artifact it re-filed.
+#:
+#: The receipt is immutable and stays that way: rewriting it would change what
+#: every sha256 citing it means, which is the failure the receipt was written to
+#: repair. So the field it still carries is ENUMERATED AND REPORTED, following the
+#: way ``iter11_correct_exclusion_metadata.py`` handles a superseded key in sealed
+#: judge evidence, rather than compared or quietly edited away.
+SUPERSEDED_REQUEST_FIELDS = {
+    "config_source": (
+        "where the adjudicator's identity was read from on the machine that "
+        "wrote this, and therefore whether that machine held credentials. It is "
+        "not a property of the request: api_key and base_url enter no hash, so "
+        "two checkouts with different credential states compute the same "
+        "request_hash. Its replacement states the pinned identity without "
+        "naming the checkout"),
+}
+
+REQUEST_BLOCK = "request_the_frozen_rule_would_send"
+
+#: Fields the preserved call CANNOT have, because they were introduced after it
+#: was preserved. Enumerated for the same reason as the superseded ones: the
+#: receipt is immutable, so the two blocks differ in these keys permanently, and a
+#: difference that is going to be set aside has to be written down with its reason
+#: rather than absorbed into a comparison that quietly stops meaning anything.
+FIELDS_INTRODUCED_SINCE_THE_CALLS_WERE_PRESERVED = {
+    "config_identity": (
+        "the credential-independent statement of the frozen adjudicator's "
+        "identity, which replaced config_source. The calls were preserved before "
+        "it existed and the receipt is not rewritten, so the two blocks differ in "
+        "this key and in nothing that binds the call"),
+}
+
+NOT_COMPARED = frozenset(SUPERSEDED_REQUEST_FIELDS) | frozenset(
+    FIELDS_INTRODUCED_SINCE_THE_CALLS_WERE_PRESERVED)
+
+
+def compare_request_blocks(
+        held: dict, filed: dict) -> tuple[list[str], list[str], list[str]]:
+    """Compare a preserved request block with the one filed beside its citation.
+
+    Returns the differences, the superseded fields the source still carries, and
+    the fields it predates. Differences are computed over the keys BOTH sides
+    have, minus the two named sets: a field added to the request block in future
+    is compared by default, and the exemption is a named field with a written
+    reason and a value that is reported rather than dropped in silence.
+
+    Keys only one side has cannot be value-compared, and are not treated as equal
+    either -- they are returned so the artifact has to record them. That is what
+    keeps this from being an exclusion list: a set-aside that is enumerated is a
+    decision a reader can disagree with, and one that is not enumerated is a
+    comparison nobody ran.
+    """
+    differences = []
+    shared = (set(held) & set(filed)) - NOT_COMPARED
+    for key in sorted(shared):
+        if held.get(key) != filed.get(key):
+            differences.append(
+                f"{key}: the source of evidence preserves "
+                f"{json.dumps(held.get(key), sort_keys=True)[:140]} and the "
+                f"artifact files {json.dumps(filed.get(key), sort_keys=True)[:140]}")
+    superseded = [
+        f"{key}={json.dumps(held.get(key), sort_keys=True)[:200]}"
+        for key in sorted(set(held) & set(SUPERSEDED_REQUEST_FIELDS))]
+    predates = sorted((set(filed) - set(held)) - NOT_COMPARED)
+    return differences, superseded, predates
+
+
+def request_block_fields_set_aside(reuse_per_arm: dict, reuse_path: Path) -> dict:
+    """What the source of a reuse and this artifact do not share, and why."""
+    superseded: dict[str, dict] = {}
+    introduced: dict[str, dict] = {}
+    for arm in sorted(reuse_per_arm):
+        request = (reuse_per_arm[arm] or {}).get(REQUEST_BLOCK) or {}
+        if not isinstance(request, dict) or not request.get("available"):
+            # An arm whose frozen rule sent no request files available=False and a
+            # null config field. There was no call to preserve for it, so there is
+            # nothing to set aside on its behalf either, and naming it would make
+            # the record look wider than the comparison it describes.
+            continue
+        for field in sorted(set(request) & set(SUPERSEDED_REQUEST_FIELDS)):
+            record = superseded.setdefault(field, {
+                "what_it_described": SUPERSEDED_REQUEST_FIELDS[field],
+                "arms_whose_preserved_call_carries_it": [],
+                "the_values_it_holds": [],
+            })
+            record["arms_whose_preserved_call_carries_it"].append(arm)
+            value = request[field]
+            if value not in record["the_values_it_holds"]:
+                record["the_values_it_holds"].append(value)
+        for field in sorted(set(FIELDS_INTRODUCED_SINCE_THE_CALLS_WERE_PRESERVED)
+                            - set(request)):
+            record = introduced.setdefault(field, {
+                "what_it_is": FIELDS_INTRODUCED_SINCE_THE_CALLS_WERE_PRESERVED[
+                    field],
+                "arms_whose_preserved_call_predates_it": [],
+            })
+            record["arms_whose_preserved_call_predates_it"].append(arm)
+    return {
+        "where": _rel(reuse_path),
+        "superseded": dict(sorted(superseded.items())),
+        "introduced_since_the_calls_were_preserved": dict(sorted(
+            introduced.items())),
+        "what_replaced_the_superseded_ones": {
+            "config_identity": FILED_CONFIG_IDENTITY},
+        "why_they_are_not_compared": (
+            "they describe the checkout that computed the block, or postdate the "
+            "call, and neither is a property of the request. Comparing them makes "
+            "a re-file depend on whether this machine holds a key, and the request "
+            "hash -- the thing that actually binds a preserved call to the "
+            "question being asked now -- is identical in both states, which a test "
+            "asserts rather than assumes. Every other key the two blocks share is "
+            "compared, and a key only one side has is reported here rather than "
+            "passed over"),
+        "why_the_source_is_not_rewritten": (
+            "a receipt is a record of what happened. Rewriting it would change "
+            "what every sha256 citing it means, and would delete the record that "
+            "the field was ever filed -- a correction that erases the thing it "
+            "corrects cannot be checked"),
+    }
 
 #: The citation this receipt replaces. Kept as constants rather than read back
 #: out of the artifact, because the artifact no longer carries them: filing what
@@ -1068,7 +1228,7 @@ def build(fresh_calls: bool = False,
             expected_request(arm) if status == "requires_adjudication"
             else {"available": False, "request_hash": None,
                   "prompt_sha256": None, "image_hashes": None,
-                  "config_source": None,
+                  "config_identity": None,
                   "why_not": f"the frozen rule resolves this cell as "
                              f"{status!r}, so it sends no request"})
         entry["call_reused_from"] = None
@@ -1249,8 +1409,10 @@ def build(fresh_calls: bool = False,
             "rubric_version": rubric["rubric_version"],
             "rubric_sha256": rubric["rubric_sha256"],
             "rubric_path": rubric["rubric_path"],
-            "source": rubric["source"],
+            "config_identity": rubric["config_identity"],
         },
+        "fields_the_preserved_call_and_the_artifact_do_not_share":
+            request_block_fields_set_aside(reuse_per_arm, reuse_path),
         "what_this_does_not_do": (
             "This does not change the confirmatory analysis, which stays on the "
             "98-family common panel where every arm judged the same cells. It "
@@ -1405,11 +1567,54 @@ def check_the_reuse_citations(
                 continue
             filed_entry = (doc.get("per_arm") or {}).get(arm) or {}
             for field in RECEIPT_CALL_FIELDS:
-                if held.get(field) != filed_entry.get(field):
+                if field != REQUEST_BLOCK:
+                    if held.get(field) != filed_entry.get(field):
+                        issues.append(
+                            f"{arm}: {path} preserves a different {field} from "
+                            f"the one filed beside the citation, so the artifact "
+                            f"and its own source of evidence disagree")
+                    continue
+                differences, superseded, predates = compare_request_blocks(
+                    held.get(field) or {}, filed_entry.get(field) or {})
+                for difference in differences:
                     issues.append(
                         f"{arm}: {path} preserves a different {field} from the "
-                        f"one filed beside the citation, so the artifact and "
-                        f"its own source of evidence disagree")
+                        f"one filed beside the citation -- {difference} -- so the "
+                        f"artifact and its own source of evidence disagree")
+                record = (doc.get(
+                    "fields_the_preserved_call_and_the_artifact_do_not_share")
+                    or {})
+                set_aside = record.get("superseded") or {}
+                for entry in superseded:
+                    name = entry.split("=", 1)[0]
+                    if name not in set_aside:
+                        issues.append(
+                            f"{arm}: {path} still carries {entry} inside "
+                            f"{field}, and the artifact does not record that a "
+                            f"superseded field was set aside. An exemption that "
+                            f"is not written down is indistinguishable from a "
+                            f"comparison nobody ran")
+                    elif arm not in set_aside[name][
+                            "arms_whose_preserved_call_carries_it"]:
+                        issues.append(
+                            f"{arm}: the artifact records the fields set aside "
+                            f"without naming this arm, whose preserved call "
+                            f"carries {name}")
+                introduced = record.get(
+                    "introduced_since_the_calls_were_preserved") or {}
+                for name in predates:
+                    if name not in introduced:
+                        issues.append(
+                            f"{arm}: {path} has no {name} inside {field} and the "
+                            f"artifact does not record that the preserved call "
+                            f"predates it, so a key only one side has went "
+                            f"unremarked")
+                    elif arm not in introduced[name][
+                            "arms_whose_preserved_call_predates_it"]:
+                        issues.append(
+                            f"{arm}: the artifact records {name} as introduced "
+                            f"since the calls were preserved without naming this "
+                            f"arm")
         if shape == "receipt":
             claimed_calls = sum(
                 1 for entry in held_per_arm.values()
@@ -1723,6 +1928,8 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.write_call_receipt:
         return write_call_receipt(args.out)
+
+    print(f"adjudicator config here: {credential_state()}")
 
     if args.verify or not args.write:
         code, issues, unverifiable = verify(args.out)

@@ -1387,6 +1387,7 @@ python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify # the restored ce
 python3 scripts/iter11_differential_censoring_bound.py --verify # what the missing label could have cost, re-derived
 python3 scripts/iter11_transportability_decision.py --verify   # the sign-transport call, derived not declared
 python3 scripts/iter11_closeout_evidence_manifest.py --verify  # the closeout, rebuilt from the files on disk
+python3 scripts/iter11_closeout_evidence_manifest.py --deep    # and then EXECUTES the eight gates above
 ```
 
 `iter11_replay_checks.py` used to be the exception to that sentence, and finding
@@ -1826,6 +1827,28 @@ re-calls unconditionally; where a call is genuinely needed and no credentials ex
 script exits 2 **having written nothing**, so a failed re-file cannot overwrite a good
 one.
 
+**"Needs no key" had to be true of the tests too, and was not.** The request block filed
+beside each reused call carried a `config_source` field describing whether the checkout
+computing it held credentials, so the block — and therefore `request_hash`'s comparison
+against the receipt — depended on the machine. In a fresh checkout without
+`LLM_JUDGE_API_KEY`, `test_fresh_calls_ignores_every_filed_call` failed *before* its mocked
+adjudicator ran, because `build()` asks whether a real call could be sent before it asks
+whether one needs to be. Two changes: the field is now `config_identity`, which names the
+frozen adjudicator identity that enters the hash and nothing about the checkout, and the
+credential state is **printed rather than filed** — a machine property in an artifact makes
+that artifact unreusable on a different machine. The offline lane's fixtures now patch
+sendability as well as transport, so the documented no-credentials path is the one under
+test.
+
+Because the receipt is immutable and was written before that rename, the two sides of the
+comparison no longer share a schema. The gap is **enumerated in the artifact in both
+directions** rather than excluded by a list somebody maintains: the comparison runs over
+the intersection of the two key sets minus two named sets (`config_source`, superseded;
+`config_identity`, introduced since), and any key present on only one side is reported as
+`predates` and required to appear in the filed enumeration. A new field added to the
+request block is compared by default, and an exemption that is not written down is
+indistinguishable from a comparison nobody ran.
+
 **A reused call cites evidence a reviewer can resolve.** It did not. Both
 `call_reused_from` blocks named SHA-256 `2d00760c…` under commit `fe455929…`,
 which was the previous version of the artifact itself — the file the re-file was
@@ -1953,18 +1976,36 @@ One of four targets — `qwen35_4b`, +0.0932 — carries the reference sign; `mi
 one reversal decides it, because a proportion of four hand-picked models is not a rate over
 a population of them.
 
+**That rule is post-specified, and the artifact says so.** The frozen protocol pre-specifies
+the estimand, four per-target sign-match statements (H1–H4, split out from the pooled H5 by
+which of the protocol's own marketed labels each statement names), Holm-Bonferroni over
+those four tests at α = 0.05, and a retention clause forbidding the dropping of an
+unfavourable result. It files **no rule that aggregates four per-model verdicts into one
+transportability label.** So the label is a deterministic summary of results that *were*
+pre-specified, arrived at by a rule that was not, and it carries none of the protection a
+pre-registered decision rule carries. `how_this_rule_was_specified` measures this rather
+than characterising it: the rule string is searched for in the protocol document as filed,
+`--verify` repeats the search, and a hit means the claim has to change to pre-specified —
+not that the search gets adjusted. The label itself is *derived* from that search, so
+upgrading it to `pre_specified` on an empty search fails in the same direction as leaving it
+at `post_specified` against a protocol that does carry the rule. What still makes the
+conclusion defensible is that the rule is the conjunction of the four statements the
+protocol froze, each tested under the correction it pre-declared, and its retention clause
+required the three reversals to be reported whatever label went on them.
+
 It is its own artifact for two reasons. It is the claim a reader is most likely to
 over-generalise from — "multimodal censoring hurts safety" is the sentence the 9B result
 invites and the four-target result refuses — and a claim only implied by a table gets
 restated in prose without its denominator. And it is the claim the differential-censoring
 bound has to be robust for, so both are filed where they can be compared.
 
-**Nothing in it is transcribed.** Every number is read out of `cross_model_analysis.json`
-and `differential_censoring_bound.json`, the call is derived from the sign comparison, and
-a filing whose own inputs would support the opposite call exits 1 rather than writing. It
-carries no timestamp, no commit and no tree state, so `--verify` rebuilds the whole
-document and compares it — including the sentence a paper would quote, which is generated
-from the counts it states and refused if it drifts from them.
+**Nothing in it is transcribed.** Every number is read out of `cross_model_analysis.json`,
+`differential_censoring_bound.json` and `iteration_11_protocol.json`, the call is derived
+from the sign comparison, and a filing whose own inputs would support the opposite call
+exits 1 rather than writing. It carries no timestamp, no commit and no tree state, so
+`--verify` rebuilds the whole document and compares it — including the sentence a paper
+would quote, which is generated from the counts it states and refused if it drifts from
+them.
 
 Two traps in this evidence are named in the artifact because the first draft of the stage
 fell into the first one:
@@ -1992,7 +2033,7 @@ mixture — and does not license pooling five signs into a rate.
 
 ```
 python3 scripts/iter11_transportability_decision.py --verify   # re-derives the whole document
-python3 scripts/iter11_transportability_decision.py --write    # re-file from the two analyses
+python3 scripts/iter11_transportability_decision.py --write    # re-file from the three inputs
 ```
 
 ### Iteration 11 closeout: the evidence manifest binds hashes, not history
@@ -2015,20 +2056,41 @@ history reports exit 3 instead of exit 1.
 
 The bound set is **discovered, not listed**: every tracked file under
 `outputs/iteration_11/`, every `scripts/iter11_*.py`, every `tests/unit/test_iter11_*.py`,
-plus the eight library modules those verifiers import. The discovery repeats at
-verification time wherever an object store exists, so a file committed under a bound tree
-and left out of the manifest is a finding — the manifest stops being the closeout it claims
-to be — and a new stage in this iteration is bound by being committed rather than by being
-remembered.
+plus the **import closure** of that Python. The closure is walked with `ast` rather than
+written down — 42 library modules from 86 bound `.py` files, against the 8 that were listed
+by hand — and every edge is filed so "why is this module part of the evidence" is answerable
+from the document. Deferred imports are walked too, because the model adapters for two of
+the four arms are imported inside `build_adapter` and nowhere else: a module-level-only walk
+would leave the code that produced those generations unbound and nothing would say so. The
+8 hand-listed modules are kept as a *floor* the walk is checked against, so a broken walker
+and a stale list are both findings rather than a smaller manifest; third-party packages are
+out of scope by construction and are bound by the dependency lock, which is in the bound
+set. Relative imports cannot be resolved from a file path alone — this repository has none —
+so they are counted where they occur instead of silently shrinking the graph. The discovery
+repeats at verification time wherever an object store exists, so a file committed under a
+bound tree and left out of the manifest is a finding — the manifest stops being the closeout
+it claims to be — and a new stage in this iteration is bound by being committed rather than
+by being remembered.
 
-It also states what it does **not** bind. It cannot bind itself, so its integrity is the
-re-derivation: tampering with the manifest is tampering with a claim the bound files then
-contradict. It does not bind the media, because `data/media` is gitignored and no manifest
-committed here can bind bytes that are not in the repository — the
-[`media_manifest.json`](outputs/iteration_11/media_manifest.json) binds those 3,034 files by
-hash instead, and is itself bound here, which is why a checkout without the images can still
-verify everything committed and reports the media section as not verifiable here. And it
-binds no commit and no tree state, because those are properties of the machine that wrote
+**Two of its own claims are pinned against something outside the document.** A review found
+that `--verify` read the entry points out of the artifact and passed them back into `build()`
+as the expected side of the comparison, so deleting all eight produced zero validation
+issues and re-derived exactly: a pin compared against a re-derivation of the same bytes
+enforces nothing. `where_a_reviewer_starts` is now compared against the `ENTRY_POINTS`
+constant, an empty list is refused outright rather than validating cleanly on the grounds
+that there was nothing to validate, and `build()` copies the pointers instead of aliasing
+them so that editing the document cannot edit the thing it is checked against. And because a
+document cannot carry its own hash inside itself, the manifest's **own bytes are compared
+with its blob at `HEAD`** — without that, an edit in place is invisible in the worst
+direction, since the re-derivation is fed the edited document. Where there is no object
+store, that comparison is named in the exit-3 note rather than silently skipped.
+
+It also states what it does **not** bind. It does not bind the media, because `data/media`
+is gitignored and no manifest committed here can bind bytes that are not in the repository —
+the [`media_manifest.json`](outputs/iteration_11/media_manifest.json) binds those 3,034 files
+by hash instead, and is itself bound here, which is why a checkout without the images can
+still verify everything committed and reports the media section as not verifiable here. And
+it binds no commit and no tree state, because those are properties of the machine that wrote
 it; the clean-tree precondition is enforced once, at generation, where it can still be
 enforced.
 
@@ -2036,10 +2098,36 @@ Each of the eight entry points it files is checked to resolve inside the bound s
 name a verifier that really implements `--verify`. A pointer to a verifier with no verify
 mode is the same kind of claim as a citation to a commit nobody can reach.
 
+### `--verify` hashes the gates; `--deep` runs them
+
+Grepping a verifier's source for the literal `"--verify"` is a check on the *pointers*, not
+on the evidence, and the top-level closeout could pass it while a scientific verifier behind
+one of those pointers failed. So the manifest files a second command that executes them:
+
 ```
 python3 scripts/iter11_closeout_evidence_manifest.py --verify   # 0, or 3 without an object store
+python3 scripts/iter11_closeout_evidence_manifest.py --deep     # verify, then EXECUTE every gate
 python3 scripts/iter11_closeout_evidence_manifest.py --write    # from a clean tree only
 ```
+
+`--deep` runs the shallow verify first and lets its result gate the rest, because executing
+eight verifiers against a manifest that does not re-derive would report on evidence whose
+binding is already in doubt. It then runs all 7 entry-point verifiers over 8 invocations,
+choosing them from the `ENTRY_POINTS` constant and never from the artifact being audited.
+The argv is filed per verifier rather than assumed, because a verifier run with the wrong
+arguments can exit 0 having checked less than everything: `iter11_replay_checks.py` without
+`--all` checks one arm and not the panel, and the media manifest has a second mode that
+checks the panel-referenced subset on its own.
+
+The aggregation is decided in advance and filed in the document, because these gates use
+four exit codes and two of them are not failure. **Exit 3 is counted as incomplete here** —
+"this checkout does not have the section of the evidence that gate checks", the media in a
+fresh clone, an object store in a tarball — and named separately rather than folded into the
+success total, which is what previously made a fresh checkout report failure for being a
+fresh checkout. **Exit 1 or 2 fails the closeout**, and so does anything else including a
+traceback or a timeout, because a gate that crashed or never finished did not verify. A deep
+closeout where every gate that could run ran and none contradicted anything, but some could
+not run, exits 3.
 
 ## Schema Reports
 

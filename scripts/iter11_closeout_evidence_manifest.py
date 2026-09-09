@@ -25,16 +25,43 @@ checkable here, which is exit 3 rather than exit 1.
 Nothing here is transcribed. The bound set is DISCOVERED from the repository at
 generation time -- every tracked file under ``outputs/iteration_11/``, every
 ``scripts/iter11_*.py``, every ``tests/unit/test_iter11_*.py``, plus the library
-modules those verifiers import -- and the discovery is repeated at verification
-time wherever a git object store exists, so a file committed and left out of the
+modules those files import -- and the discovery is repeated at verification time
+wherever a git object store exists, so a file committed and left out of the
 manifest is a finding rather than a gap nobody notices.
+
+The library modules are not a list anybody maintains. They are the IMPORT
+CLOSURE of the bound Python, walked with ``ast`` from every bound script and test
+and closed under ``causal_mllm`` imports, so a module the verifiers reach is bound
+whether or not anybody remembered it. That matters because the closure is what
+makes the numbers in the artifacts mean what they say: the tolerance rules, the
+frozen bootstrap, the estimand definitions, the hypothesis tests, the adjudicator
+routing and the truncation classifier are all library code, and a manifest that
+bound the artifacts and eight modules while the analysis imported thirty-three
+would be binding a claim and not the thing that computes it. Third-party packages
+are deliberately outside the closure -- they are bound by the dependency lock,
+which is itself bound here.
+
+Two commands, because hashing a verifier is not running it:
+
+``--verify`` re-derives the document and resolves every bound file at HEAD. It
+reads the entry points' source to confirm each names a ``--verify`` mode, and it
+never executes one, so it can pass while a scientific verifier fails.
+
+``--deep`` runs every entry-point verifier as a subprocess and aggregates what
+comes back: exit 0 is verified, exit 3 is incomplete-but-not-contradicted and is
+reported as such rather than silently folded into success, and exit 1 or 2 fails
+the deep closeout. That is the command which answers "does the closeout still
+hold", and ``--verify`` alone does not.
 
 Exit codes, and each one is tested:
     0  filed, or verified with every bound file present, hashing correctly, and
-       resolving out of the object store
+       resolving out of the object store; under ``--deep``, every verifier
+       returned 0 or 3
     1  a contradiction: a bound file does not hash to what is filed, the filed
-       set and the committed set disagree, the document does not re-derive, or
-       the tree was dirty when it was generated
+       set and the committed set disagree, the document does not re-derive, the
+       entry points are not the ones this module files, the manifest on disk is
+       not the blob HEAD holds, the tree was dirty when it was generated, or a
+       deep verifier returned 1 or 2
     2  nothing filed to verify against, or a bound file is absent from disk
     3  every hash checks out but committed-ness is not checkable here -- no git
        object store, so this is an export or a tarball rather than a checkout.
@@ -44,6 +71,7 @@ Exit codes, and each one is tested:
 from __future__ import annotations
 
 import argparse
+import ast
 import hashlib
 import json
 import subprocess
@@ -63,10 +91,16 @@ BOUND_TREES = ("outputs/iteration_11/",)
 #: bound by being committed and does not have to be remembered here.
 BOUND_GLOBS = ("scripts/iter11_*.py", "tests/unit/test_iter11_*.py")
 
-#: The library modules the bound verifiers import. Listed rather than globbed:
-#: binding all of ``src/`` would make the manifest move on every unrelated
-#: change, and binding none of it would leave the tolerance rules, the
-#: environment certification and the frozen bootstrap outside the evidence.
+#: The library modules the bound verifiers import, listed by hand. The import
+#: closure computed below is a superset of the ``src/`` entries here and is what
+#: actually binds them; this list is kept as a floor, so that if the closure
+#: walker is ever broken the modules the analysis is known to depend on are still
+#: bound, and ``check_the_manifest`` requires every ``src/`` path named here to
+#: appear in the computed closure -- a walker that loses one is a finding rather
+#: than a silently smaller manifest. Binding all of ``src/`` would make the
+#: manifest move on every unrelated change, and binding none of it would leave the
+#: tolerance rules, the environment certification and the frozen bootstrap outside
+#: the evidence.
 BOUND_PATHS = (
     "src/causal_mllm/seeds.py",
     "src/causal_mllm/evaluation/bootstrap.py",
@@ -205,6 +239,257 @@ def object_store_available() -> bool:
     return head.returncode == 0
 
 
+PACKAGE = "causal_mllm"
+SRC_ROOT = "src"
+
+
+def _module_file(module: str) -> str | None:
+    """Resolve a dotted ``causal_mllm`` module name to a path under ``src/``."""
+    if module != PACKAGE and not module.startswith(f"{PACKAGE}."):
+        return None
+    rel = module.replace(".", "/")
+    for candidate in (f"{SRC_ROOT}/{rel}.py", f"{SRC_ROOT}/{rel}/__init__.py"):
+        if (REPO_ROOT / candidate).is_file():
+            return candidate
+    return None
+
+
+def _import_sites(path: Path) -> tuple[list[tuple[str, bool, str, bool]],
+                                       list[str]]:
+    """Every import in a file, as absolute sites and as relative-site notes.
+
+    An absolute site is ``(dotted name, deferred, where, symbol_position)``.
+    ``deferred`` is True when the import sits inside a function or lambda body
+    rather than at import time. The distinction is load-bearing: a module-level
+    import of a module that does not exist means the package cannot be imported
+    at all, while a deferred one is a branch that may legitimately not have
+    landed yet. Treating the two the same way makes an optional adapter into a
+    fatal finding, and a check that cries wolf on intentional code gets switched
+    off -- which is how a manifest ends up binding less than it claims to.
+
+    ``symbol_position`` is True only for the names after ``from X import``, which
+    are the ones that may be attributes rather than modules. Names in a plain
+    ``import X.Y`` are always modules, so an unresolvable one is a gap and not a
+    symbol; without this flag ``import causal_mllm.renamed`` is discarded because
+    its parent ``causal_mllm`` resolves, and a walker that discards it walks a
+    smaller graph than the interpreter would import.
+
+    Relative imports cannot be resolved from a file path alone -- ``from .x
+    import y`` depends on where the file sits in the package -- so they are
+    returned separately and COUNTED rather than silently skipped. This
+    repository has none; if it ever adopts them the closure says how many edges
+    it could not follow instead of binding less and reporting the same success.
+    """
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    sites: list[tuple[str, bool, str, bool]] = []
+    relative: list[str] = []
+
+    def names_of(node) -> list[tuple[str, bool]]:
+        if isinstance(node, ast.Import):
+            return [(alias.name, False) for alias in node.names]
+        if not node.module:
+            return []
+        return [(node.module, False)] \
+            + [(f"{node.module}.{alias.name}", True) for alias in node.names]
+
+    def walk(node, deferred: bool, where: str) -> None:
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.ImportFrom) and child.level:
+                relative.append(
+                    f"{'.' * child.level}{child.module or ''} in {where}")
+            elif isinstance(child, (ast.Import, ast.ImportFrom)):
+                sites.extend((name, deferred, where, symbol)
+                             for name, symbol in names_of(child))
+            elif isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                    ast.Lambda)):
+                walk(child, True, getattr(child, "name", "<lambda>"))
+            else:
+                walk(child, deferred, where)
+
+    walk(tree, False, "<module>")
+    return sites, relative
+
+
+def _imported_modules(path: Path) -> tuple[set[str], dict, dict, list[str]]:
+    """What a file imports, read with ``ast`` rather than matched with a regex.
+
+    Returns the names that resolve to a module under ``src/``, the ones that do
+    not and are imported at module level, the ones that do not and are imported
+    inside a function body, and the relative import sites that could not be
+    resolved at all. An unresolvable name in a SYMBOL position is normally just a
+    symbol -- ``from causal_mllm.data.io import read_jsonl`` yields the module and
+    the symbol both -- so it is only a gap when its parent does not resolve
+    either, which is what separates ``read_jsonl`` from a module that has been
+    renamed, moved or never written.
+    """
+    resolved: set[str] = set()
+    at_import_time: dict[str, list[str]] = {}
+    deferred: dict[str, list[str]] = {}
+    sites, relative = _import_sites(path)
+    for name, is_deferred, where, symbol_position in sites:
+        target = _module_file(name)
+        if target is not None:
+            resolved.add(target)
+            continue
+        if not name.startswith(PACKAGE):
+            continue
+        parent = name.rsplit(".", 1)[0]
+        if symbol_position and (parent == name or _module_file(parent) is not None):
+            continue
+        bucket = deferred if is_deferred else at_import_time
+        names = bucket.setdefault(where, [])
+        if name not in names:
+            names.append(name)
+    for names in (at_import_time, deferred):
+        for where in names:
+            names[where] = sorted(names[where])
+    return resolved, at_import_time, deferred, sorted(relative)
+
+
+def dependency_closure(roots: list[str]) -> dict:
+    """The ``causal_mllm`` modules the bound Python reaches, with the edges.
+
+    Walked rather than listed, so the manifest cannot fall behind the code: a
+    module a verifier starts importing is bound the next time this runs, and one
+    it stops importing leaves the bound set on its own. The edges are filed
+    because "why is this module part of the evidence" is a question a reviewer
+    should be able to answer from the document instead of by reading imports.
+
+    Deferred imports are walked as well as module-level ones, and that is not a
+    formality: the model adapters for two of the four arms are imported inside
+    ``build_adapter`` and nowhere else, so a module-level-only walk would leave
+    the code that produced those generations unbound.
+
+    Third-party imports are out of scope by construction -- ``_module_file``
+    resolves only ``causal_mllm`` names -- and are bound instead by the dependency
+    lock, which is itself in the bound set. Relative imports are out of scope by
+    necessity rather than by choice, and are counted where they occur so that the
+    omission is visible in the document instead of silent in the walker.
+    """
+    edges: dict[str, list[str]] = {}
+    absent_at_import_time: dict[str, dict] = {}
+    absent_deferred: dict[str, dict] = {}
+    relative_sites: dict[str, list[str]] = {}
+    stack = list(roots)
+    while stack:
+        rel = stack.pop()
+        if rel in edges:
+            continue
+        path = REPO_ROOT / rel
+        if not path.is_file():
+            fatal(f"{rel} is bound by this manifest but is not a file on disk "
+                  f"here, so its imports cannot be walked", 2)
+        try:
+            resolved, at_import_time, deferred, relative = _imported_modules(path)
+        except SyntaxError as exc:
+            fatal(f"{rel} does not parse ({exc}); a bound file whose imports "
+                  f"cannot be walked cannot have its dependency closure computed, "
+                  f"and a closure that quietly stops at a syntax error is a "
+                  f"smaller manifest pretending to be the same one", 1)
+            raise  # unreachable; keeps the return type honest
+        edges[rel] = sorted(resolved)
+        if at_import_time:
+            absent_at_import_time[rel] = at_import_time
+        if deferred:
+            absent_deferred[rel] = deferred
+        if relative:
+            relative_sites[rel] = relative
+        stack.extend(resolved)
+    return {
+        "modules": sorted({dep for deps in edges.values() for dep in deps}),
+        "edges": dict(sorted(edges.items())),
+        "imports_that_resolve_to_no_module": dict(sorted(
+            absent_at_import_time.items())),
+        "deferred_imports_that_resolve_to_no_module": dict(sorted(
+            absent_deferred.items())),
+        "relative_imports_that_could_not_be_resolved": dict(sorted(
+            relative_sites.items())),
+    }
+
+
+def closure_block(paths: list[str]) -> dict:
+    """The filed statement of what the bound code depends on.
+
+    Total: it always returns a document. The two things that can be wrong with
+    a closure are filed as fields rather than raised, because ``build`` refusing
+    to produce a document turns a diagnosable contradiction into "could not
+    re-derive", and a manifest that cannot be built cannot be compared with the
+    one that was filed either. :func:`check_the_manifest` requires both fields to
+    be empty, so nothing is weakened by filing instead of raising -- the failure
+    just arrives where it can be reported alongside the rest.
+    """
+    roots = sorted(path for path in paths if path.endswith(".py"))
+    closure = dependency_closure(roots)
+    hand_listed = sorted(module for module in BOUND_PATHS
+                         if module.startswith(f"{SRC_ROOT}/"))
+    return {
+        "n_modules": len(closure["modules"]),
+        "n_roots_walked": len(roots),
+        "modules": closure["modules"],
+        "edges": closure["edges"],
+        "roots": roots,
+        "modules_that_cannot_be_imported": dict(sorted(
+            closure["imports_that_resolve_to_no_module"].items())),
+        "what_an_unimportable_module_means": (
+            f"a bound file imports a {PACKAGE} module at MODULE LEVEL that does "
+            f"not exist, so the package cannot be imported and nothing "
+            f"downstream of it can have produced the evidence this manifest "
+            f"binds. Empty is the only acceptable value"),
+        "hand_listed_modules_the_closure_does_not_reach": sorted(
+            module for module in hand_listed
+            if module not in closure["modules"]),
+        "what_that_field_checks": (
+            "the walker against a hand-written expectation. This file names "
+            f"{len(hand_listed)} library modules as dependencies of the bound "
+            "verifiers; if the walk does not reach one of them then either the "
+            "walker is broken or that module is no longer imported by anything "
+            "bound. Both are findings, and neither is a reason to bind less, so "
+            "the field is filed and required to be empty rather than being "
+            "resolved by dropping the module from the list"),
+        "deferred_imports_of_modules_that_do_not_exist":
+            closure["deferred_imports_that_resolve_to_no_module"],
+        "relative_imports_the_walk_could_not_follow":
+            closure["relative_imports_that_could_not_be_resolved"],
+        "n_relative_imports_the_walk_could_not_follow": sum(
+            len(sites) for sites in
+            closure["relative_imports_that_could_not_be_resolved"].values()),
+        "what_an_unfollowed_relative_import_would_mean": (
+            "an edge this closure did not follow, so the module on the other "
+            "side of it is not bound. Zero is the value this repository "
+            "produces, and it is filed rather than assumed so that adopting "
+            "relative imports turns into a number in the manifest instead of a "
+            "quietly smaller one"),
+        "what_a_deferred_import_of_an_absent_module_is": (
+            "a branch that would raise ModuleNotFoundError if it were ever taken. "
+            "It is filed rather than fatal because it does not stop the package "
+            "importing and it may name a module this iteration never needed; it "
+            "is not filed as harmless either, because a registry that advertises "
+            "a kind whose module is absent will fail with an import error instead "
+            "of the error it meant to raise. Anything imported AT MODULE LEVEL "
+            "and absent is fatal, and is not listed here"),
+        "how_it_is_computed": (
+            f"every bound .py file is parsed with ast, its {PACKAGE} imports are "
+            f"resolved to files under {SRC_ROOT}/, and the walk repeats until "
+            f"nothing new is reached. Imports inside function and lambda bodies "
+            f"are walked too and marked deferred. A name that resolves to no "
+            f"module is a symbol and is ignored; a name whose PARENT resolves to "
+            f"no module is a gap, recorded per import site"),
+        "what_it_does_not_cover": (
+            "third-party packages, which no walk of this repository can pin. They "
+            "are bound by outputs/iteration_11/preflight/dependency_lock_"
+            "reconstruction.json and the freeze it authenticates, both of which "
+            "are in the bound set, and the environment a verifier runs in is "
+            "certified against that lock at verification time rather than assumed "
+            "here"),
+        "why_it_is_walked_and_not_listed": (
+            "a hand-maintained list of the modules that matter is a claim about "
+            "the code that goes stale silently, and the failure it produces is a "
+            "manifest that still verifies while an artifact's numbers are computed "
+            "by a module nobody bound. Walking means the bound set follows the "
+            "imports"),
+    }
+
+
 def discover() -> list[str]:
     """The bound set, as the repository records it. Requires an object store."""
     if not object_store_available():
@@ -229,6 +514,20 @@ def discover() -> list[str]:
                   f"cannot be part of the committed evidence", 1)
         paths.add(rel)
     paths.discard(_rel(OUT_PATH))
+    closure = dependency_closure(
+        sorted(path for path in paths if path.endswith(".py")))
+    if closure["imports_that_resolve_to_no_module"]:
+        offenders = closure["imports_that_resolve_to_no_module"]
+        fatal(f"{len(offenders)} bound file(s) import a {PACKAGE} module that "
+              f"does not exist at import time: "
+              + "; ".join(f"{key} -> {json.dumps(value, sort_keys=True)}"
+                          for key, value in sorted(offenders.items())[:6]), 1)
+    for module in closure["modules"]:
+        tracked = _git("ls-files", "--error-unmatch", "--", module)
+        if tracked.returncode != 0:
+            fatal(f"{module} is imported by the bound code but is not tracked, so "
+                  f"the evidence depends on a file this repository does not hold", 1)
+        paths.add(module)
     return sorted(paths)
 
 
@@ -296,13 +595,14 @@ def build(paths: list[str],
           entry_points: tuple[dict, ...] | list[dict] = ENTRY_POINTS) -> dict:
     """The manifest, as a pure function of a path list, its entry points, and disk.
 
-    ``entry_points`` is a parameter rather than a constant read from the module
-    because the list is part of the document's design and is not re-derivable
-    from the files: verification passes back the one that is filed, so the
-    comparison that follows is about the hashes and not about whether a reviewer
-    was pointed at the same eight artifacts. What the entry points claim IS
-    checked -- by :func:`check_the_manifest`, against the bound set and against
-    a verifier that really implements ``--verify``.
+    ``entry_points`` is a parameter so that a test can build a hermetic manifest
+    over a three-file set without inheriting sixteen entry-point complaints about
+    files that are not in it. It is NOT a licence for verification to pass back
+    the list that is filed: ``verify`` passes ``ENTRY_POINTS``, the constant this
+    module files, so a manifest whose pointers have been thinned out fails to
+    re-derive instead of re-deriving itself. A value compared against a
+    re-derivation of the same value enforces nothing, and an echoed-back entry
+    list is exactly that.
     """
     entries = []
     for rel in paths:
@@ -316,6 +616,7 @@ def build(paths: list[str],
     for entry in entries:
         roles[entry["role"]] = roles.get(entry["role"], 0) + 1
     media = media_binding()
+    verifiers = sorted({point["verified_by"] for point in entry_points})
     return {
         "kind": "iteration_11_evidence_manifest_v1",
         "produced_by": "scripts/iter11_closeout_evidence_manifest.py",
@@ -326,7 +627,36 @@ def build(paths: list[str],
         "rollup_sha256": roll_up(entries),
         "n_by_role": dict(sorted(roles.items())),
         "bound": entries,
-        "where_a_reviewer_starts": list(entry_points),
+        # Copied per point, not just as a list. ``list(entry_points)`` shares the
+        # dicts with the module constant, so a caller that edits the built
+        # document edits ENTRY_POINTS with it -- and in ``verify`` that makes the
+        # expected side of the entry-point comparison move with the side being
+        # checked, which is the same self-agreement a pin exists to prevent.
+        "where_a_reviewer_starts": [dict(point) for point in entry_points],
+        "scientific_dependency_closure": closure_block(paths),
+        "deep_closeout": {
+            "command": ("python scripts/iter11_closeout_evidence_manifest.py "
+                        "--deep"),
+            "verifiers_it_executes": verifiers,
+            "n_verifiers": len(verifiers),
+            "how_exit_codes_aggregate": {
+                "0": "that verifier's evidence re-derives; counted as verified",
+                "3": "incomplete here rather than contradicted -- a section of "
+                     "the evidence this checkout does not have, such as the "
+                     "media in a fresh clone. Counted, named, and never folded "
+                     "into the success total",
+                "1": "a contradiction. Fails the deep closeout",
+                "2": "nothing filed for that verifier to check, or a bound file "
+                     "absent from disk. Fails the deep closeout",
+            },
+            "what_verify_alone_does_not_do": (
+                "--verify hashes the verifiers and reads their source to confirm "
+                "each implements a --verify mode. It does not run one, so a "
+                "manifest can verify exactly while a scientific verifier behind "
+                "it fails. --deep is the command that executes them, and a "
+                "closeout that has not been run deep has been hashed, not "
+                "checked"),
+        },
         "bound_by_discovery_not_by_a_list": {
             "trees": list(BOUND_TREES),
             "patterns": list(BOUND_GLOBS),
@@ -340,11 +670,13 @@ def build(paths: list[str],
         "what_this_manifest_does_not_bind": {
             "itself": {
                 "path": _rel(OUT_PATH),
-                "why": "a document cannot carry its own hash. Its integrity is "
-                       "the re-derivation: --verify rebuilds the whole thing "
-                       "from the files on disk and compares, so tampering with "
-                       "the manifest is tampering with a claim that the bound "
-                       "files then contradict",
+                "why": "a document cannot carry its own hash, so no sha256 of this "
+                       "file appears inside it. That is not the same as its bytes "
+                       "going unchecked: --verify rebuilds the whole document from "
+                       "the bound files and compares, AND resolves this file as a "
+                       "blob at HEAD and compares its hash there, so an edited "
+                       "manifest that was never committed is a finding rather than "
+                       "a document that quietly describes a different evidence set",
             },
             "the_media": {
                 "n_files": media.get("n_files_it_binds"),
@@ -489,7 +821,24 @@ def check_the_manifest(doc: dict) -> list[str]:
                       f"document can do by hash")
 
     bound = set(paths)
-    for point in doc.get("where_a_reviewer_starts") or ():
+    points = doc.get("where_a_reviewer_starts")
+    if not points:
+        issues.append(
+            "where_a_reviewer_starts is empty. An empty list validates cleanly, "
+            "because there is then nothing to validate, which is why it is "
+            "refused outright: the entry points are the part of this manifest a "
+            "reviewer actually uses, and a manifest with none has been weakened "
+            "rather than simplified")
+    elif [dict(point) for point in points] \
+            != [dict(point) for point in ENTRY_POINTS]:
+        issues.append(
+            "where_a_reviewer_starts is not the ENTRY_POINTS this module files: "
+            f"{len(points)} pointer(s) filed, {[point.get('path') for point in points]}, "
+            f"against {len(ENTRY_POINTS)} in the module. The comparison has to be "
+            "against the constant and not against the artifact, or a manifest "
+            "that has dropped its pointers re-derives itself exactly and reports "
+            "no difference")
+    for point in points or ():
         target = point.get("path")
         if target not in bound:
             issues.append(f"the entry point {target} is not among the bound "
@@ -507,6 +856,85 @@ def check_the_manifest(doc: dict) -> list[str]:
                 f"{verifier} is named as what verifies {target} and implements "
                 f"no --verify mode: a pointer to a verifier that cannot verify "
                 f"is the same claim as a citation nobody can resolve")
+
+    closure = doc.get("scientific_dependency_closure") or {}
+    modules = closure.get("modules") or []
+    if closure.get("n_modules") != len(modules):
+        issues.append(f"the dependency closure files n_modules "
+                      f"{closure.get('n_modules')} and lists {len(modules)}")
+    if not modules:
+        issues.append(
+            "the dependency closure is empty, so no library module is bound and "
+            "the artifacts are bound without the code that computes them")
+    for module in modules:
+        if module not in bound:
+            issues.append(f"the dependency closure reaches {module} and it is not "
+                          f"among the bound files, so the evidence depends on a "
+                          f"module this manifest does not vouch for")
+    for root in closure.get("roots") or []:
+        if root not in bound:
+            issues.append(f"the closure was walked from {root}, which is not among "
+                          f"the bound files")
+
+    # Both of these fields are recomputed here from the closure the document
+    # files, and both are required to be empty. Filing them rather than raising
+    # in build() is what lets verify() report them next to everything else
+    # instead of dying with "could not re-derive".
+    missed = closure.get("hand_listed_modules_the_closure_does_not_reach")
+    expected_missed = sorted(module for module in BOUND_PATHS
+                             if module.startswith(f"{SRC_ROOT}/")
+                             and module not in modules)
+    if missed != expected_missed:
+        issues.append(
+            f"hand_listed_modules_the_closure_does_not_reach is {missed} and the "
+            f"closure filed beside it reaches all but {expected_missed}: the "
+            f"field does not describe the list it sits in")
+    for module in expected_missed:
+        issues.append(f"{module} is listed by hand as a dependency of the "
+                      f"bound code and the computed closure does not reach "
+                      f"it, so either the walk is broken or the list is stale "
+                      f"-- and dropping the module would be neither")
+    unimportable = closure.get("modules_that_cannot_be_imported")
+    if unimportable:
+        issues.append(
+            "the bound code imports a module this repository does not have at "
+            "import time, so the package cannot be imported and nothing "
+            "downstream of it can have produced this evidence: "
+            f"{json.dumps(unimportable, sort_keys=True)[:300]}")
+    relative = closure.get("relative_imports_the_walk_could_not_follow") or {}
+    n_relative = sum(len(sites) for sites in relative.values())
+    if closure.get("n_relative_imports_the_walk_could_not_follow") != n_relative:
+        issues.append(
+            "n_relative_imports_the_walk_could_not_follow is "
+            f"{closure.get('n_relative_imports_the_walk_could_not_follow')} and "
+            f"{n_relative} sites are listed beside it")
+    if n_relative:
+        issues.append(
+            f"{n_relative} relative import site(s) could not be followed, so the "
+            f"closure is missing whatever they reach: "
+            f"{json.dumps(relative, sort_keys=True)[:300]}")
+
+    deep = doc.get("deep_closeout") or {}
+    expected_verifiers = sorted({point.get("verified_by")
+                                 for point in points or ()})
+    for extra in sorted(set(DEEP_INVOCATIONS) - set(expected_verifiers)):
+        issues.append(
+            f"DEEP_INVOCATIONS files an argv for {extra}, which no entry point "
+            f"names as a verifier, so --deep would never run it and the argv is "
+            f"a claim about a gate that does not exist")
+    if deep.get("verifiers_it_executes") != expected_verifiers:
+        issues.append(
+            "deep_closeout.verifiers_it_executes is "
+            f"{deep.get('verifiers_it_executes')} and the entry points name "
+            f"{expected_verifiers}; the deep command must run the verifiers the "
+            f"document points at, not a subset of them")
+    if deep.get("n_verifiers") != len(expected_verifiers):
+        issues.append(f"deep_closeout.n_verifiers is {deep.get('n_verifiers')} and "
+                      f"{len(expected_verifiers)} verifiers are named")
+    if not deep.get("how_exit_codes_aggregate"):
+        issues.append("deep_closeout files no aggregation rule, so an exit 3 from "
+                      "a verifier has no defined meaning and would be read as "
+                      "either success or failure by whoever runs it")
     return issues
 
 
@@ -536,9 +964,24 @@ def verify(path: Path | None = None) -> tuple[int, str, list[str], list[str]]:
             f"{', '.join(absent[:8])}"
             + (" ..." if len(absent) > 8 else "")], []
 
+    # Re-derive from DISCOVERY wherever this checkout can discover, and from the
+    # filed path list only where it cannot. Re-deriving from the filed list alone
+    # is the weaker check: a manifest that dropped files would be rebuilt over
+    # the same smaller set and agree with itself, so discovery is what makes the
+    # comparison independent of the document being verified.
+    discovery = None
+    if object_store_available():
+        try:
+            discovery = discover()
+        except SystemExit as exc:
+            return (exc.code if isinstance(exc.code, int) else 1), \
+                "could_not_discover", issues + [
+                    f"the bound set could not be discovered from what is "
+                    f"committed: exit {exc.code}"], []
+
     try:
-        fresh = build([entry["path"] for entry in entries],
-                      filed.get("where_a_reviewer_starts") or [])
+        fresh = build(discovery if discovery is not None
+                      else [entry["path"] for entry in entries], ENTRY_POINTS)
     except SystemExit as exc:
         return (exc.code if isinstance(exc.code, int) else 1), \
             "could_not_rederive", issues + [
@@ -555,10 +998,11 @@ def verify(path: Path | None = None) -> tuple[int, str, list[str], list[str]]:
     unverifiable: list[str] = []
     if not object_store_available():
         unverifiable.append(
-            "no git object store here, so two claims could not be made: that "
+            "no git object store here, so three claims could not be made: that "
             "every bound file resolves as a blob at HEAD and hashes the same "
-            "there, and that nothing committed under the bound trees or "
-            "patterns was left out of this manifest. Every hash on disk "
+            "there, that nothing committed under the bound trees or patterns was "
+            "left out of this manifest, and that this manifest is the one that "
+            "was committed rather than one edited in place. Every hash on disk "
             "checks out; what cannot be said from here is that these files are "
             "the committed ones")
         if issues:
@@ -567,7 +1011,21 @@ def verify(path: Path | None = None) -> tuple[int, str, list[str], list[str]]:
 
     mismatched, uncommitted = [], []
     paths = [entry["path"] for entry in entries]
-    at_head = committed_hashes(paths)
+    self_rel = _rel(path)
+    on_disk = sha256_file(path)
+    at_head = committed_hashes(paths + [self_rel])
+    self_blob = at_head.get(self_rel)
+    if self_blob is None:
+        issues.append(f"{self_rel} is not in HEAD at all, so the manifest being "
+                      f"verified here is not the manifest that was committed")
+    elif self_blob != on_disk:
+        issues.append(
+            f"{self_rel}: the manifest on disk hashes to {on_disk[:12]} and HEAD "
+            f"holds {self_blob[:12]}, so this file was edited after it was "
+            f"committed. A document cannot carry its own hash inside itself, "
+            f"which is why its bytes are compared against the object store "
+            f"instead -- without that comparison an edit here is invisible, "
+            f"because the re-derivation above is fed the edited document")
     for entry in entries:
         blob = at_head.get(entry["path"])
         if blob is None:
@@ -605,6 +1063,117 @@ def verify(path: Path | None = None) -> tuple[int, str, list[str], list[str]]:
     return 0, "re_derived_exactly_and_every_file_is_committed", [], []
 
 
+#: How each entry-point verifier is invoked by ``--deep``. Most take ``--verify``
+#: and nothing else. The argv is filed here rather than assumed because a
+#: verifier run with the wrong arguments can exit 0 having checked less than
+#: everything: ``iter11_replay_checks.py`` without ``--all`` checks one arm and
+#: not the panel, and the media manifest has a second mode that checks the
+#: panel-referenced subset on its own.
+DEEP_INVOCATIONS = {
+    "scripts/iter11_replay_checks.py": (("--all", "--verify"),),
+    "scripts/iter11_write_media_manifest.py": (("--verify",),
+                                               ("--verify", "--panel-only")),
+}
+
+DEFAULT_DEEP_INVOCATION = (("--verify",),)
+
+
+def deep_invocations_for(verifier: str) -> tuple[tuple[str, ...], ...]:
+    return DEEP_INVOCATIONS.get(verifier, DEFAULT_DEEP_INVOCATION)
+
+
+def deep_closeout(path: Path | None = None,
+                  timeout: int = 1800) -> tuple[int, dict]:
+    """Run every entry-point verifier and aggregate what comes back.
+
+    ``--verify`` hashes the verifiers and reads their source for a ``--verify``
+    string. That is a check on the pointers and not on the evidence: the
+    top-level closeout can pass it while a scientific verifier behind one of
+    those pointers fails. This function executes them.
+
+    Aggregation is the part that has to be decided in advance, because the gates
+    in this iteration use four exit codes and two of them are not failure. Exit 3
+    means "this checkout does not have the section of the evidence that gate
+    checks" -- the media in a fresh clone, an object store in a tarball -- and is
+    counted and named rather than folded into the success total, which is what
+    made a fresh checkout report failure for being a fresh checkout. Exit 1 or 2
+    fails the deep closeout, and so does anything else, including a traceback,
+    because a gate that crashed did not verify.
+
+    The shallow verify runs first and its result gates the rest: executing eight
+    verifiers against a manifest that does not re-derive would report on evidence
+    whose binding is already in doubt.
+    """
+    path = OUT_PATH if path is None else path
+    code, conclusion, issues, unverifiable = verify(path)
+    verifiers = sorted({point["verified_by"] for point in ENTRY_POINTS})
+    report: dict = {
+        "shallow_verify": {
+            "code": code,
+            "conclusion": conclusion,
+            "issues": issues,
+            "unverifiable_here": unverifiable,
+        },
+        "verifiers_it_executes": verifiers,
+        "n_verifiers": len(verifiers),
+        "how_each_was_invoked": {
+            verifier: [list(argv) for argv in deep_invocations_for(verifier)]
+            for verifier in verifiers},
+        "timeout_seconds": timeout,
+        "invocations": [],
+        "n_verified": 0,
+        "n_incomplete_here": 0,
+        "n_failed": 0,
+    }
+    if code in (1, 2):
+        report["why_the_gates_were_not_run"] = (
+            f"the manifest itself came back {code} ({conclusion}), so the "
+            f"evidence these gates check is not the evidence this manifest "
+            f"binds; running them would report on a binding already in doubt")
+        return code, report
+
+    # From the constant, not from the artifact. verify() has already proved the
+    # filed entry points equal ENTRY_POINTS, so the two are the same list here --
+    # but a deep closeout that decided WHICH GATES TO RUN by reading the document
+    # it was checking would let a weakened manifest weaken its own audit.
+    failed: list[dict] = []
+    for verifier in verifiers:
+        for argv in deep_invocations_for(verifier):
+            command = [sys.executable, verifier, *argv]
+            try:
+                proc = subprocess.run(command, cwd=REPO_ROOT, text=True,
+                                      capture_output=True, timeout=timeout)
+                returned, stdout, stderr = (
+                    proc.returncode, proc.stdout, proc.stderr)
+            except subprocess.TimeoutExpired:
+                returned, stdout, stderr = (
+                    "timeout", "",
+                    f"no result within {timeout}s; a gate that does not finish "
+                    f"did not verify")
+            lines = [line for line in stdout.strip().splitlines() if line.strip()]
+            entry = {
+                "verifier": verifier,
+                "argv": list(argv),
+                "code": returned,
+                "what_it_said": lines[0] if lines else "",
+                "stderr": stderr.strip()[:400],
+            }
+            report["invocations"].append(entry)
+            if returned == 0:
+                report["n_verified"] += 1
+            elif returned == 3:
+                report["n_incomplete_here"] += 1
+            else:
+                report["n_failed"] += 1
+                failed.append(entry)
+    report["failed"] = failed
+    if failed:
+        return 1, report
+    if code == 3 or report["n_incomplete_here"]:
+        return 3, report
+    return 0, report
+
+
 def _assert_clean_tree() -> None:
     """Refuse to file a manifest from a tree that is not what HEAD holds.
 
@@ -637,8 +1206,50 @@ def main(argv: list[str] | None = None) -> int:
     mode.add_argument("--write", action="store_true",
                       help="file the manifest from a clean tree. Explicit, "
                            "because it overwrites a committed artifact")
+    mode.add_argument("--deep", action="store_true",
+                      help="verify, then EXECUTE every entry-point verifier and "
+                           "aggregate: exit 3 is counted as incomplete here, "
+                           "exit 1 or 2 fails the closeout")
     parser.add_argument("--out", type=Path, default=OUT_PATH)
+    parser.add_argument("--timeout", type=int, default=1800,
+                        help="seconds to allow each gate under --deep")
     args = parser.parse_args(argv)
+
+    if args.deep:
+        code, report = deep_closeout(args.out, timeout=args.timeout)
+        shallow = report["shallow_verify"]
+        print(f"DEEP CLOSEOUT: manifest {shallow['conclusion'].replace('_', ' ')} "
+              f"(exit {shallow['code']})")
+        for issue in shallow["issues"]:
+            print(f"  - {issue}")
+        for note in shallow["unverifiable_here"]:
+            print(f"  not checkable here: {note}")
+        if "why_the_gates_were_not_run" in report:
+            print(f"  gates not run: {report['why_the_gates_were_not_run']}")
+            return code
+        print(f"  executing {len(report['invocations'])} invocation(s) of "
+              f"{report['n_verifiers']} entry-point verifier(s)")
+        for entry in report["invocations"]:
+            mark = {0: "verified", 3: "incomplete here"}.get(
+                entry["code"], f"FAILED ({entry['code']})")
+            print(f"  [{mark:>17s}] {entry['verifier']} "
+                  f"{' '.join(entry['argv'])}")
+            if entry["what_it_said"]:
+                print(f"                     {entry['what_it_said'][:110]}")
+            if entry["stderr"]:
+                print(f"                     stderr: {entry['stderr'][:110]}")
+        print(f"  verified {report['n_verified']}, incomplete here "
+              f"{report['n_incomplete_here']}, failed {report['n_failed']}")
+        if code == 1:
+            print("DEEP CLOSEOUT: FAIL -- a gate contradicted its own evidence")
+        elif code == 3:
+            print("DEEP CLOSEOUT: INCOMPLETE HERE -- every gate that could run "
+                  "ran, and none contradicted anything; the ones that could not "
+                  "run say so")
+        else:
+            print("DEEP CLOSEOUT: PASS -- every entry-point verifier ran and "
+                  "none contradicted its evidence")
+        return code
 
     if args.verify or not args.write:
         code, conclusion, issues, unverifiable = verify(args.out)
@@ -670,8 +1281,14 @@ def main(argv: list[str] | None = None) -> int:
         print(f"  roll-up    {filed['rollup_sha256']}")
         for role, count in filed["n_by_role"].items():
             print(f"    {count:4d}  {role}")
+        closure = filed["scientific_dependency_closure"]
+        print(f"  closure    {closure['n_modules']} library modules walked from "
+              f"{closure['n_roots_walked']} bound .py files")
         print(f"  entry points {len(filed['where_a_reviewer_starts'])}, each "
               f"bound and each with a verifier that implements --verify")
+        deep = filed["deep_closeout"]
+        print(f"  deep       {deep['n_verifiers']} verifier(s) executed by "
+              f"--deep; --verify hashes them and runs none")
         return 0
 
     _assert_clean_tree()
@@ -692,6 +1309,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  roll-up    {doc['rollup_sha256']}")
     for role, count in doc["n_by_role"].items():
         print(f"    {count:4d}  {role}")
+    closure = doc["scientific_dependency_closure"]
+    print(f"  closure    {closure['n_modules']} library modules walked from "
+          f"{closure['n_roots_walked']} bound .py files")
     return 0
 
 
