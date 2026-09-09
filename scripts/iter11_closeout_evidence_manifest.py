@@ -83,9 +83,17 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = REPO_ROOT / "outputs" / "iteration_11" / "closeout" \
     / "iteration_11_evidence_manifest.json"
 
-#: Everything tracked under here is bound. The manifest itself lives in this
-#: tree and is excluded by name, because a document cannot carry its own hash.
-BOUND_TREES = ("outputs/iteration_11/",)
+#: Everything tracked under here is bound. The manifest itself lives in the
+#: first of these trees and is excluded by name, because a document cannot carry
+#: its own hash. ``paper/`` is bound because the numbers file the paper's tables
+#: and figures are rendered from is Iteration 11 evidence like any other derived
+#: artifact: it is re-derivable, it has a verifier, and a closeout that did not
+#: vouch for it would vouch for the analyses while leaving unvouched the document
+#: that says what the paper quotes from them. Figure bytes are bound here and
+#: deliberately NOT bound by that stage -- the manifest hashes committed bytes to
+#: detect drift, while the numbers file has to re-derive identically on any
+#: machine and so binds the data a figure plots rather than the raster.
+BOUND_TREES = ("outputs/iteration_11/", "paper/")
 
 #: Discovered by pattern rather than listed, so a new stage in this iteration is
 #: bound by being committed and does not have to be remembered here.
@@ -186,8 +194,18 @@ ENTRY_POINTS = (
                 "iteration_11_transportability_decision.json",
         "what_it_establishes":
             "the transportability call, derived from the two analyses above "
-            "rather than written down beside them",
+            "rather than written down beside them, and the measurement of "
+            "whether the rule that produced that call was pre-specified",
         "verified_by": "scripts/iter11_transportability_decision.py",
+    },
+    {
+        "path": "paper/numbers/iteration_11_paper_numbers.json",
+        "what_it_establishes":
+            "every number the paper quotes, read out of the artifacts above "
+            "rather than transcribed from them: twelve tables, two figure specs "
+            "and nine claims with the lists their numerals count, each bound to "
+            "the 23 filed artifacts it came from by sha256",
+        "verified_by": "scripts/iter11_paper_numbers.py",
     },
 )
 
@@ -553,6 +571,7 @@ def role_for(rel: str) -> str:
             ("outputs/iteration_11/reports/", "placeholder"),
             ("scripts/", "verifier_or_generator"),
             ("tests/", "test"),
+            ("paper/", "paper_numbers_and_renderings"),
             ("src/", "library_the_verifiers_import")):
         if rel.startswith(prefix):
             return role
@@ -1100,7 +1119,7 @@ def deep_closeout(path: Path | None = None,
     fails the deep closeout, and so does anything else, including a traceback,
     because a gate that crashed did not verify.
 
-    The shallow verify runs first and its result gates the rest: executing eight
+    The shallow verify runs first and its result gates the rest: executing nine
     verifiers against a manifest that does not re-derive would report on evidence
     whose binding is already in doubt.
     """

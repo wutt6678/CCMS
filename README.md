@@ -1387,7 +1387,8 @@ python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify # the restored ce
 python3 scripts/iter11_differential_censoring_bound.py --verify # what the missing label could have cost, re-derived
 python3 scripts/iter11_transportability_decision.py --verify   # the sign-transport call, derived not declared
 python3 scripts/iter11_closeout_evidence_manifest.py --verify  # the closeout, rebuilt from the files on disk
-python3 scripts/iter11_closeout_evidence_manifest.py --deep    # and then EXECUTES the eight gates above
+python3 scripts/iter11_closeout_evidence_manifest.py --deep    # and then EXECUTES the nine gates above
+python3 scripts/iter11_paper_numbers.py --verify               # every number the paper quotes, re-derived
 ```
 
 `iter11_replay_checks.py` used to be the exception to that sentence, and finding
@@ -2055,22 +2056,32 @@ subprocesses per file — but as a *separate* claim, so a checkout with the file
 history reports exit 3 instead of exit 1.
 
 The bound set is **discovered, not listed**: every tracked file under
-`outputs/iteration_11/`, every `scripts/iter11_*.py`, every `tests/unit/test_iter11_*.py`,
-plus the **import closure** of that Python. The closure is walked with `ast` rather than
-written down — 42 library modules from 86 bound `.py` files, against the 8 that were listed
-by hand — and every edge is filed so "why is this module part of the evidence" is answerable
-from the document. Deferred imports are walked too, because the model adapters for two of
-the four arms are imported inside `build_adapter` and nowhere else: a module-level-only walk
-would leave the code that produced those generations unbound and nothing would say so. The
-8 hand-listed modules are kept as a *floor* the walk is checked against, so a broken walker
-and a stale list are both findings rather than a smaller manifest; third-party packages are
-out of scope by construction and are bound by the dependency lock, which is in the bound
-set. Relative imports cannot be resolved from a file path alone — this repository has none —
-so they are counted where they occur instead of silently shrinking the graph. The discovery
-repeats at verification time wherever an object store exists, so a file committed under a
-bound tree and left out of the manifest is a finding — the manifest stops being the closeout
-it claims to be — and a new stage in this iteration is bound by being committed rather than
-by being remembered.
+`outputs/iteration_11/` and `paper/`, every `scripts/iter11_*.py`, every
+`tests/unit/test_iter11_*.py`, plus the **import closure** of that Python. The
+closure is walked with `ast` rather than written down — 42 library modules from 86 bound
+`.py` files, against the 8 that were listed by hand — and every edge is filed so "why is
+this module part of the evidence" is answerable from the document. Deferred imports are
+walked too, because the model adapters for two of the four arms are imported inside
+`build_adapter` and nowhere else: a module-level-only walk would leave the code that
+produced those generations unbound and nothing would say so. The 8 hand-listed modules are
+kept as a *floor* the walk is checked against, so a broken walker and a stale list are both
+findings rather than a smaller manifest; third-party packages are out of scope by
+construction and are bound by the dependency lock, which is in the bound set. Relative
+imports cannot be resolved from a file path alone — this repository has none — so they are
+counted where they occur instead of silently shrinking the graph. The discovery repeats at
+verification time wherever an object store exists, so a file committed under a bound tree
+and left out of the manifest is a finding — the manifest stops being the closeout it claims
+to be — and a new stage in this iteration is bound by being committed rather than by being
+remembered.
+
+`paper/` is a bound tree because the numbers file the paper's tables and figures render from
+is Iteration 11 evidence like any other derived artifact: it is re-derivable, it has a
+verifier, and a closeout that vouched for the analyses while leaving unvouched the document
+saying what the paper quotes from them would be binding the evidence and not the claim. Its
+figure *bytes* are bound here and deliberately **not** bound by that stage — the manifest
+hashes committed bytes to detect drift, while the numbers file has to re-derive identically
+on any machine and so binds the data a figure plots rather than the raster, which carries
+the version of the library that drew it.
 
 **Two of its own claims are pinned against something outside the document.** A review found
 that `--verify` read the entry points out of the artifact and passed them back into `build()`
@@ -2094,9 +2105,11 @@ it binds no commit and no tree state, because those are properties of the machin
 it; the clean-tree precondition is enforced once, at generation, where it can still be
 enforced.
 
-Each of the eight entry points it files is checked to resolve inside the bound set and to
+Each of the nine entry points it files is checked to resolve inside the bound set and to
 name a verifier that really implements `--verify`. A pointer to a verifier with no verify
-mode is the same kind of claim as a citation to a commit nobody can reach.
+mode is the same kind of claim as a citation to a commit nobody can reach. The list is
+compared against the `ENTRY_POINTS` constant rather than against whatever the artifact
+filed, so a thinned manifest is refused instead of re-deriving itself.
 
 ### `--verify` hashes the gates; `--deep` runs them
 
@@ -2111,8 +2124,8 @@ python3 scripts/iter11_closeout_evidence_manifest.py --write    # from a clean t
 ```
 
 `--deep` runs the shallow verify first and lets its result gate the rest, because executing
-eight verifiers against a manifest that does not re-derive would report on evidence whose
-binding is already in doubt. It then runs all 7 entry-point verifiers over 8 invocations,
+nine verifiers against a manifest that does not re-derive would report on evidence whose
+binding is already in doubt. It then runs all 8 entry-point verifiers over 9 invocations,
 choosing them from the `ENTRY_POINTS` constant and never from the artifact being audited.
 The argv is filed per verifier rather than assumed, because a verifier run with the wrong
 arguments can exit 0 having checked less than everything: `iter11_replay_checks.py` without
