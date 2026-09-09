@@ -203,8 +203,12 @@ ENTRY_POINTS = (
         "what_it_establishes":
             "every number the paper quotes, read out of the artifacts above "
             "rather than transcribed from them: twelve tables, two figure specs "
-            "and nine claims with the lists their numerals count, each bound to "
-            "the 23 filed artifacts it came from by sha256",
+            "and nine claims with the lists their numerals count, each bound by "
+            "sha256 to the filed artifacts it came from. It does not bind this "
+            "manifest, because this manifest binds it and two documents carrying "
+            "each other's hash have no fixed point; it cites the command that "
+            "re-derives the closeout instead of a count of what the closeout "
+            "bound",
         "verified_by": "scripts/iter11_paper_numbers.py",
     },
 )

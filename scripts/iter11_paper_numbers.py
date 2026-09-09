@@ -97,8 +97,6 @@ SOURCES = {
         / "differential_censoring_bound.json",
     "transportability_decision":
         IT11 / "closeout" / "iteration_11_transportability_decision.json",
-    "evidence_manifest":
-        IT11 / "closeout" / "iteration_11_evidence_manifest.json",
     "media_manifest": IT11 / "media_manifest.json",
     "vision_ablation":
         IT11 / "judge_vision_ablation" / "vision_ablation_summary.json",
@@ -1045,53 +1043,73 @@ def environment_table(docs: dict[str, dict]) -> dict:
               "the first without this row beside it would be misleading."))
 
 
+#: The closeout manifest is deliberately NOT an input, and the reason is a cycle
+#: rather than a preference. That manifest binds this file -- ``paper/`` is one of
+#: its bound trees and this document is one of its entry points -- so quoting its
+#: roll-up here would mean each of two documents carrying the other's hash.
+#: Neither could be re-filed without invalidating the other and there would be no
+#: fixed point to reach: rewriting the manifest moves the hash this file files,
+#: regenerating this file moves the bytes the manifest binds, and rewriting the
+#: manifest again moves the hash once more. A document cannot carry its own hash
+#: inside itself, and for the same reason it cannot carry the hash of a document
+#: that carries its own. What the paper says about the closeout is therefore the
+#: COMMAND that re-derives it, which is stable, rather than a count of what it
+#: bound, which changes every time anything is committed.
+NOT_AN_INPUT_AND_WHY = (
+    "outputs/iteration_11/closeout/iteration_11_evidence_manifest.json binds this "
+    "file, so this file cannot bind it: two documents carrying each other's hash "
+    "have no fixed point, and neither can be re-filed without invalidating the "
+    "other. The closeout is cited here by the command that re-derives it instead "
+    "of by a count of what it bound")
+
+
 def evidence_binding_table(docs: dict[str, dict]) -> dict:
-    """What is bound by hash, and what a checkout without the media can still do."""
-    manifest = docs["evidence_manifest"]
+    """What is bound by hash, and what a checkout without the media can still do.
+
+    Sourced from the media manifest, which is the one binding in this iteration
+    that covers bytes the repository does not hold. The closeout manifest is not
+    an input and the table says so, with the reason -- see ``NOT_AN_INPUT_AND_WHY``.
+    """
     media = docs["media_manifest"]
-    not_bound = manifest["what_this_manifest_does_not_bind"]["the_media"]
     rows = [
-        ("files bound by the closeout manifest", manifest["n_bound"], "int",
-         "evidence_manifest"),
-        ("bytes bound", manifest["total_bytes"], "int", "evidence_manifest"),
-        ("roll-up sha256 of the bound set", manifest["rollup_sha256"], "sha8",
-         "evidence_manifest"),
-        ("bound by discovery rather than by a list",
-         ", ".join(manifest["bound_by_discovery_not_by_a_list"]["patterns"]),
-         "str", "evidence_manifest"),
-        ("trees bound wholesale",
-         ", ".join(manifest["bound_by_discovery_not_by_a_list"]["trees"]), "str",
-         "evidence_manifest"),
-        ("entry points a reviewer starts from",
-         len(manifest["where_a_reviewer_starts"]), "int", "evidence_manifest"),
-        ("media files bound indirectly", not_bound["n_files"], "int",
-         "evidence_manifest"),
-        ("media bytes bound indirectly", media["total_bytes"], "int",
+        ("media files bound by hash", media["n_files"], "int", "media_manifest"),
+        ("media bytes bound by hash", media["total_bytes"], "int",
          "media_manifest"),
         ("media roll-up sha256", media["rollup_sha256"], "sha8", "media_manifest"),
+        ("scope of that binding", media["scope"], "str", "media_manifest"),
         ("panel images the media manifest references",
          media["n_panel_referenced_images"], "int", "media_manifest"),
         ("panel images referenced but absent from the manifest",
          len(media["panel_referenced_but_absent_from_the_manifest"]), "int",
          "media_manifest"),
         ("media root", media["media_root"], "str", "media_manifest"),
+        ("what re-derives the closeout manifest",
+         "python scripts/iter11_closeout_evidence_manifest.py --verify", "str",
+         "procedure"),
+        ("what executes every gate the closeout points at",
+         "python scripts/iter11_closeout_evidence_manifest.py --deep", "str",
+         "procedure"),
+        ("what re-derives every number in this table",
+         "python scripts/iter11_paper_numbers.py --verify", "str", "procedure"),
+        ("why this table quotes no count from the closeout manifest",
+         NOT_AN_INPUT_AND_WHY, "str", "this stage's own input list"),
     ]
-    for role in sorted(manifest["n_by_role"]):
-        rows.append((f"bound files by role: {role}", manifest["n_by_role"][role],
-                     "int", "evidence_manifest"))
     return key_value_table(
         "tab:evidence_binding",
-        "What the closeout manifest binds by hash, including the media it binds "
-        "indirectly",
-        rows, "evidence_manifest",
+        "What is bound by hash: the media, which the repository does not hold, "
+        "and the commands that re-derive the rest",
+        rows, "media_manifest",
         note=("The media are not in this repository: data/media is gitignored "
               "apart from twenty individually negated source images, so no "
               "manifest committed here can bind their bytes directly and the "
               "media manifest binds them by hash instead. That is why a checkout "
               "without the images can still verify everything committed, and why "
               "the verifiers report the media section as not verifiable here "
-              "rather than as a failure. The anonymous package ships this "
-              "manifest and says so; it does not ship 3.7 GB of images."))
+              "rather than as a failure. The anonymous package ships the media "
+              "manifest and says so; it does not ship 3.7 GB of images. The "
+              "committed evidence is bound by the closeout manifest, which is "
+              "cited here as a command rather than as a hash for the reason the "
+              "last row of this table gives."))
 
 
 def selection_table(docs: dict[str, dict]) -> dict:
@@ -2212,27 +2230,41 @@ def _check_environment(doc: dict, issues: list[str]) -> None:
 def _check_evidence_binding(doc: dict, issues: list[str]) -> None:
     block = (doc.get("tables") or {}).get("evidence_binding") or {}
     rows = _rows_by_claim(block)
-    total = rows.get("files bound by the closeout manifest")
-    if total is None:
-        issues.append("tab:evidence_binding files no count of bound files")
-        return
-    by_role = sum(row["value"] for claim, row in sorted(rows.items())
-                  if claim.startswith("bound files by role: "))
-    if by_role != total["value"]:
-        issues.append(f"tab:evidence_binding: the manifest files {total['value']} "
-                      f"bound files and its per-role counts sum to {by_role}; a "
-                      f"manifest whose roll-up covers a different set than its own "
-                      f"role breakdown describes is not binding what it says")
-    indirect = rows.get("media files bound indirectly")
-    media_rollup = rows.get("media roll-up sha256")
-    if indirect is not None and media_rollup is not None:
-        media_values = [row["value"] for claim, row in sorted(rows.items())
-                        if claim.startswith("media ")]
-        if len(media_values) < 3:
-            issues.append("tab:evidence_binding: the media are bound indirectly and "
-                          "the table should carry their count, their bytes and "
-                          "their roll-up together, since a count without a hash is "
-                          "an assertion")
+    # The media are bound by a count, a byte total and a roll-up, and the three
+    # have to be present together: a count without a hash is an assertion, and a
+    # hash without a count does not say what it covers.
+    media_values = [row["value"] for claim, row in sorted(rows.items())
+                    if claim.startswith("media ") and row["format"] == "int"]
+    if len(media_values) < 2:
+        issues.append("tab:evidence_binding: the media are bound by hash and the "
+                      "table should carry their count and their bytes together, "
+                      "since a count without a hash is an assertion")
+    if rows.get("media roll-up sha256") is None:
+        issues.append("tab:evidence_binding files no roll-up for the media it "
+                      "counts")
+    # The closeout manifest is cited as a command and never as a hash, because it
+    # binds this file. A row that quoted its roll-up would put the cycle back.
+    for claim, row in sorted(rows.items()):
+        if row["where"] == "evidence_manifest":
+            issues.append(
+                f"tab:evidence_binding: {claim!r} is sourced from the closeout "
+                f"manifest, which binds this file. Two documents carrying each "
+                f"other's hash have no fixed point, so neither can be re-filed "
+                f"without invalidating the other")
+    if "evidence_manifest" in ((doc.get("inputs") or {}).get("paths") or {}):
+        issues.append(
+            "inputs names the closeout manifest, which binds this file: the "
+            "input list has the same cycle the table is checked for")
+    command = rows.get("what re-derives the closeout manifest")
+    if command is None or "--verify" not in str(command["value"]):
+        issues.append("tab:evidence_binding cites no command that re-derives the "
+                      "closeout manifest, so the paper would name a binding no "
+                      "reader can reproduce")
+    why = rows.get("why this table quotes no count from the closeout manifest")
+    if why is None:
+        issues.append("tab:evidence_binding does not say why it quotes no count "
+                      "from the closeout manifest, so the omission reads as an "
+                      "oversight rather than as the cycle it avoids")
 
 
 def _check_histogram(doc: dict, issues: list[str]) -> None:

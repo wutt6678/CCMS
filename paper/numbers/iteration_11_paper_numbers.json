@@ -3,12 +3,11 @@
   "question": "which numbers does the Iteration 11 paper quote, which filed artifact does each one come from, and do the tables still say what the evidence says",
   "produced_by": "scripts/iter11_paper_numbers.py",
   "inputs": {
-    "n_inputs": 23,
+    "n_inputs": 22,
     "paths": {
       "censoring_bound": "outputs/iteration_11/analysis/differential_censoring/differential_censoring_bound.json",
       "cross_model_analysis": "outputs/iteration_11/analysis/cross_model/cross_model_analysis.json",
       "dependency_lock": "outputs/iteration_11/preflight/dependency_lock_reconstruction.json",
-      "evidence_manifest": "outputs/iteration_11/closeout/iteration_11_evidence_manifest.json",
       "exclusion_correction": "outputs/iteration_11/diagnostics/exclusion_metadata_correction.json",
       "frozen_reference": "outputs/iteration_11/protocol/frozen_9b_reference.json",
       "identity_leak_audit": "outputs/iteration_11/diagnostics/judge_blinding/identity_leak_audit.json",
@@ -33,7 +32,6 @@
       "censoring_bound": "e3f70b63d2d06cf9d00f6122ba33f73bd91d73c5c76271d30c13bd469c53dac5",
       "cross_model_analysis": "524084e518b5f8fe03d8f7a6a8fcab3422438f71d7c5e912bd47ad9a6f5c3215",
       "dependency_lock": "91ed39136645514af847eae6d216cd252bd127a297f0364f400af3d75f153f61",
-      "evidence_manifest": "23b3c96773f8a830a56bd7b4e7729720daeb46f2e194c0c43726ad503b86e2e6",
       "exclusion_correction": "695f27c10dbf1979a38d7a39e291e43c7a4688a57477efafe6f5523548877cb4",
       "frozen_reference": "cd597955879387eeee629cd9b14aa3b2f54a7fd3cb93923685bb83cbb002560d",
       "identity_leak_audit": "641d871a7c0e65e427f1652dfc66b8c702147978f3deb6a24a1624ec7aac6d81",
@@ -1562,7 +1560,7 @@
     },
     "evidence_binding": {
       "label": "tab:evidence_binding",
-      "caption": "What the closeout manifest binds by hash, including the media it binds indirectly",
+      "caption": "What is bound by hash: the media, which the repository does not hold, and the commands that re-derive the rest",
       "columns": [
         {
           "key": "claim",
@@ -1582,49 +1580,13 @@
       ],
       "rows": [
         {
-          "claim": "files bound by the closeout manifest",
-          "value": 197,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bytes bound",
-          "value": 52560732,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "roll-up sha256 of the bound set",
-          "value": "069a5cca911003ac136c53b32aada9b8dcebd7cec2b317b0071a7cb33f55375a",
-          "format": "sha8",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound by discovery rather than by a list",
-          "value": "scripts/iter11_*.py, tests/unit/test_iter11_*.py",
-          "format": "str",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "trees bound wholesale",
-          "value": "outputs/iteration_11/",
-          "format": "str",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "entry points a reviewer starts from",
-          "value": 8,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "media files bound indirectly",
+          "claim": "media files bound by hash",
           "value": 3034,
           "format": "int",
-          "where": "evidence_manifest"
+          "where": "media_manifest"
         },
         {
-          "claim": "media bytes bound indirectly",
+          "claim": "media bytes bound by hash",
           "value": 3698064267,
           "format": "int",
           "where": "media_manifest"
@@ -1633,6 +1595,12 @@
           "claim": "media roll-up sha256",
           "value": "49637e1ced11db8e70b687f8d845b03e1d71384f92b7e9c3d42d3d437442152b",
           "format": "sha8",
+          "where": "media_manifest"
+        },
+        {
+          "claim": "scope of that binding",
+          "value": "whole_media_tree",
+          "format": "str",
           "where": "media_manifest"
         },
         {
@@ -1654,104 +1622,32 @@
           "where": "media_manifest"
         },
         {
-          "claim": "bound files by role: binding_for_the_untracked_media",
-          "value": 1,
-          "format": "int",
-          "where": "evidence_manifest"
+          "claim": "what re-derives the closeout manifest",
+          "value": "python scripts/iter11_closeout_evidence_manifest.py --verify",
+          "format": "str",
+          "where": "procedure"
         },
         {
-          "claim": "bound files by role: closeout",
-          "value": 1,
-          "format": "int",
-          "where": "evidence_manifest"
+          "claim": "what executes every gate the closeout points at",
+          "value": "python scripts/iter11_closeout_evidence_manifest.py --deep",
+          "format": "str",
+          "where": "procedure"
         },
         {
-          "claim": "bound files by role: diagnostics",
-          "value": 16,
-          "format": "int",
-          "where": "evidence_manifest"
+          "claim": "what re-derives every number in this table",
+          "value": "python scripts/iter11_paper_numbers.py --verify",
+          "format": "str",
+          "where": "procedure"
         },
         {
-          "claim": "bound files by role: differential_censoring_sensitivity",
-          "value": 3,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: eligibility_gate",
-          "value": 17,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: environment_and_model_preflight",
-          "value": 8,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: environment_reconstruction_claim",
-          "value": 1,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: frozen_protocol",
-          "value": 4,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: judge_labels_and_provenance",
-          "value": 69,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: judge_vision_ablation",
-          "value": 2,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: library_the_verifiers_import",
-          "value": 8,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: model_generation_metadata",
-          "value": 17,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: placeholder",
-          "value": 2,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: sealed_analysis",
-          "value": 4,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: test",
-          "value": 24,
-          "format": "int",
-          "where": "evidence_manifest"
-        },
-        {
-          "claim": "bound files by role: verifier_or_generator",
-          "value": 20,
-          "format": "int",
-          "where": "evidence_manifest"
+          "claim": "why this table quotes no count from the closeout manifest",
+          "value": "outputs/iteration_11/closeout/iteration_11_evidence_manifest.json binds this file, so this file cannot bind it: two documents carrying each other's hash have no fixed point, and neither can be re-filed without invalidating the other. The closeout is cited here by the command that re-derives it instead of by a count of what it bound",
+          "format": "str",
+          "where": "this stage's own input list"
         }
       ],
-      "source": "evidence_manifest",
-      "note": "The media are not in this repository: data/media is gitignored apart from twenty individually negated source images, so no manifest committed here can bind their bytes directly and the media manifest binds them by hash instead. That is why a checkout without the images can still verify everything committed, and why the verifiers report the media section as not verifiable here rather than as a failure. The anonymous package ships this manifest and says so; it does not ship 3.7 GB of images."
+      "source": "media_manifest",
+      "note": "The media are not in this repository: data/media is gitignored apart from twenty individually negated source images, so no manifest committed here can bind their bytes directly and the media manifest binds them by hash instead. That is why a checkout without the images can still verify everything committed, and why the verifiers report the media section as not verifiable here rather than as a failure. The anonymous package ships the media manifest and says so; it does not ship 3.7 GB of images. The committed evidence is bound by the closeout manifest, which is cited here as a command rather than as a hash for the reason the last row of this table gives."
     },
     "selection": {
       "label": "tab:selection",

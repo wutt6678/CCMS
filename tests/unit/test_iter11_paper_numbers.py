@@ -171,6 +171,104 @@ class TestEveryNumberHasAnArtifactItCameFrom:
         issues = numbers.check_the_numbers(doc)
         assert issues, "an input hash was edited and nothing noticed"
 
+    def test_a_filed_hash_is_re_hashed_and_not_merely_well_formed(self):
+        """A 64-character hex string is what the hash of the wrong file looks like."""
+        doc = _built()
+        name = sorted(doc["inputs"]["sha256"])[0]
+        doc["inputs"]["sha256"][name] = "a" * 64
+        issues = numbers.check_the_numbers(doc)
+        assert any("the paper would be citing bytes that are not" in i
+                   for i in issues), issues
+
+    def test_an_input_that_is_not_a_file_here_is_a_finding(self, monkeypatch,
+                                                          tmp_path):
+        doc = _built()
+        monkeypatch.setattr(numbers, "REPO_ROOT", tmp_path)
+        issues = numbers.check_the_numbers(doc)
+        assert any("is not a file here" in i for i in issues), issues
+
+
+class TestTheCloseoutManifestIsNotAnInput:
+    """The one artifact this stage must not bind, and the reason is a cycle.
+
+    The closeout manifest binds this file: ``paper/`` is one of its bound trees
+    and this document is one of its entry points. Quoting the manifest's roll-up
+    here would mean two documents each carrying the other's hash, and there would
+    be no fixed point to reach -- rewriting the manifest moves the hash this file
+    files, regenerating this file moves the bytes the manifest binds, and
+    rewriting the manifest again moves the hash once more. A document cannot carry
+    its own hash inside itself, and for the same reason it cannot carry the hash
+    of a document that carries its own.
+
+    This was found by doing it: the manifest was re-filed, this file's hash of it
+    went stale, and regenerating this file invalidated the manifest that had just
+    been written.
+    """
+
+    def test_it_is_not_in_the_input_list(self):
+        paths = _built()["inputs"]["paths"]
+        assert "evidence_manifest" not in paths
+        assert not any("iteration_11_evidence_manifest" in rel
+                       for rel in paths.values()), sorted(paths.values())
+
+    def test_no_table_row_is_sourced_from_it(self):
+        for name, block in _built()["tables"].items():
+            for row in block["rows"]:
+                assert row.get("where") != "evidence_manifest", (name, row)
+
+    def test_sourcing_a_row_from_it_again_is_refused(self):
+        doc = _built()
+        doc["tables"]["evidence_binding"]["rows"].append(
+            {"claim": "roll-up sha256 of the bound set", "value": "b" * 64,
+             "format": "sha8", "where": "evidence_manifest"})
+        issues = numbers.check_the_numbers(doc)
+        assert any("have no fixed point" in i for i in issues), issues
+
+    def test_adding_it_back_to_the_input_list_is_refused(self):
+        doc = _built()
+        doc["inputs"]["paths"]["evidence_manifest"] = \
+            "outputs/iteration_11/closeout/iteration_11_evidence_manifest.json"
+        doc["inputs"]["sha256"]["evidence_manifest"] = "c" * 64
+        doc["inputs"]["n_inputs"] = len(doc["inputs"]["paths"])
+        issues = numbers.check_the_numbers(doc)
+        assert any("the input list has the same cycle" in i for i in issues), issues
+
+    def test_the_paper_cites_the_command_that_re_derives_the_closeout(self):
+        """A procedure is stable; a count of what was bound is not."""
+        block = _built()["tables"]["evidence_binding"]
+        rows = {row["claim"]: row for row in block["rows"]}
+        assert "--verify" in rows["what re-derives the closeout manifest"]["value"]
+        assert "--deep" in rows[
+            "what executes every gate the closeout points at"]["value"]
+        assert "--verify" in rows[
+            "what re-derives every number in this table"]["value"]
+
+    def test_the_omission_is_explied_where_a_reader_would_notice_it(self):
+        rows = {row["claim"]: row
+                for row in _built()["tables"]["evidence_binding"]["rows"]}
+        why = rows["why this table quotes no count from the closeout manifest"]
+        assert "no fixed point" in why["value"]
+        assert why["where"] == "this stage's own input list"
+
+    def test_the_check_requires_both_the_command_and_the_explanation(self):
+        doc = _built()
+        block = doc["tables"]["evidence_binding"]
+        block["rows"] = [row for row in block["rows"]
+                         if not row["claim"].startswith(
+                             ("what re-derives the closeout", "why this table"))]
+        issues = numbers.check_the_numbers(doc)
+        assert any("cites no command that re-derives" in i for i in issues), issues
+        assert any("reads as an oversight" in i for i in issues), issues
+
+    def test_the_media_are_still_bound_by_a_count_a_total_and_a_roll_up(self):
+        rows = {row["claim"]: row
+                for row in _built()["tables"]["evidence_binding"]["rows"]}
+        assert rows["media files bound by hash"]["value"] > 0
+        assert rows["media bytes bound by hash"]["value"] > 0
+        assert len(rows["media roll-up sha256"]["value"]) == 64
+        assert rows["panel images referenced but absent from the manifest"][
+            "value"] == 0
+
 
 # ---------------------------------------------------------------------------
 # Rendering specs are a closed set, so two renderers cannot guess differently
