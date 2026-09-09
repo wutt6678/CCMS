@@ -2,9 +2,9 @@
   "kind": "iteration_11_evidence_manifest_v1",
   "produced_by": "scripts/iter11_closeout_evidence_manifest.py",
   "question": "what is the evidence for Iteration 11, by hash, and can this checkout say so",
-  "n_bound": 234,
-  "total_bytes": 53349722,
-  "rollup_sha256": "0938e49e5620923b36246540346ca9eb284a94d445503e13ebec8bdc1dce090e",
+  "n_bound": 262,
+  "total_bytes": 53642092,
+  "rollup_sha256": "2838e341337721b661c6703260e8cf6390a25591bf2edeed3d59827f24d90355",
   "n_by_role": {
     "binding_for_the_untracked_media": 1,
     "closeout": 1,
@@ -18,11 +18,11 @@
     "judge_vision_ablation": 2,
     "library_the_verifiers_import": 42,
     "model_generation_metadata": 17,
-    "paper_numbers_and_renderings": 1,
+    "paper_numbers_and_renderings": 27,
     "placeholder": 2,
     "sealed_analysis": 4,
-    "test": 25,
-    "verifier_or_generator": 21
+    "test": 26,
+    "verifier_or_generator": 22
   },
   "bound": [
     {
@@ -902,6 +902,162 @@
       "role": "paper_numbers_and_renderings"
     },
     {
+      "path": "paper/tables/markdown/blinding.md",
+      "sha256": "b17778db25e2b4357a323df4206b58988bd9b49c580a6ba0a27a0e4ccf950f80",
+      "bytes": 1728,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/bound_configurations.md",
+      "sha256": "36cdb631bec91fe8920bbe74a3fc175024cb6b9ad4967a4ff2562c335cfef3c8",
+      "bytes": 3278,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/censoring_bound.md",
+      "sha256": "c7d881bd272e4a7970a8f9a2f31edbc6615b1b380896d2bf8fff40f1e67b03bf",
+      "bytes": 2694,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/environment.md",
+      "sha256": "f1401417917982d172150ac7b5d4537a9b21f6784559ce426cb19f2807751029",
+      "bytes": 3376,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/evidence_binding.md",
+      "sha256": "89c4c4dd1118c4a261067a2aafa10154c4353db3b60691adebc35c90d2ed3a70",
+      "bytes": 2574,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/judge_reliability.md",
+      "sha256": "81678ff00bec7de0bc160f005d54cc53efabf23ccee831ed933222141b9b5d2a",
+      "bytes": 1495,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/panel_exclusions.md",
+      "sha256": "8eb87204aa4b4d95c2ae4e6553237eb2917a368a11e071830580732c0c5ffeeb",
+      "bytes": 3621,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/selection.md",
+      "sha256": "baeff0d754f88c0228c578707a384ce4d35961021f18c07d5f379818431106df",
+      "bytes": 1938,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/sign_transport.md",
+      "sha256": "76fa717fdf6ca83b6e2b21d59d0024e504e36fe6b2e5153b2e2bd2815e64226a",
+      "bytes": 2253,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/truncation.md",
+      "sha256": "12052fb2f77c9b2a1e9098c2252e7cd470a85d3bdf8abb47aa9033b94bd9ee37",
+      "bytes": 1836,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/vision_ablation.md",
+      "sha256": "dfd73a3f295a7709e3e7945dc3831b8ca2a5780a8993f9b2a073ff38a45dace3",
+      "bytes": 2194,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/markdown/vision_ablation_shift.md",
+      "sha256": "c095d77bc5d528e420408c8dcdd90a6406c07c9b9ab4143533a89256a1e44f22",
+      "bytes": 846,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/renderings.json",
+      "sha256": "bb9fa5abe8724f5a8987d1089cfbf01bb65f0fea41d891748213f6657ca41e9e",
+      "bytes": 40862,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/00_all.tex",
+      "sha256": "56d7f73de6716d90f9d62326cd52fc0a9eae07c7d8752c894ce4db1152d1bb36",
+      "bytes": 851,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/blinding.tex",
+      "sha256": "1d9dd86cbd08badaac663d40b9334d25b76bab4ff2c8aab178f39ef68b0d5660",
+      "bytes": 1747,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/bound_configurations.tex",
+      "sha256": "b9db68c5a45b030b93c2ab3d87e4a014ca81381f41a4361e16f826eb29b66acc",
+      "bytes": 3383,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/censoring_bound.tex",
+      "sha256": "01fee6b567c0d829762233b9b7b43bd3cf02f1232b630c3476736c584b0d87f6",
+      "bytes": 2681,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/environment.tex",
+      "sha256": "7e53811dc03d290362e96e016d5f4b33cdabc52ea50adaa8b8eb7278021b7195",
+      "bytes": 3549,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/evidence_binding.tex",
+      "sha256": "03dff41623de62f70619d540b25f9ddc32bf0be8c44d2374e395587961ebc1fe",
+      "bytes": 2791,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/judge_reliability.tex",
+      "sha256": "d53be2ca40081f1c3caf1ad8cd7a4ece42b901a24fbea413b24c210762f3bcd9",
+      "bytes": 1537,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/panel_exclusions.tex",
+      "sha256": "6daa71f5cc102405217fbee8eda1af86c109b71f82543062037c81c5ce130e3d",
+      "bytes": 3733,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/selection.tex",
+      "sha256": "8c9a79112bdaa34a5d499d81a495c0e0637c3fc5e182067fd31642e5404f9d3f",
+      "bytes": 2100,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/sign_transport.tex",
+      "sha256": "979f1e30667d34ae0bde4fbc691503e01e30c5bd13ad4cd0498ac795f730a169",
+      "bytes": 2255,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/truncation.tex",
+      "sha256": "6406e6b0a302c422c5085c5bbbfac4583ffb55149fc3fc8c9eecf1363b63396c",
+      "bytes": 1877,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/vision_ablation.tex",
+      "sha256": "aab282f47ace56e774d450a00a77ce9794fc408694a124e89c93f7030989f148",
+      "bytes": 2294,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
+      "path": "paper/tables/tex/vision_ablation_shift.tex",
+      "sha256": "67743d4f5d7583a67c076649950cd089a780218859b2888ea61135c3cbddd1d8",
+      "bytes": 885,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
       "path": "scripts/iter11_adjudicate_sensitivity_cell.py",
       "sha256": "a4593ad1a85acb1105c259a84f537e41946e812d3e5102f2b5a1bb6f0fb07f24",
       "bytes": 102179,
@@ -915,8 +1071,8 @@
     },
     {
       "path": "scripts/iter11_closeout_evidence_manifest.py",
-      "sha256": "136337f5999f35bd5cdc5267ce1a39dd3cc93a5fd7cde368dda95658ee54914b",
-      "bytes": 67494,
+      "sha256": "bb0b331810299500fb2c5be185a2e93a7abba26668bb8acb4e85210d38fb5ce8",
+      "bytes": 68234,
       "role": "verifier_or_generator"
     },
     {
@@ -965,6 +1121,12 @@
       "path": "scripts/iter11_paper_numbers.py",
       "sha256": "2761422ca2f2d45393c708e62ad3586f007d123f1132d03d50b46b6aec086971",
       "bytes": 124068,
+      "role": "verifier_or_generator"
+    },
+    {
+      "path": "scripts/iter11_paper_tables.py",
+      "sha256": "4aa26c8160a5bd33a5fd97b6abd4ad33823b4aafc61fb697cb32a504ad5f0dfa",
+      "bytes": 109277,
       "role": "verifier_or_generator"
     },
     {
@@ -1299,8 +1461,8 @@
     },
     {
       "path": "tests/unit/test_iter11_closeout_evidence_manifest.py",
-      "sha256": "506b61399a5f8e92551b11f692cb642fe9f8c16da8612b834beb0863ac6dd7b6",
-      "bytes": 67068,
+      "sha256": "1b958478fc079e5642aceb85582b5e1ba38535c047391f35d25b81df2dc1e649",
+      "bytes": 69383,
       "role": "test"
     },
     {
@@ -1385,6 +1547,12 @@
       "path": "tests/unit/test_iter11_paper_numbers.py",
       "sha256": "cd88e35fda0ad6dda8924152307d8d483a89730d389c26d06b5262c0e9987a6e",
       "bytes": 46830,
+      "role": "test"
+    },
+    {
+      "path": "tests/unit/test_iter11_paper_tables.py",
+      "sha256": "c5358ced09265cd0d1ceaa3e93b6b9cd8f4029d0f57510554408f317bd7bc606",
+      "bytes": 81660,
       "role": "test"
     },
     {
@@ -1475,11 +1643,16 @@
       "path": "paper/numbers/iteration_11_paper_numbers.json",
       "what_it_establishes": "every number the paper quotes, read out of the artifacts above rather than transcribed from them: twelve tables, two figure specs and nine claims with the lists their numerals count, each bound by sha256 to the filed artifacts it came from. It does not bind this manifest, because this manifest binds it and two documents carrying each other's hash have no fixed point; it cites the command that re-derives the closeout instead of a count of what the closeout bound",
       "verified_by": "scripts/iter11_paper_numbers.py"
+    },
+    {
+      "path": "paper/tables/renderings.json",
+      "what_it_establishes": "the paper's tables as printed, in LaTeX and in Markdown, derived from the numbers file above rather than typed beside it: every cell rendered under the spec it was filed with, the two renderings compared cell by cell so that they cannot disagree about a rounding, and the column layout derived from measured widths rather than chosen by eye. It binds the numbers file it was rendered from and is bound by this manifest, which is one direction and therefore has a fixed point",
+      "verified_by": "scripts/iter11_paper_tables.py"
     }
   ],
   "scientific_dependency_closure": {
     "n_modules": 42,
-    "n_roots_walked": 88,
+    "n_roots_walked": 90,
     "modules": [
       "src/causal_mllm/__init__.py",
       "src/causal_mllm/construction/readiness.py",
@@ -1585,6 +1758,7 @@
       "scripts/iter11_paper_numbers.py": [
         "src/causal_mllm/seeds.py"
       ],
+      "scripts/iter11_paper_tables.py": [],
       "scripts/iter11_probe_judge_gateway.py": [
         "src/causal_mllm/evaluation/llm_judge.py"
       ],
@@ -1911,6 +2085,7 @@
         "src/causal_mllm/evaluation/runner.py"
       ],
       "tests/unit/test_iter11_paper_numbers.py": [],
+      "tests/unit/test_iter11_paper_tables.py": [],
       "tests/unit/test_iter11_phi4.py": [
         "src/causal_mllm/replay/__init__.py",
         "src/causal_mllm/replay/adapters/base.py",
@@ -1951,6 +2126,7 @@
       "scripts/iter11_judge_vision_ablation.py",
       "scripts/iter11_model_preflight.py",
       "scripts/iter11_paper_numbers.py",
+      "scripts/iter11_paper_tables.py",
       "scripts/iter11_probe_judge_gateway.py",
       "scripts/iter11_probe_judge_moderation.py",
       "scripts/iter11_reference_restriction.py",
@@ -2021,6 +2197,7 @@
       "tests/unit/test_iter11_ministral3.py",
       "tests/unit/test_iter11_panel_restriction.py",
       "tests/unit/test_iter11_paper_numbers.py",
+      "tests/unit/test_iter11_paper_tables.py",
       "tests/unit/test_iter11_phi4.py",
       "tests/unit/test_iter11_protocol.py",
       "tests/unit/test_iter11_reference_restriction.py",
@@ -2056,12 +2233,13 @@
       "scripts/iter11_cross_model_analysis.py",
       "scripts/iter11_differential_censoring_bound.py",
       "scripts/iter11_paper_numbers.py",
+      "scripts/iter11_paper_tables.py",
       "scripts/iter11_replay_checks.py",
       "scripts/iter11_transportability_decision.py",
       "scripts/iter11_write_dependency_lock.py",
       "scripts/iter11_write_media_manifest.py"
     ],
-    "n_verifiers": 8,
+    "n_verifiers": 9,
     "how_exit_codes_aggregate": {
       "0": "that verifier's evidence re-derives; counted as verified",
       "3": "incomplete here rather than contradicted -- a section of the evidence this checkout does not have, such as the media in a fresh clone. Counted, named, and never folded into the success total",
