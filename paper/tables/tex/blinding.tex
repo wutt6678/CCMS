@@ -1,0 +1,31 @@
+% Rendered by scripts/iter11_paper_tables.py -- do not edit.
+% Table 'blinding'.
+% Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+%   sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+% whose values are read out of the filed artifact 'identity_leak_audit'
+%   by scripts/iter11_paper_numbers.py.
+% Re-render with: python scripts/iter11_paper_tables.py --write
+\begin{table}[t]
+\centering
+\caption{Judge blinding: identity terms found in the prompts and payloads the judges were shown}\label{tab:blinding}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrrrcc@{}}
+\toprule
+Target & Prompts rendered & Own-identity hits in prompt & Own-identity hits in payload & Other arms' identities & Judge identity in prompt & Render errors & Iteration 10 violations & Self-identification rate & Blinded mirror identical & Complete \\
+\midrule
+mistralai/Ministral-3-3B-Instruct-2512-BF16 & 20 & 0 & 0 & 0 & 0 & 0 & 0 & 0.0000 & true & true \\
+microsoft/Phi-4-multimodal-instruct & 20 & 0 & 0 & 0 & 0 & 0 & 0 & 0.0000 & true & true \\
+Qwen/Qwen3.5-2B & 20 & 0 & 0 & 0 & 0 & 0 & 0 & 0.0000 & true & true \\
+Qwen/Qwen3.5-4B & 20 & 0 & 0 & 0 & 0 & 0 & 0 & 0.0000 & true & true \\
+\bottomrule
+\end{tabular}
+}
+\par\smallskip
+{\footnotesize\textit{Note.}
+  target-model identity is blinded in judge prompts; variant/family blinded as in Iteration 10.
+  Rubric 1.1 is bound by sha256 ce6c20057b3b84d3..., the system prompt by e51b41e6a8226440..., and
+  the audit is deterministic=True over 20 rendered prompts per target. The counts are hit counts over
+  the terms the audit derives from each declared identity, so a zero here means no derived term
+  matched, and the term list is filed beside it.
+\par}
+\end{table}

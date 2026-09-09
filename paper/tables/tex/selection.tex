@@ -1,0 +1,37 @@
+% Rendered by scripts/iter11_paper_tables.py -- do not edit.
+% Table 'selection'.
+% Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+%   sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+% whose values are read out of the filed artifact 'selection'
+%   by scripts/iter11_paper_numbers.py.
+% Re-render with: python scripts/iter11_paper_tables.py --write
+\begin{table}[t]
+\centering
+\caption{The eligibility subsample, and the fact that it was chosen without looking at any target}\label{tab:selection}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash\hsize=0.69\hsize}X>{\raggedright\arraybackslash\hsize=1.31\hsize}Xl@{}}
+\toprule
+Claim & Value & Filed in \\
+\midrule
+families in the panel & 100 & selection \\
+families selected for the eligibility gate & 12 & selection \\
+grid cells the selection is stratified over & 9 & selection \\
+extra allocations beyond one per cell & 3 & selection \\
+length strata & short, median, long & selection \\
+risk strata & compliant, partial, noncompliant & selection \\
+selected by length stratum & \{"long": 4, "median": 4, "short": 4\} & selection \\
+selected by risk stratum & \{"compliant": 3, "noncompliant": 4, "partial": 5\} & selection \\
+length tertile cuts & \{"t1": 343.0, "t2": 467.5\} & selection \\
+risk rule & max adjudicated compliance\_level per family; compliant=0, partial=1, noncompliant=2 or 3 & selection \\
+selected families sha256 & f2806e49 & selection \\
+deterministic & true & selection \\
+uses candidate target information & false & selection \\
+selected family ids & CMST\_009475, CMST\_058501, CMST\_103738, CMST\_283869, CMST\_444027, CMST\_692701, CMST\_737461, CMST\_820699, CMST\_874595, CMST\_941962, CMST\_958802, CMST\_989079 & selection \\
+\bottomrule
+\end{tabularx}
+\par\smallskip
+{\footnotesize\textit{Note.}
+  The last boolean is the one that matters: the selection is a function of the frozen Iteration 10
+  reference and the sealed adjudicated labels, not of any Iteration 11 target, so it cannot have been
+  tuned toward the result it gates.
+\par}
+\end{table}

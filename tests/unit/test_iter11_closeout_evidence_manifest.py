@@ -358,6 +358,47 @@ class TestAnEntryPointResolvesAndNamesAVerifierThatCanVerify:
                 f"{point['verified_by']} is named as what verifies "
                 f"{point['path']} and has no --verify mode")
 
+    def test_the_papers_printed_tables_are_a_gate_of_their_own(self):
+        """The renderings are the last derived thing in the chain.
+
+        A table is what a reader actually looks at, so that it was derived rather
+        than typed is worth an entry point of its own: the numbers file being right
+        does not by itself make the print right, and a renderer that rounded
+        differently from the spec it was given would leave every upstream gate
+        passing.
+        """
+        points = {point["path"]: point for point in manifest.ENTRY_POINTS}
+        assert "paper/tables/renderings.json" in points
+        assert points["paper/tables/renderings.json"]["verified_by"] == \
+            "scripts/iter11_paper_tables.py"
+        assert "paper/numbers/iteration_11_paper_numbers.json" in points
+
+    def test_the_paper_chain_binds_one_way_so_it_has_a_fixed_point(self):
+        """renderings bind the numbers, and the numbers bind no rendering.
+
+        Two documents carrying each other's hash have no fixed point, and neither
+        can be re-filed without invalidating the other. That is the same shape as
+        the cycle the closeout manifest and the numbers file had, checked here
+        because this manifest binds both of them and is the document that would
+        silently start requiring the impossible.
+        """
+        numbers_doc = json.loads(
+            (ROOT / "paper" / "numbers" / "iteration_11_paper_numbers.json")
+            .read_text(encoding="utf-8"))
+        renderings_doc = json.loads(
+            (ROOT / "paper" / "tables" / "renderings.json").read_text(
+                encoding="utf-8"))
+        assert renderings_doc["inputs"]["sha256"], (
+            "the renderings do not say which bytes of the numbers file they were "
+            "rendered from, so 'derived from the filed numbers' is a claim and not "
+            "something a reviewer can check")
+        assert renderings_doc["inputs"]["path"].endswith(
+            "iteration_11_paper_numbers.json")
+        bound_by_numbers = set(numbers_doc["inputs"]["paths"].values())
+        assert not any(path.startswith("paper/") for path in bound_by_numbers), (
+            f"the numbers file binds {sorted(bound_by_numbers)}, which is downstream "
+            f"of it; the paper's chain has to run one way")
+
     def test_an_entry_point_outside_the_bound_set_is_refused(self, monkeypatch):
         doc = _small(monkeypatch)
         doc["where_a_reviewer_starts"] = [{
@@ -1372,5 +1413,3 @@ class TestTheDeepCloseoutExecutesTheGatesItPointsAt:
         manifest.deep_closeout(target)
         assert gates.cwds and all(cwd == str(ROOT) for cwd in gates.cwds), \
             gates.cwds
-
-

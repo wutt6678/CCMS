@@ -1,0 +1,38 @@
+% Rendered by scripts/iter11_paper_tables.py -- do not edit.
+% Table 'evidence_binding'.
+% Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+%   sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+% whose values are read out of the filed artifact 'media_manifest'
+%   by scripts/iter11_paper_numbers.py.
+% Re-render with: python scripts/iter11_paper_tables.py --write
+\begin{table}[t]
+\centering
+\caption{What is bound by hash: the media, which the repository does not hold, and the commands that re-derive the rest}\label{tab:evidence_binding}
+\begin{tabularx}{\textwidth}{@{}>{\raggedright\arraybackslash\hsize=0.73\hsize}X>{\raggedright\arraybackslash\hsize=1.77\hsize}X>{\raggedright\arraybackslash\hsize=0.50\hsize}X@{}}
+\toprule
+Claim & Value & Filed in \\
+\midrule
+media files bound by hash & 3034 & media\_manifest \\
+media bytes bound by hash & 3698064267 & media\_manifest \\
+media roll-up sha256 & 49637e1c & media\_manifest \\
+scope of that binding & whole\_media\_tree & media\_manifest \\
+panel images the media manifest references & 100 & media\_manifest \\
+panel images referenced but absent from the manifest & 0 & media\_manifest \\
+media root & data/media & media\_manifest \\
+what re-derives the closeout manifest & python scripts/iter11\_closeout\_evidence\_manifest.py --verify & procedure \\
+what executes every gate the closeout points at & python scripts/iter11\_closeout\_evidence\_manifest.py --deep & procedure \\
+what re-derives every number in this table & python scripts/iter11\_paper\_numbers.py --verify & procedure \\
+why this table quotes no count from the closeout manifest & outputs/iteration\_11/closeout/iteration\_11\_evidence\_manifest.json binds this file, so this file cannot bind it: two documents carrying each other's hash have no fixed point, and neither can be re-filed without invalidating the other. The closeout is cited here by the command that re-derives it instead of by a count of what it bound & this stage's own input list \\
+\bottomrule
+\end{tabularx}
+\par\smallskip
+{\footnotesize\textit{Note.}
+  The media are not in this repository: data/media is gitignored apart from twenty individually
+  negated source images, so no manifest committed here can bind their bytes directly and the media
+  manifest binds them by hash instead. That is why a checkout without the images can still verify
+  everything committed, and why the verifiers report the media section as not verifiable here rather
+  than as a failure. The anonymous package ships the media manifest and says so; it does not ship 3.7
+  GB of images. The committed evidence is bound by the closeout manifest, which is cited here as a
+  command rather than as a hash for the reason the last row of this table gives.
+\par}
+\end{table}

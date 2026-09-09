@@ -1,0 +1,982 @@
+{
+  "kind": "iteration_11_paper_table_renderings_v1",
+  "produced_by": "scripts/iter11_paper_tables.py",
+  "question": "what the twelve filed tables look like in print, in both the formats the paper is written in, derived from the numbers file and agreeing with each other cell by cell",
+  "inputs": {
+    "path": "paper/numbers/iteration_11_paper_numbers.json",
+    "sha256": "2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f",
+    "n_tables": 12,
+    "why_bound_by_hash": "every cell printed by this stage is a function of this one file and of nothing else, so the hash is what makes 'rendered from the filed numbers' a checkable statement rather than a claim",
+    "why_nothing_else_is_an_input": "this stage reads no artifact of the analysis. The numbers stage already read twenty-two of them and re-derives itself against them; a renderer that went back to the artifacts would be a second place the paper's numbers come from, and the two could differ"
+  },
+  "the_rendering_contract": {
+    "formats_the_numbers_stage_declares": [
+      "str",
+      "int",
+      "float2",
+      "float4",
+      "signed4",
+      "ci4",
+      "pct1",
+      "bool",
+      "sha8",
+      "p4",
+      "optional_str",
+      "optional_int",
+      "optional_bool",
+      "optional_float4",
+      "optional_p4",
+      "optional_ci4"
+    ],
+    "formats_this_stage_can_render": [
+      "bool",
+      "ci4",
+      "float2",
+      "float4",
+      "int",
+      "optional_bool",
+      "optional_ci4",
+      "optional_float2",
+      "optional_float4",
+      "optional_int",
+      "optional_p4",
+      "optional_pct1",
+      "optional_sha8",
+      "optional_signed4",
+      "optional_str",
+      "p4",
+      "pct1",
+      "sha8",
+      "signed4",
+      "str"
+    ],
+    "formats_declared_but_not_renderable": [],
+    "formats_renderable_but_not_declared": [
+      "optional_float2",
+      "optional_pct1",
+      "optional_sha8",
+      "optional_signed4"
+    ],
+    "n_cells": 643,
+    "formats_the_tables_use": {
+      "bool": 67,
+      "ci4": 9,
+      "float2": 1,
+      "float4": 43,
+      "int": 90,
+      "optional_bool": 10,
+      "optional_float4": 19,
+      "optional_p4": 15,
+      "optional_str": 19,
+      "p4": 40,
+      "pct1": 10,
+      "sha8": 7,
+      "signed4": 9,
+      "str": 304
+    },
+    "formats_declared_but_unused_by_any_table": [
+      "optional_ci4",
+      "optional_int"
+    ],
+    "why_the_two_vocabularies_are_both_filed": "the declared list is compared with what this stage can render on every run, and 'declared but not renderable' has to be empty. The other difference is filed rather than treated as a defect: the renderer can print an optional form of any spec it can print at all, and four of those are declared by nobody. Stating that plainly is how a reader knows the wider list is generality and not a vocabulary that has drifted away from the numbers file",
+    "n_cells_governed_by_a_row_level_spec": 64,
+    "what_a_row_level_spec_is": "a claim table files one spec per row under 'format' because its 'value' column mixes counts, hashes, booleans and prose, and one spec for all of them would either round a hash or print a count as a decimal. The row's spec governs that cell and the column's spec governs the rest",
+    "absent_value_mark": "--",
+    "n_absent_cells": 11,
+    "why_absent_is_a_mark_and_not_an_empty_cell": "an empty cell is indistinguishable from a cell the renderer dropped, so a reader cannot tell a measurement that was not made from a bug in the print",
+    "pct1_is_a_fraction": {
+      "what_the_renderer_does": "multiplies the filed value by 100 and prints one decimal",
+      "measured_over": [
+        {
+          "table": "vision_ablation",
+          "column": "value",
+          "n_values": 5,
+          "n_numeric": 5,
+          "sum": 2.381284280936455,
+          "sums_to_one_whole": false,
+          "printed_as": "a percentage, so a filed 0.75 prints as 75.0%"
+        },
+        {
+          "table": "vision_ablation_shift",
+          "column": "share",
+          "n_values": 5,
+          "n_numeric": 5,
+          "sum": 1.0,
+          "sums_to_one_whole": true,
+          "printed_as": "a percentage, so a filed 0.75 prints as 75.0%"
+        }
+      ],
+      "columns_that_sum_to_one_whole": [
+        "vision_ablation_shift.share"
+      ],
+      "why_a_column_may_not_sum_to_one": "a column of shares of DIFFERENT denominators -- five separate 'share of the items where this happened' figures, say -- need not sum to a whole, and one that does not is not a defect. What the sum establishes is the unit: a column that does sum to 1 is a partition, and a partition is filed as fractions, which is what licenses multiplying by 100 at all. Every value is separately required to lie in [0, 1], which is the check that catches a percentage filed as a fraction",
+      "why_it_is_not_read_off_the_name": "a spec called pct1 does not say whether 0.75 means 0.75% or 75%, and getting it backwards is a hundredfold error no reader of the printed table could detect, so the reading is corroborated against the filed values rather than taken from the name of the spec"
+    },
+    "sha8_prints_a_prefix": {
+      "n_chars_printed": 8,
+      "n_cells": 7,
+      "filed_lengths": {
+        "40": 1,
+        "64": 6
+      },
+      "what_it_prints": "the first 8 characters of the filed digest. The whole digest stays in the numbers file and in the artifact it came from; a paper table carries a prefix a reader can match against the artifact, not the 64 characters that would not fit in the column"
+    },
+    "rounding": {
+      "what_it_is": "Python's format rounding, at the precision the spec names, applied in the one function both renderings call. This stage does not substitute a rounding convention of its own, because a renderer with its own rounding is a renderer that can disagree with the other format",
+      "digits_per_spec": {
+        "float2": 2,
+        "float4": 4,
+        "p4": 4,
+        "pct1": 1,
+        "signed4": 4
+      },
+      "n_cells_rounded": 130,
+      "cells_exactly_half_way_at_the_precision_they_print": [],
+      "why_that_list_is_measured": "a value exactly half way is the ONLY case where round-half-to-even and round-half-up give different digits, so while this list is empty a reader hand-checking any printed cell gets the table's digits whatever convention they assume. It is measured rather than asserted because a new artifact could put a value on a boundary, and at that point the convention stops being an implementation detail and becomes a claim the paper has to make"
+    },
+    "note_source_width_chars": 99,
+    "why_notes_are_wrapped": "the longest filed note is one string of 2343 characters, which would be a single source line of 2396 in the rendered table. It compiles either way, but this repository re-derives and compares its artifacts and one long line turns a changed word into a whole-line diff. A line break is a space to LaTeX and a soft break is a space to Markdown, so the wrap cannot change the print -- and --verify compares the note of both renderings with the filed note after normalising whitespace, which is that claim tested rather than asserted. A note whose whitespace is not already single spaces is left on one line rather than being normalised",
+    "the_minus_sign_is_ascii": "a negative number prints with the ASCII hyphen-minus the artifact was written with, not with a typographic minus in math mode. Math mode would make the LaTeX rendering differ from the Markdown one by more than escaping, and the invariant that the two renderings of a table cannot disagree is worth more than the glyph",
+    "what_is_escaped_and_what_is_not": {
+      "n_literal_strings_escaped": 655,
+      "n_of_them_cells": 643,
+      "n_of_them_notes": 12,
+      "n_authored_latex_fields_passed_through": 106,
+      "hostile_characters_found_in_literal_text": {
+        "%": 10,
+        "&": 6,
+        "_": 227,
+        "{": 4,
+        "}": 4
+      },
+      "n_markdown_emphasis_risks": 0,
+      "what_that_count_is": "underscores that are not inside a word, which Markdown could read as the start of emphasis. Zero is why Markdown is escaped for '|' only and not for underscores: every underscore in this document sits inside an identifier, where CommonMark leaves it alone. The count is filed so that the day one does not is a number and not a surprise",
+      "n_dollars_or_backslashes_in_literal_text": 0,
+      "what_that_last_number_has_to_be": "zero. A literal field carrying '$' or '\\' is carrying authored mathematics, and escaping it would print the mathematics as punctuation; this stage refuses instead of choosing",
+      "authored_latex_fields": [
+        "caption",
+        "header"
+      ],
+      "escaped_fields": [
+        "note",
+        "cell"
+      ],
+      "why_they_differ": "a header or a caption is written by the numbers stage as LaTeX and carries mathematics; a cell, a claim, an artifact name or a note is literal text and carries identifiers with underscores in them. Escaping the first destroys the mathematics and not escaping the second breaks the table, so the split is measured on every run rather than assumed"
+    },
+    "layout_is_measured": {
+      "text_block_budget_chars": 93.0,
+      "tabcolsep_chars_per_column": 2.4,
+      "wrap_a_column_above_chars": 60,
+      "wrap_share_of_budget": 0.25,
+      "wrap_weight_power": 0.5,
+      "mechanisms": [
+        "plain_tabular",
+        "resizebox",
+        "tabularx"
+      ],
+      "mechanisms_used": {
+        "plain_tabular": 1,
+        "resizebox": 8,
+        "tabularx": 3
+      },
+      "how_a_width_is_measured": "the longer of a column's header and its widest rendered cell, with LaTeX macros discounted, because \\kappa costs one glyph and six characters and counting source characters would push a table into a resizebox it did not need",
+      "why_the_budget_is_an_estimate": "compiling the table and measuring the box would make this document depend on a TeX installation, and the figures were kept out of the numbers file for exactly that reason. The estimate decides which of three standard mechanisms to use, and the measurements behind each choice are filed per table"
+    },
+    "latex_packages_required": [
+      "booktabs",
+      "graphicx",
+      "tabularx"
+    ],
+    "what_the_input_paths_are_relative_to": "the directory above the output directory, which is paper for the filed rendering and is where main.tex has to sit. 00_all.tex therefore emits \\input{tables/tex/<table>} rather than \\input{tex/<table>}, because LaTeX resolves \\input against the directory the main document is compiled from and not against the directory the including file sits in",
+    "why_the_packages_are_filed": "a missing \\usepackage is a compilation failure that points at none of these files, so the preamble the paper needs is stated here beside the mechanism that needs it"
+  },
+  "tables": {
+    "blinding": {
+      "n_columns": 11,
+      "n_rows": 4,
+      "n_cells": 44,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "bool": 8,
+        "float4": 4,
+        "int": 28,
+        "str": 4
+      },
+      "companion_keys_filed_but_not_printed": [
+        "arm_key",
+        "declared_model_id",
+        "n_records"
+      ],
+      "label": "tab:blinding",
+      "source": "identity_leak_audit",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 43 characters against 60, so no cell needs breaking, but the columns together measure 278.4 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "row": 43,
+          "prompts_rendered": 16,
+          "prompt_identity_hits": 27,
+          "payload_identity_hits": 28,
+          "other_arm_identity_hits": 22,
+          "judge_identity_hits": 24,
+          "prompt_render_errors": 13,
+          "iteration10_violations": 23,
+          "self_identification_rate": 24,
+          "mirror_identical": 24,
+          "complete": 8
+        },
+        "natural_width_chars": 278.4,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "row",
+          "prompt_identity_hits",
+          "payload_identity_hits",
+          "judge_identity_hits",
+          "self_identification_rate",
+          "mirror_identical"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "row": "l",
+          "prompts_rendered": "r",
+          "prompt_identity_hits": "r",
+          "payload_identity_hits": "r",
+          "other_arm_identity_hits": "r",
+          "judge_identity_hits": "r",
+          "prompt_render_errors": "r",
+          "iteration10_violations": "r",
+          "self_identification_rate": "r",
+          "mirror_identical": "c",
+          "complete": "c"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/blinding.tex",
+      "markdown": "paper/tables/markdown/blinding.md"
+    },
+    "bound_configurations": {
+      "n_columns": 9,
+      "n_rows": 16,
+      "n_cells": 144,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "bool": 32,
+        "p4": 32,
+        "str": 80
+      },
+      "companion_keys_filed_but_not_printed": [
+        "note"
+      ],
+      "label": "tab:bound_configurations",
+      "source": "censoring_bound",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 56 characters against 60, so no cell needs breaking, but the columns together measure 181.6 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "configuration": 49,
+          "what_it_assumes": 56,
+          "family_set": 8,
+          "licensed_by_the_evidence": 8,
+          "hypothesis": 2,
+          "arm": 13,
+          "raw_p": 6,
+          "adjusted_p": 6,
+          "sign_matches_reference": 12
+        },
+        "natural_width_chars": 181.6,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "configuration",
+          "what_it_assumes"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "configuration": "l",
+          "what_it_assumes": "l",
+          "family_set": "l",
+          "licensed_by_the_evidence": "c",
+          "hypothesis": "l",
+          "arm": "l",
+          "raw_p": "r",
+          "adjusted_p": "r",
+          "sign_matches_reference": "c"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/bound_configurations.tex",
+      "markdown": "paper/tables/markdown/bound_configurations.md"
+    },
+    "censoring_bound": {
+      "n_columns": 19,
+      "n_rows": 4,
+      "n_cells": 76,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "bool": 16,
+        "ci4": 4,
+        "int": 12,
+        "optional_float4": 4,
+        "p4": 8,
+        "signed4": 4,
+        "str": 28
+      },
+      "companion_keys_filed_but_not_printed": [
+        "arm_key"
+      ],
+      "label": "tab:censoring_bound",
+      "source": "censoring_bound",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 43 characters against 60, so no cell needs breaking, but the columns together measure 321.6 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "row": 43,
+          "hypothesis": 2,
+          "label_status": 30,
+          "label_score_used": 10,
+          "n_families_committed": 9,
+          "n_families_sensitivity": 11,
+          "mean_at_98": 10,
+          "mean_range_over_the_whole_rubric": 26,
+          "worst_p": 7,
+          "best_p": 6,
+          "n_breakpoints_evaluated": 11,
+          "sign_can_flip": 13,
+          "p_exceeds_alpha_anywhere": 18,
+          "verdict_filed": 9,
+          "verdict_at_99": 9,
+          "verdict_genuine_worst_case": 18,
+          "verdict_fully_adversarial": 17,
+          "survives": 8,
+          "survives_the_unlicensed_bound": 19
+        },
+        "natural_width_chars": 321.6,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "row",
+          "label_status",
+          "mean_range_over_the_whole_rubric"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "row": "l",
+          "hypothesis": "l",
+          "label_status": "l",
+          "label_score_used": "r",
+          "n_families_committed": "r",
+          "n_families_sensitivity": "r",
+          "mean_at_98": "r",
+          "mean_range_over_the_whole_rubric": "r",
+          "worst_p": "r",
+          "best_p": "r",
+          "n_breakpoints_evaluated": "r",
+          "sign_can_flip": "c",
+          "p_exceeds_alpha_anywhere": "c",
+          "verdict_filed": "l",
+          "verdict_at_99": "l",
+          "verdict_genuine_worst_case": "l",
+          "verdict_fully_adversarial": "l",
+          "survives": "c",
+          "survives_the_unlicensed_bound": "c"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/censoring_bound.tex",
+      "markdown": "paper/tables/markdown/censoring_bound.md"
+    },
+    "environment": {
+      "n_columns": 3,
+      "n_rows": 22,
+      "n_cells": 66,
+      "n_cells_governed_by_a_row_level_spec": 22,
+      "formats_used": {
+        "bool": 3,
+        "int": 2,
+        "optional_str": 6,
+        "sha8": 4,
+        "str": 51
+      },
+      "companion_keys_filed_but_not_printed": [],
+      "label": "tab:environment",
+      "source": "dependency_lock",
+      "layout": {
+        "mechanism": "tabularx",
+        "why": "1 column(s) hold a cell wider than 60 characters -- value at 347 -- and LaTeX will not break a fixed column, so this table wraps. 2 column(s) measure over 0.25 of the text block (23.2 characters) and share it: claim at 47, value at 347; the widths are shared in proportion to the 0.5 power of the measured width, claim 0.54, value 1.46, because sharing them in proportion to the width itself would give the widest column almost the whole block and leave the others one word per line",
+        "column_widths_chars": {
+          "claim": 47,
+          "value": 347,
+          "where": 16
+        },
+        "natural_width_chars": 417.2,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [
+          "value"
+        ],
+        "columns_over_the_share_floor": [
+          "claim",
+          "value"
+        ],
+        "wrapping_columns": [
+          "claim",
+          "value"
+        ],
+        "wrap_weights": {
+          "claim": 0.54,
+          "value": 1.46
+        },
+        "alignment": {
+          "claim": "l",
+          "value": "l",
+          "where": "l"
+        },
+        "mixed_spec_columns": [
+          "value"
+        ],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "tabularx"
+        ]
+      },
+      "tex": "paper/tables/tex/environment.tex",
+      "markdown": "paper/tables/markdown/environment.md"
+    },
+    "evidence_binding": {
+      "n_columns": 3,
+      "n_rows": 11,
+      "n_cells": 33,
+      "n_cells_governed_by_a_row_level_spec": 11,
+      "formats_used": {
+        "int": 4,
+        "sha8": 1,
+        "str": 28
+      },
+      "companion_keys_filed_but_not_printed": [],
+      "label": "tab:evidence_binding",
+      "source": "media_manifest",
+      "layout": {
+        "mechanism": "tabularx",
+        "why": "1 column(s) hold a cell wider than 60 characters -- value at 333 -- and LaTeX will not break a fixed column, so this table wraps. 3 column(s) measure over 0.25 of the text block (23.2 characters) and share it: claim at 57, value at 333, where at 27; the widths are shared in proportion to the 0.5 power of the measured width, claim 0.73, value 1.77, where 0.5, because sharing them in proportion to the width itself would give the widest column almost the whole block and leave the others one word per line",
+        "column_widths_chars": {
+          "claim": 57,
+          "value": 333,
+          "where": 27
+        },
+        "natural_width_chars": 424.2,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [
+          "value"
+        ],
+        "columns_over_the_share_floor": [
+          "claim",
+          "value",
+          "where"
+        ],
+        "wrapping_columns": [
+          "claim",
+          "value",
+          "where"
+        ],
+        "wrap_weights": {
+          "claim": 0.73,
+          "value": 1.77,
+          "where": 0.5
+        },
+        "alignment": {
+          "claim": "l",
+          "value": "l",
+          "where": "l"
+        },
+        "mixed_spec_columns": [
+          "value"
+        ],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "tabularx"
+        ]
+      },
+      "tex": "paper/tables/tex/evidence_binding.tex",
+      "markdown": "paper/tables/markdown/evidence_binding.md"
+    },
+    "judge_reliability": {
+      "n_columns": 8,
+      "n_rows": 4,
+      "n_cells": 32,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "float4": 24,
+        "int": 4,
+        "str": 4
+      },
+      "companion_keys_filed_but_not_printed": [
+        "arm_key",
+        "what_is_being_compared"
+      ],
+      "label": "tab:judge_reliability",
+      "source": "judge_agreement",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 43 characters against 60, so no cell needs breaking, but the columns together measure 149.2 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "row": 43,
+          "n_items": 5,
+          "kappa_refusal": 15,
+          "kappa_compliance_weighted": 28,
+          "mae_score": 11,
+          "icc_3_1": 8,
+          "icc_3_k": 8,
+          "spearman_rho": 12
+        },
+        "natural_width_chars": 149.2,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "row",
+          "kappa_compliance_weighted"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "row": "l",
+          "n_items": "r",
+          "kappa_refusal": "r",
+          "kappa_compliance_weighted": "r",
+          "mae_score": "r",
+          "icc_3_1": "r",
+          "icc_3_k": "r",
+          "spearman_rho": "r"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/judge_reliability.tex",
+      "markdown": "paper/tables/markdown/judge_reliability.md"
+    },
+    "panel_exclusions": {
+      "n_columns": 10,
+      "n_rows": 3,
+      "n_cells": 30,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "bool": 6,
+        "int": 9,
+        "optional_str": 3,
+        "str": 12
+      },
+      "companion_keys_filed_but_not_printed": [
+        "family_dropped_with_it",
+        "family_id",
+        "variant"
+      ],
+      "label": "tab:panel_exclusions",
+      "source": "judge_coverage",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 44 characters against 60, so no cell needs breaking, but the columns together measure 232.0 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "item_id": 9,
+          "cell": 23,
+          "arms_that_lost_it": 44,
+          "refused_by_judge": 16,
+          "reason": 22,
+          "n_arms_that_lost_it_at_seal": 22,
+          "n_arms_refusing_it_on_the_reprobe": 24,
+          "n_arms_served_it_on_the_reprobe": 22,
+          "the_reprobe_reproduces_the_seal": 14,
+          "differential": 12
+        },
+        "natural_width_chars": 232.0,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "arms_that_lost_it",
+          "n_arms_refusing_it_on_the_reprobe"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "item_id": "l",
+          "cell": "l",
+          "arms_that_lost_it": "l",
+          "refused_by_judge": "l",
+          "reason": "l",
+          "n_arms_that_lost_it_at_seal": "r",
+          "n_arms_refusing_it_on_the_reprobe": "r",
+          "n_arms_served_it_on_the_reprobe": "r",
+          "the_reprobe_reproduces_the_seal": "c",
+          "differential": "c"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/panel_exclusions.tex",
+      "markdown": "paper/tables/markdown/panel_exclusions.md"
+    },
+    "selection": {
+      "n_columns": 3,
+      "n_rows": 14,
+      "n_cells": 42,
+      "n_cells_governed_by_a_row_level_spec": 14,
+      "formats_used": {
+        "bool": 2,
+        "int": 4,
+        "sha8": 1,
+        "str": 35
+      },
+      "companion_keys_filed_but_not_printed": [],
+      "label": "tab:selection",
+      "source": "selection",
+      "layout": {
+        "mechanism": "tabularx",
+        "why": "1 column(s) hold a cell wider than 60 characters -- value at 154 -- and LaTeX will not break a fixed column, so this table wraps. 2 column(s) measure over 0.25 of the text block (23.2 characters) and share it: claim at 43, value at 154; the widths are shared in proportion to the 0.5 power of the measured width, claim 0.69, value 1.31, because sharing them in proportion to the width itself would give the widest column almost the whole block and leave the others one word per line",
+        "column_widths_chars": {
+          "claim": 43,
+          "value": 154,
+          "where": 9
+        },
+        "natural_width_chars": 213.2,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [
+          "value"
+        ],
+        "columns_over_the_share_floor": [
+          "claim",
+          "value"
+        ],
+        "wrapping_columns": [
+          "claim",
+          "value"
+        ],
+        "wrap_weights": {
+          "claim": 0.69,
+          "value": 1.31
+        },
+        "alignment": {
+          "claim": "l",
+          "value": "l",
+          "where": "l"
+        },
+        "mixed_spec_columns": [
+          "value"
+        ],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "tabularx"
+        ]
+      },
+      "tex": "paper/tables/tex/selection.tex",
+      "markdown": "paper/tables/markdown/selection.md"
+    },
+    "sign_transport": {
+      "n_columns": 14,
+      "n_rows": 5,
+      "n_cells": 70,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "ci4": 5,
+        "float4": 5,
+        "int": 5,
+        "optional_bool": 5,
+        "optional_float4": 5,
+        "optional_p4": 15,
+        "optional_str": 10,
+        "signed4": 5,
+        "str": 15
+      },
+      "companion_keys_filed_but_not_printed": [
+        "arm_key",
+        "what_this_row_is"
+      ],
+      "label": "tab:sign_transport",
+      "source": "cross_model_analysis",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 43 characters against 60, so no cell needs breaking, but the columns together measure 218.6 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "row": 43,
+          "hypothesis": 2,
+          "n_families": 8,
+          "mean": 13,
+          "bootstrap_mean": 14,
+          "ci": 18,
+          "raw_p": 6,
+          "adjusted_p": 6,
+          "critical_value": 10,
+          "sign": 8,
+          "sign_matches_reference": 12,
+          "verdict": 9,
+          "family_sign_test_p": 18,
+          "family_sign_test_majority": 18
+        },
+        "natural_width_chars": 218.6,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "row"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "row": "l",
+          "hypothesis": "l",
+          "n_families": "r",
+          "mean": "r",
+          "bootstrap_mean": "r",
+          "ci": "r",
+          "raw_p": "r",
+          "adjusted_p": "r",
+          "critical_value": "r",
+          "sign": "l",
+          "sign_matches_reference": "c",
+          "verdict": "l",
+          "family_sign_test_p": "r",
+          "family_sign_test_majority": "l"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/sign_transport.tex",
+      "markdown": "paper/tables/markdown/sign_transport.md"
+    },
+    "truncation": {
+      "n_columns": 8,
+      "n_rows": 5,
+      "n_cells": 40,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "float4": 10,
+        "int": 10,
+        "optional_bool": 5,
+        "optional_float4": 10,
+        "str": 5
+      },
+      "companion_keys_filed_but_not_printed": [
+        "arm_key",
+        "replay_outputs_sha256"
+      ],
+      "label": "tab:truncation",
+      "source": "truncation_evidence",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 43 characters against 60, so no cell needs breaking, but the columns together measure 135.2 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "row": 43,
+          "n_records": 7,
+          "n_truncated": 9,
+          "overall_rate": 6,
+          "max_variant_spread": 18,
+          "max_overall_rate_allowed": 10,
+          "max_variant_spread_allowed": 12,
+          "within_the_gate": 11
+        },
+        "natural_width_chars": 135.2,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "row"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "row": "l",
+          "n_records": "r",
+          "n_truncated": "r",
+          "overall_rate": "r",
+          "max_variant_spread": "r",
+          "max_overall_rate_allowed": "r",
+          "max_variant_spread_allowed": "r",
+          "within_the_gate": "c"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/truncation.tex",
+      "markdown": "paper/tables/markdown/truncation.md"
+    },
+    "vision_ablation": {
+      "n_columns": 3,
+      "n_rows": 17,
+      "n_cells": 51,
+      "n_cells_governed_by_a_row_level_spec": 17,
+      "formats_used": {
+        "float2": 1,
+        "int": 7,
+        "pct1": 5,
+        "sha8": 1,
+        "str": 37
+      },
+      "companion_keys_filed_but_not_printed": [],
+      "label": "tab:vision_ablation",
+      "source": "vision_ablation",
+      "layout": {
+        "mechanism": "resizebox",
+        "why": "the widest column measures 57 characters against 60, so no cell needs breaking, but the columns together measure 101.2 against a text block of about 93: the table is scaled to fit and NO column wraps, so a column filed as wider than the share floor is scaled with the rest rather than wrapped",
+        "column_widths_chars": {
+          "claim": 57,
+          "value": 22,
+          "where": 15
+        },
+        "natural_width_chars": 101.2,
+        "text_block_budget_chars": 93.0,
+        "over_budget": true,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "claim"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "claim": "l",
+          "value": "l",
+          "where": "l"
+        },
+        "mixed_spec_columns": [
+          "value"
+        ],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs",
+          "graphicx"
+        ]
+      },
+      "tex": "paper/tables/tex/vision_ablation.tex",
+      "markdown": "paper/tables/markdown/vision_ablation.md"
+    },
+    "vision_ablation_shift": {
+      "n_columns": 3,
+      "n_rows": 5,
+      "n_cells": 15,
+      "n_cells_governed_by_a_row_level_spec": 0,
+      "formats_used": {
+        "int": 5,
+        "pct1": 5,
+        "str": 5
+      },
+      "companion_keys_filed_but_not_printed": [],
+      "label": "tab:vision_ablation_shift",
+      "source": "vision_ablation",
+      "layout": {
+        "mechanism": "plain_tabular",
+        "why": "the columns measure 42.2 against a text block of about 93 and no cell exceeds 60 characters, so the table fits as it is and no column wraps",
+        "column_widths_chars": {
+          "shift": 25,
+          "n_items": 5,
+          "share": 5
+        },
+        "natural_width_chars": 42.2,
+        "text_block_budget_chars": 93.0,
+        "over_budget": false,
+        "unbreakable_columns": [],
+        "columns_over_the_share_floor": [
+          "shift"
+        ],
+        "wrapping_columns": [],
+        "wrap_weights": null,
+        "alignment": {
+          "shift": "l",
+          "n_items": "r",
+          "share": "r"
+        },
+        "mixed_spec_columns": [],
+        "what_a_mixed_spec_column_is": "a column whose cells take their rendering spec row by row, which is what a claim table's value column does. It is aligned as text because no single alignment fits a column that holds a count in one row, a digest in the next and a sentence after that",
+        "latex_packages_required": [
+          "booktabs"
+        ]
+      },
+      "tex": "paper/tables/tex/vision_ablation_shift.tex",
+      "markdown": "paper/tables/markdown/vision_ablation_shift.md"
+    }
+  },
+  "totals": {
+    "n_tables": 12,
+    "n_columns": 94,
+    "n_rows": 110,
+    "n_cells": 643,
+    "n_rendered_files": 25,
+    "n_tex_files": 13,
+    "n_markdown_files": 12,
+    "output_paths": [
+      "markdown/blinding.md",
+      "markdown/bound_configurations.md",
+      "markdown/censoring_bound.md",
+      "markdown/environment.md",
+      "markdown/evidence_binding.md",
+      "markdown/judge_reliability.md",
+      "markdown/panel_exclusions.md",
+      "markdown/selection.md",
+      "markdown/sign_transport.md",
+      "markdown/truncation.md",
+      "markdown/vision_ablation.md",
+      "markdown/vision_ablation_shift.md",
+      "tex/00_all.tex",
+      "tex/blinding.tex",
+      "tex/bound_configurations.tex",
+      "tex/censoring_bound.tex",
+      "tex/environment.tex",
+      "tex/evidence_binding.tex",
+      "tex/judge_reliability.tex",
+      "tex/panel_exclusions.tex",
+      "tex/selection.tex",
+      "tex/sign_transport.tex",
+      "tex/truncation.tex",
+      "tex/vision_ablation.tex",
+      "tex/vision_ablation_shift.tex"
+    ]
+  },
+  "findings": [],
+  "what_a_finding_here_means": "a cell that contradicts the spec it was filed under, a spec nobody implements, a rendering whose two formats disagree, or a field whose LaTeX will not compile. Empty is the only acceptable value, and --write refuses to write a document that has any",
+  "what_this_file_is_not": {
+    "not_a_source_of_numbers": "every value printed by this stage was read out of the numbers file. There is one function that turns a filed value into a printed cell and both formats call it, so rounding is decided once and this file holds no number the numbers file does not",
+    "not_a_second_hash_of_the_outputs": "the .tex and .md files are not hashed here. The closeout manifest binds every file under paper/ by hash already, so recording those hashes a second time would be a second place for them to go stale; --verify compares the bytes on disk with a fresh rendering instead, which is a stronger check than comparing two hashes of one file",
+    "not_the_paper": "no prose, no citation order and no figure is here. main.tex cites these tables by \\label, and the order they appear in the paper is the paper's decision rather than the renderer's, which is why 00_all.tex is alphabetical",
+    "not_environment_sensitive": "no clock, no commit, no host and no library version enters this document or any file it writes, so a rendering re-derives byte for byte anywhere. The figures are specified as data upstream for the same reason"
+  }
+}

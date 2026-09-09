@@ -211,6 +211,18 @@ ENTRY_POINTS = (
             "bound",
         "verified_by": "scripts/iter11_paper_numbers.py",
     },
+    {
+        "path": "paper/tables/renderings.json",
+        "what_it_establishes":
+            "the paper's tables as printed, in LaTeX and in Markdown, derived from "
+            "the numbers file above rather than typed beside it: every cell "
+            "rendered under the spec it was filed with, the two renderings compared "
+            "cell by cell so that they cannot disagree about a rounding, and the "
+            "column layout derived from measured widths rather than chosen by eye. "
+            "It binds the numbers file it was rendered from and is bound by this "
+            "manifest, which is one direction and therefore has a fixed point",
+        "verified_by": "scripts/iter11_paper_tables.py",
+    },
 )
 
 
@@ -1123,9 +1135,9 @@ def deep_closeout(path: Path | None = None,
     fails the deep closeout, and so does anything else, including a traceback,
     because a gate that crashed did not verify.
 
-    The shallow verify runs first and its result gates the rest: executing nine
-    verifiers against a manifest that does not re-derive would report on evidence
-    whose binding is already in doubt.
+    The shallow verify runs first and its result gates the rest: executing the
+    entry-point verifiers against a manifest that does not re-derive would report
+    on evidence whose binding is already in doubt.
     """
     path = OUT_PATH if path is None else path
     code, conclusion, issues, unverifiable = verify(path)

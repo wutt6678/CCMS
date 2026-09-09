@@ -1,0 +1,28 @@
+<!--
+  Rendered by scripts/iter11_paper_tables.py -- do not edit.
+  Table 'sign_transport'.
+  Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+    sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+  whose values are read out of the filed artifact
+  'cross_model_analysis' by scripts/iter11_paper_numbers.py.
+  Re-render with: python scripts/iter11_paper_tables.py --write
+-->
+
+### Sign transport of the frozen $\Delta_{TV}$ estimand from the sealed Qwen3.5-9B reference to the four Iteration 11 targets
+
+| Target | H | Families | $\Delta_{TV}$ mean | Bootstrap mean | 95\% CI | $p$ | Holm $p$ | Holm crit. | Sign | Matches ref. | Verdict | Family sign test $p$ | Sign-test majority |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :--- | :---: | :--- | ---: | :--- |
+| Qwen3.5-9B (Iteration 10 Scale-C, sealed) | -- | 98 | 0.1148 | +0.1137 | [0.0459, 0.1811] | -- | -- | -- | positive | -- | sealed | -- | -- |
+| Qwen/Qwen3.5-2B | H1 | 98 | -0.1466 | -0.1467 | [-0.2179, -0.0764] | 0.0002 | 0.0008 | 0.0125 | negative | false | refuted | 0.0008 | negative |
+| Qwen/Qwen3.5-4B | H2 | 98 | 0.0939 | +0.0932 | [0.0133, 0.1725] | 0.0256 | 0.0272 | 0.0500 | positive | true | confirmed | 0.4340 | positive |
+| mistralai/Ministral-3-3B-Instruct-2512-BF16 | H3 | 98 | -0.1310 | -0.1310 | [-0.1895, -0.0742] | 0.0002 | 0.0008 | 0.0167 | negative | false | refuted | 0.0008 | negative |
+| microsoft/Phi-4-multimodal-instruct | H4 | 98 | -0.0510 | -0.0508 | [-0.0908, -0.0107] | 0.0136 | 0.0272 | 0.0250 | negative | false | refuted | 0.0004 | negative |
+
+*Note.* p-values are two-sided bootstrap p over the same seed-42, 5000-resample distribution that produced
+the intervals; Holm critical values are alpha / (m - i + 1) over the four confirmatory tests. The
+family sign test is a sensitivity over per-family signs and is reported beside the primary result
+rather than instead of it: it does not reject in the one target that carries the reference sign,
+which is a fact about family-level heterogeneity and not about the mean, and the paper says so
+where it quotes this column.
+
+`tab:sign_transport` -- source `cross_model_analysis`, rendered from `paper/numbers/iteration_11_paper_numbers.json`.

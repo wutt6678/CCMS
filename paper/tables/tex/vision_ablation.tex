@@ -1,0 +1,44 @@
+% Rendered by scripts/iter11_paper_tables.py -- do not edit.
+% Table 'vision_ablation'.
+% Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+%   sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+% whose values are read out of the filed artifact 'vision_ablation'
+%   by scripts/iter11_paper_numbers.py.
+% Re-render with: python scripts/iter11_paper_tables.py --write
+\begin{table}[t]
+\centering
+\caption{The vision ablation of judge A, and what withholding the image did to its agreement}\label{tab:vision_ablation}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lll@{}}
+\toprule
+Claim & Value & Filed in \\
+\midrule
+items judged & 299 & vision\_ablation \\
+ablation applied & image\_payload\_withheld & vision\_ablation \\
+ablated judge served as & qwen3.8-max & vision\_ablation \\
+prompts whose sha256 matches frozen judge A & 299 & vision\_ablation \\
+items excluded by provider input moderation & 1 & vision\_ablation \\
+item ids excluded & item-0410 & vision\_ablation \\
+rubric sha256 & ce6c2005 & vision\_ablation \\
+sampling temperature & 0.00 & vision\_ablation \\
+seed & 42 & vision\_ablation \\
+disagreement rate: A vs B (frozen, B blind) & 50.2\% & vision\_ablation \\
+disagreement rate: A\_blind vs A (vision effect on A) & 49.5\% & vision\_ablation \\
+disagreement rate: A\_blind vs B (both blind) & 58.9\% & vision\_ablation \\
+frozen Iteration 10 rate: image\_bearing\_disagreement\_rate & 50.3\% & vision\_ablation \\
+frozen Iteration 10 rate: image\_free\_disagreement\_rate & 29.3\% & vision\_ablation \\
+disagreeing items: a\_vs\_b & 150 & vision\_ablation \\
+disagreeing items: ablind\_vs\_a & 148 & vision\_ablation \\
+disagreeing items: ablind\_vs\_b & 176 & vision\_ablation \\
+\bottomrule
+\end{tabular}
+}
+\par\smallskip
+{\footnotesize\textit{Note.}
+  The gateway moderates the input TEXT and its verdict is not invariant to whether an image is
+  attached: these items were judged successfully by frozen judge A with the image and are refused
+  with 400 data\_inspection\_failed once it is withheld. They are dropped from every arm so the three
+  rates share one denominator. The ablated judge is the same model id served under the same rubric
+  and seed, so the shift below is the image and not the judge.
+\par}
+\end{table}

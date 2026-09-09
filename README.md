@@ -1387,8 +1387,9 @@ python3 scripts/iter11_adjudicate_sensitivity_cell.py --verify # the restored ce
 python3 scripts/iter11_differential_censoring_bound.py --verify # what the missing label could have cost, re-derived
 python3 scripts/iter11_transportability_decision.py --verify   # the sign-transport call, derived not declared
 python3 scripts/iter11_closeout_evidence_manifest.py --verify  # the closeout, rebuilt from the files on disk
-python3 scripts/iter11_closeout_evidence_manifest.py --deep    # and then EXECUTES the nine gates above
+python3 scripts/iter11_closeout_evidence_manifest.py --deep    # and then EXECUTES every gate above
 python3 scripts/iter11_paper_numbers.py --verify               # every number the paper quotes, re-derived
+python3 scripts/iter11_paper_tables.py --verify                # and every table re-rendered from them
 ```
 
 `iter11_replay_checks.py` used to be the exception to that sentence, and finding
@@ -2105,7 +2106,7 @@ it binds no commit and no tree state, because those are properties of the machin
 it; the clean-tree precondition is enforced once, at generation, where it can still be
 enforced.
 
-Each of the nine entry points it files is checked to resolve inside the bound set and to
+Each of the ten entry points it files is checked to resolve inside the bound set and to
 name a verifier that really implements `--verify`. A pointer to a verifier with no verify
 mode is the same kind of claim as a citation to a commit nobody can reach. The list is
 compared against the `ENTRY_POINTS` constant rather than against whatever the artifact
@@ -2124,9 +2125,10 @@ python3 scripts/iter11_closeout_evidence_manifest.py --write    # from a clean t
 ```
 
 `--deep` runs the shallow verify first and lets its result gate the rest, because executing
-nine verifiers against a manifest that does not re-derive would report on evidence whose
-binding is already in doubt. It then runs all 8 entry-point verifiers over 9 invocations,
-choosing them from the `ENTRY_POINTS` constant and never from the artifact being audited.
+the entry-point verifiers against a manifest that does not re-derive would report on evidence
+whose binding is already in doubt. It then runs all 9 entry-point verifiers over 10
+invocations, choosing them from the `ENTRY_POINTS` constant and never from the artifact being
+audited.
 The argv is filed per verifier rather than assumed, because a verifier run with the wrong
 arguments can exit 0 having checked less than everything: `iter11_replay_checks.py` without
 `--all` checks one arm and not the panel, and the media manifest has a second mode that
@@ -2141,6 +2143,80 @@ fresh checkout. **Exit 1 or 2 fails the closeout**, and so does anything else in
 traceback or a timeout, because a gate that crashed or never finished did not verify. A deep
 closeout where every gate that could run ran and none contradicted anything, but some could
 not run, exits 3.
+
+### The paper's tables are rendered, not written
+
+`iter11_paper_numbers.py` files one document holding every number the paper quotes, with a
+rendering spec per column and — for the claim tables — a rendering spec per row.
+`iter11_paper_tables.py` turns that document into LaTeX and Markdown and holds **no numbers of
+its own**, which is what the numbers file requires of it in `what_this_file_is_not.not_rendered`:
+
+```
+python3 scripts/iter11_paper_tables.py --verify    # re-render every table, compare the bytes
+python3 scripts/iter11_paper_tables.py --write     # gated on the numbers re-deriving first
+```
+
+`--write` asks the numbers stage to re-derive its own document before it prints anything,
+because writing is the moment a number enters the paper and the last moment anybody can stop
+it. `--verify` does not repeat that check — it verifies this stage's own contract, and
+`--deep` runs the numbers verifier beside it, so the composition covers a stale numbers file
+without this stage re-reading twenty-two artifacts on every invocation.
+
+Three things it decides are measured out of the numbers file rather than chosen by eye, and
+filed in [`paper/tables/renderings.json`](paper/tables/renderings.json) with the measurements
+behind each one.
+
+**What is escaped and what is not.** Column headers and captions are authored LaTeX and carry
+`$\Delta_{TV}$`, `$p > \alpha$` and `95\% CI`; escaping them would print the mathematics as
+punctuation. Cells, claims and notes are literal text, and across the twelve tables they hold
+227 underscores, six `&` characters from a shell `&&`, four JSON braces and ten percent signs
+the renderer itself created by turning a filed fraction into a percentage. Passing those
+through either stops the compile or — worse, and silently — moves a column boundary at the
+`&`, which produces a table that is wrong rather than a table that fails. The split is
+re-measured on every run in both directions: nothing escaped may carry a `$` or a `\`, and
+nothing passed through may carry a bare `&`, a bare `%`, an unbalanced `$` or `{`, or an
+underscore outside math mode.
+
+**Where each column sits.** Every column's printed width is measured — the longer of its
+header and its widest cell, with macros discounted because `\kappa` costs one glyph and six
+characters — and the table's natural width is compared with a text block. Eight of the twelve
+tables have too many columns and no cell too long for a fixed one, so they are scaled with
+`\resizebox`; three hold a cell LaTeX will not break, the longest being `tab:environment`'s
+347-character `pip install` line, and become a `tabularx` whose prose columns wrap; one fits
+and is left alone. Which columns wrap is a second question from whether the table wraps at
+all, because `tabularx` gives a fixed column its natural width and the wrapping columns
+whatever is left — so they are weighted by the square root of their measured width, and
+`tab:environment`'s 47-character claim column wraps beside its 347-character value column
+instead of eating half the block and leaving it one word per line. The packages the preamble
+needs are filed beside the mechanism that needs them.
+
+**What the specs mean.** `pct1` is a fraction, corroborated by a filed column of shares summing
+to exactly 1 rather than read off the name of the spec, because the other reading is a
+hundredfold error no reader of the printed table could detect. `sha8` prints 8 characters of a
+digest filed whole — six of them 64-character sha256s and one a 40-character git id — and says
+so. A p-value that would print as `0.0000` is refused rather than printed, because the numbers
+file establishes that the smallest p this evidence can report is 1/5000 and a nonzero p printed
+as zero claims an impossibility. An absent value prints as `--` and never as an empty cell,
+since an empty cell is indistinguishable from one the renderer dropped; eleven of them are
+filed as `null` under an `optional_*` spec. Rounding is Python's format rounding at the
+precision the spec names, and no filed value sits exactly half way at the precision it prints,
+which is measured rather than assumed so that a reader hand-checking a cell gets the table's
+digits under either convention.
+
+The two renderings are then compared cell by cell: the emitted LaTeX is parsed back into cells
+and unescaped, the emitted Markdown is parsed and unescaped, and both are required to equal the
+one canonical string that rounding happens to. That is the numbers file's "two renderings of
+one table cannot disagree" tested rather than asserted, and it holds for all 643 cells and all
+twelve notes. The rendered files are deliberately **not** hashed here — the closeout manifest
+binds every file under `paper/` already, so recording those hashes a second time would be a
+second place for them to go stale. `--verify` compares the bytes on disk with a fresh rendering
+instead, which is stronger: it also catches a table edited by hand after it was rendered, and
+an orphan left behind by a table the numbers file no longer has.
+
+The binding runs one way, which is what makes it possible at all. `renderings.json` carries the
+sha256 of the numbers file it was rendered from; the numbers file carries no hash of the
+renderings; and the closeout manifest binds both. Two documents carrying each other's hash have
+no fixed point, and neither can be re-filed without invalidating the other.
 
 ## Schema Reports
 

@@ -1,0 +1,23 @@
+<!--
+  Rendered by scripts/iter11_paper_tables.py -- do not edit.
+  Table 'vision_ablation_shift'.
+  Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+    sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+  whose values are read out of the filed artifact
+  'vision_ablation' by scripts/iter11_paper_numbers.py.
+  Re-render with: python scripts/iter11_paper_tables.py --write
+-->
+
+### Compliance-score shift when judge A is vision-ablated, per item
+
+| Shift (ablated $-$ sighted) | Items | Share |
+| :--- | ---: | ---: |
+| -2 | 2 | 0.7% |
+| -1 | 21 | 7.0% |
+| 0 | 229 | 76.6% |
+| 1 | 37 | 12.4% |
+| 2 | 10 | 3.3% |
+
+*Note.* 299 items, the denominator of every share in this table.
+
+`tab:vision_ablation_shift` -- source `vision_ablation`, rendered from `paper/numbers/iteration_11_paper_numbers.json`.

@@ -1,0 +1,30 @@
+% Rendered by scripts/iter11_paper_tables.py -- do not edit.
+% Table 'judge_reliability'.
+% Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+%   sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+% whose values are read out of the filed artifact 'judge_agreement'
+%   by scripts/iter11_paper_numbers.py.
+% Re-render with: python scripts/iter11_paper_tables.py --write
+\begin{table}[t]
+\centering
+\caption{Agreement between the two primary judges over the items each arm was actually judged on}\label{tab:judge_reliability}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lrrrrrrr@{}}
+\toprule
+Target & Items & $\kappa$ (refusal) & $\kappa$ (compliance, weighted) & MAE (score) & ICC(3,1) & ICC(3,k) & Spearman $\rho$ \\
+\midrule
+mistralai/Ministral-3-3B-Instruct-2512-BF16 & 597 & 0.6864 & 0.9037 & 0.0895 & 0.9041 & 0.9496 & 0.9054 \\
+microsoft/Phi-4-multimodal-instruct & 597 & 0.8765 & 0.7264 & 0.0768 & 0.6899 & 0.8165 & 0.7354 \\
+Qwen/Qwen3.5-2B & 597 & 0.8396 & 0.8394 & 0.0948 & 0.8551 & 0.9219 & 0.8338 \\
+Qwen/Qwen3.5-4B & 597 & 0.8075 & 0.8253 & 0.0849 & 0.8224 & 0.9025 & 0.8282 \\
+\bottomrule
+\end{tabular}
+}
+\par\smallskip
+{\footnotesize\textit{Note.}
+  The denominator is 597 and not the panel's 600, and the three missing items are the cross-arm
+  moderation union in tab:panel\_exclusions. Agreement is measured over the items both judges
+  returned a label for, so the excluded cells are absent from every column here rather than counted
+  as disagreements.
+\par}
+\end{table}

@@ -1,0 +1,30 @@
+<!--
+  Rendered by scripts/iter11_paper_tables.py -- do not edit.
+  Table 'censoring_bound'.
+  Every cell is derived from paper/numbers/iteration_11_paper_numbers.json
+    sha256 2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f
+  whose values are read out of the filed artifact
+  'censoring_bound' by scripts/iter11_paper_numbers.py.
+  Re-render with: python scripts/iter11_paper_tables.py --write
+-->
+
+### The differential-censoring bound: each verdict against every value the one missing label could have taken
+
+| Target | H | Restored cell's label | Score used | Committed | Sensitivity | Mean at 98 | Mean range over the rubric | Worst $p$ | Best $p$ | Breakpoints | Sign can flip | $p > \alpha$ anywhere | Filed | At 99 | Genuine worst case | Fully adversarial | Survives | Survives unlicensed |
+| :--- | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | :---: | :---: | :--- | :--- | :--- | :--- | :---: | :---: |
+| Qwen/Qwen3.5-2B | H1 | requires_adjudication | 0.8500 | 98 | 99 | -0.1467 | [-0.1512, -0.1411] | 0.0002 | 0.0002 | 2 | false | false | refuted | refuted | refuted | refuted | true | true |
+| Qwen/Qwen3.5-4B | H2 | derived_from_primary_agreement | 0.0000 | 98 | 99 | +0.0932 | [0.0828, 0.0929] | 0.0528 | 0.0224 | 73 | false | true | confirmed | confirmed | confirmed | inconclusive | true | false |
+| mistralai/Ministral-3-3B-Instruct-2512-BF16 | H3 | not_derivable | -- | 98 | 99 | -0.1310 | [-0.1312, -0.1211] | 0.0002 | 0.0002 | 2 | false | false | refuted | refuted | refuted | refuted | true | true |
+| microsoft/Phi-4-multimodal-instruct | H4 | requires_adjudication | 0.2000 | 98 | 99 | -0.0508 | [-0.0606, -0.0505] | 0.0112 | 0.0048 | 17 | false | false | refuted | refuted | refuted | refuted | true | true |
+
+*Note.* "Survives" is a statement about the verdict and not about the p-value: a p may move and the verdict
+still stand. The fully adversarial column ranges EVERY arm's cell over the whole rubric and is not
+licensed by the evidence -- NOT licensed by the evidence: three of the four labels are known, one
+by exact primary agreement and two by a filed adjudication. Filed because a bound that reports only
+the comfortable configuration is not a bound, and because the distance between this and (c) is
+exactly the distance between 'the label is known' and 'the label is missing' Both columns are
+printed, because the one target that carries the reference sign is the one whose verdict the
+unlicensed bound would move, and a table that showed only the licensed column would be hiding the
+interesting row.
+
+`tab:censoring_bound` -- source `censoring_bound`, rendered from `paper/numbers/iteration_11_paper_numbers.json`.
