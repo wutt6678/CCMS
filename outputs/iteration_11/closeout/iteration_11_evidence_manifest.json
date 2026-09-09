@@ -2,9 +2,9 @@
   "kind": "iteration_11_evidence_manifest_v1",
   "produced_by": "scripts/iter11_closeout_evidence_manifest.py",
   "question": "what is the evidence for Iteration 11, by hash, and can this checkout say so",
-  "n_bound": 197,
-  "total_bytes": 52560732,
-  "rollup_sha256": "069a5cca911003ac136c53b32aada9b8dcebd7cec2b317b0071a7cb33f55375a",
+  "n_bound": 234,
+  "total_bytes": 53349537,
+  "rollup_sha256": "721af3e28cc90ecb740565bd4516d2cc160bcba640dffe2a4441db314ee2b805",
   "n_by_role": {
     "binding_for_the_untracked_media": 1,
     "closeout": 1,
@@ -16,12 +16,13 @@
     "frozen_protocol": 4,
     "judge_labels_and_provenance": 69,
     "judge_vision_ablation": 2,
-    "library_the_verifiers_import": 8,
+    "library_the_verifiers_import": 42,
     "model_generation_metadata": 17,
+    "paper_numbers_and_renderings": 1,
     "placeholder": 2,
     "sealed_analysis": 4,
-    "test": 24,
-    "verifier_or_generator": 20
+    "test": 25,
+    "verifier_or_generator": 21
   },
   "bound": [
     {
@@ -50,14 +51,14 @@
     },
     {
       "path": "outputs/iteration_11/analysis/differential_censoring/differential_censoring_bound.json",
-      "sha256": "b66294e01eb4f97da5741e4365d8bcb14fad1aaa3095f46cffbe7c48cae09ee8",
+      "sha256": "e3f70b63d2d06cf9d00f6122ba33f73bd91d73c5c76271d30c13bd469c53dac5",
       "bytes": 88250,
       "role": "differential_censoring_sensitivity"
     },
     {
       "path": "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json",
-      "sha256": "316199078943003c8dbcc1b16d2668cc6a0cb5cd7d63a1ca81f8693a7bc27ea1",
-      "bytes": 22626,
+      "sha256": "7d79d6b317d6e015f9e5629b0db19b1a536f10d676688e5357b4f80db18bed2f",
+      "bytes": 26085,
       "role": "differential_censoring_sensitivity"
     },
     {
@@ -68,8 +69,8 @@
     },
     {
       "path": "outputs/iteration_11/closeout/iteration_11_transportability_decision.json",
-      "sha256": "38079538dae9062107dc3ed62f7d9516a50f970562bf3de7035d0afb36489f4c",
-      "bytes": 17335,
+      "sha256": "2f14960c21caa551cf905497ca06edc81b29300322f403dd2cee9e64692bb552",
+      "bytes": 23808,
       "role": "closeout"
     },
     {
@@ -895,9 +896,15 @@
       "role": "placeholder"
     },
     {
+      "path": "paper/numbers/iteration_11_paper_numbers.json",
+      "sha256": "2aaf05f47f4a2257611f471b989b5730a3ada466a5b1dcece225c03170a2964f",
+      "bytes": 89131,
+      "role": "paper_numbers_and_renderings"
+    },
+    {
       "path": "scripts/iter11_adjudicate_sensitivity_cell.py",
-      "sha256": "461097917e90442b86eed314ddab234008ce6780a2cb277bd48cd91fb425d557",
-      "bytes": 90389,
+      "sha256": "a4593ad1a85acb1105c259a84f537e41946e812d3e5102f2b5a1bb6f0fb07f24",
+      "bytes": 102179,
       "role": "verifier_or_generator"
     },
     {
@@ -908,8 +915,8 @@
     },
     {
       "path": "scripts/iter11_closeout_evidence_manifest.py",
-      "sha256": "070bde101239f069877e80ac39b3b4cbc8c6b3556c1cff075f3a32a06f57f7a4",
-      "bytes": 32548,
+      "sha256": "136337f5999f35bd5cdc5267ce1a39dd3cc93a5fd7cde368dda95658ee54914b",
+      "bytes": 67494,
       "role": "verifier_or_generator"
     },
     {
@@ -955,6 +962,12 @@
       "role": "verifier_or_generator"
     },
     {
+      "path": "scripts/iter11_paper_numbers.py",
+      "sha256": "2761422ca2f2d45393c708e62ad3586f007d123f1132d03d50b46b6aec086971",
+      "bytes": 124068,
+      "role": "verifier_or_generator"
+    },
+    {
       "path": "scripts/iter11_probe_judge_gateway.py",
       "sha256": "52dcdd41248b0e16071aec7d9908947aecf04d73f615f2cd9b43ee59dee45b10",
       "bytes": 21953,
@@ -986,8 +999,8 @@
     },
     {
       "path": "scripts/iter11_transportability_decision.py",
-      "sha256": "8a183c8ec1f6f145c203ffc7750ac10f955e16cafea2e741a87a822516d7964e",
-      "bytes": 46966,
+      "sha256": "e168020e659eff2bd33a0d97682cbd77011e8a87223b5acfd949546db2e1c588",
+      "bytes": 70524,
       "role": "verifier_or_generator"
     },
     {
@@ -1015,6 +1028,54 @@
       "role": "verifier_or_generator"
     },
     {
+      "path": "src/causal_mllm/__init__.py",
+      "sha256": "4f6a2a9e711bd62fc8125df91e6d9755ca0a96305a98019bc52eec6a173a6336",
+      "bytes": 94,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/construction/readiness.py",
+      "sha256": "ac82dfd8ab20ecae25c36c87477f203a91be4506eae431b639b39a0e8bd2ac88",
+      "bytes": 11911,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/data/io.py",
+      "sha256": "cfaf97c190f07902b8d647ba4da82a5fce64711ad7923182d8d8aa79cb5bf3e7",
+      "bytes": 3934,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/data/logging.py",
+      "sha256": "02f68af11b4f2cceb5b399a38d88db1d79c70f56b2e237e13028d17cf55bef29",
+      "bytes": 1849,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/data/schemas.py",
+      "sha256": "a3dfde60b95360f80109f5a9f9ccb6ed92c1d1f19c6cf9e87fb49d4d785376dc",
+      "bytes": 21339,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/data/validate_schema.py",
+      "sha256": "b69485000b1d9883003b93ef5b8d94e5de7d7554f6c70fca8ec894b5ccc8032d",
+      "bytes": 17674,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/adjudication.py",
+      "sha256": "82bc88c51787ebcab40daade02a55268a90f4b9d2750439ec786fbd039678662",
+      "bytes": 19710,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/agreement.py",
+      "sha256": "8ee77c59849e9048622aa4b8d05b27e3bfa6c8f063e7fdc5741c0c0c8d507e24",
+      "bytes": 14964,
+      "role": "library_the_verifiers_import"
+    },
+    {
       "path": "src/causal_mllm/evaluation/bootstrap.py",
       "sha256": "df1169165549cf9b1e8fca9840148200c3d21a2ce1b1e0a639ba678b3ef6b1e7",
       "bytes": 5668,
@@ -1027,15 +1088,153 @@
       "role": "library_the_verifiers_import"
     },
     {
+      "path": "src/causal_mllm/evaluation/config.py",
+      "sha256": "ed138cf7e535ff8821de0d4bf579faaf1484323abf51d12b7f1aa2a9eca698c6",
+      "bytes": 1234,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/ensemble.py",
+      "sha256": "24a7915825968d005cf59d441cb2a41ca5e399a5f4922c3ab94d027b424c6912",
+      "bytes": 25102,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/errors.py",
+      "sha256": "44bbfbe11f1d2e31a79dde42142be331de865c5b63f4274d324caa41fcd2039b",
+      "bytes": 3416,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/estimands.py",
+      "sha256": "7fa8bc0ab3abdc34ea08c6a53eccc1a75cdb0a6b89ca57f5b9e4ef4b59d4bfdf",
+      "bytes": 7790,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/gate.py",
+      "sha256": "c907a772ec7749047346442de2f2aebd503ded5a38e37ba1e8de696459d538aa",
+      "bytes": 11074,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/human_template.py",
+      "sha256": "093183aa34d13a46c008389a0404fd570b98a8f35da6d4f4fe7c998a4796e027",
+      "bytes": 32728,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/hypotheses.py",
+      "sha256": "5d585dc059c4e07285103c289bf2afca6621c5e579bd62a00b5eca3c2ae6fad8",
+      "bytes": 6862,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/judge.py",
+      "sha256": "1e0cfb48f6d4e7d9461a86074d0dba32957cade71bc860c52491f466b23b8f74",
+      "bytes": 18009,
+      "role": "library_the_verifiers_import"
+    },
+    {
       "path": "src/causal_mllm/evaluation/llm_judge.py",
       "sha256": "48bda5fd7eb31f8fd96447543ba9fa192215e791e7ef504e32e08bf162bb3aa8",
       "bytes": 25150,
       "role": "library_the_verifiers_import"
     },
     {
+      "path": "src/causal_mllm/evaluation/refusal_detector.py",
+      "sha256": "4d15f9362e0d6bca3b87a477f5364c9c06c91e1a153f096a0c749f77fdb8f165",
+      "bytes": 4532,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/runner.py",
+      "sha256": "822dc03b5528da4548ca2951052f317ffce8e9cbc6feda6bbfb8dde5f207b175",
+      "bytes": 25616,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/schema.py",
+      "sha256": "37cb77043fb436e55157ef895484368c0aa6ab58674dbcb40bc1011fb78006f7",
+      "bytes": 3634,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/evaluation/sensitivity.py",
+      "sha256": "df751b518cc1f6303aca5a321d963a94bca3af6269cf4396cb1e33d92d67d076",
+      "bytes": 6979,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/__init__.py",
+      "sha256": "dae516ede35472b11a6ee45f411d9a4a61f55874f3b6e2e03f86b46ba36f9d41",
+      "bytes": 4212,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/adapters/__init__.py",
+      "sha256": "b0ab2eaccbb9fb6813de867cb1134dcd7fead96b856347c5d4253ef265547d0a",
+      "bytes": 1494,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/adapters/base.py",
+      "sha256": "c815aadab58d9f11e9c66aa8bb2813d808959ac92f55805b979e36bec4be38ed",
+      "bytes": 19828,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/adapters/ministral3.py",
+      "sha256": "521a2ae48b9d3bf6eb10ca2f218dc3bcf4904df1fcb65ad4e28232104e324033",
+      "bytes": 7635,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/adapters/phi4_multimodal.py",
+      "sha256": "f4d981a4cafe9afa8594e1feb2f84fa57489e6faef288df03ab75c7c606a5f3d",
+      "bytes": 40372,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/adapters/qwen35.py",
+      "sha256": "bb4047b663abe9a0c06f0cf0c081a47307bc7b183035099314bf770fb9d39987",
+      "bytes": 1491,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/backend.py",
+      "sha256": "f11c2ca998b80876aed41933c6c559b88ee5874973daa20f7e8193be85b56c24",
+      "bytes": 11170,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/checkpoint_size.py",
+      "sha256": "a5e1b23262a3dd52e6f3f1a0fabf6499c974f18eb4f818677d74a313d5289de1",
+      "bytes": 9393,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/config.py",
+      "sha256": "ff3eac65a9b3474aed95a2fda2be145945230536f56e54ee736894abd9ac1dd0",
+      "bytes": 2768,
+      "role": "library_the_verifiers_import"
+    },
+    {
       "path": "src/causal_mllm/replay/confirmatory.py",
       "sha256": "08f688c76f9962f437b5819680976ca386d77292f1d9a9b30b8c34bdfdfe09e7",
       "bytes": 63303,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/environment.py",
+      "sha256": "4c4640765e706fb68954bb039b55134901abe1f3be6d825301425e901d273788",
+      "bytes": 6523,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/errors.py",
+      "sha256": "15e426bcb890b94e442e4f2c8f4aea32b59a6f8a79db951c20b12b2359fde7e4",
+      "bytes": 1681,
       "role": "library_the_verifiers_import"
     },
     {
@@ -1057,9 +1256,27 @@
       "role": "library_the_verifiers_import"
     },
     {
+      "path": "src/causal_mllm/replay/selection.py",
+      "sha256": "8ed5482667c462ddf5c9da1bf9fb4d73fd3ecf9fd5e040dcfb043f01ab3bfdcd",
+      "bytes": 21853,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/replay/truncation.py",
+      "sha256": "3ab6a3657189bddd43b7c5fb01820be9533bca0c911c53556cabbb6894d3f51a",
+      "bytes": 11749,
+      "role": "library_the_verifiers_import"
+    },
+    {
       "path": "src/causal_mllm/seeds.py",
       "sha256": "c56e09a73368b4a6d5452d5b41f18e5d2e8e5e75e373995dd33ee35261c4a908",
       "bytes": 13974,
+      "role": "library_the_verifiers_import"
+    },
+    {
+      "path": "src/causal_mllm/validation/relations.py",
+      "sha256": "f837b06a11c9a0ee8039ddc885ee72d66daac7bc58b9d317d8f6fe3b32dbd75a",
+      "bytes": 9172,
       "role": "library_the_verifiers_import"
     },
     {
@@ -1082,8 +1299,8 @@
     },
     {
       "path": "tests/unit/test_iter11_closeout_evidence_manifest.py",
-      "sha256": "54ac45795d3c92fa61de3dceb9399614c4c15596be8393ded7cac52ee8040083",
-      "bytes": 31494,
+      "sha256": "506b61399a5f8e92551b11f692cb642fe9f8c16da8612b834beb0863ac6dd7b6",
+      "bytes": 67068,
       "role": "test"
     },
     {
@@ -1106,8 +1323,8 @@
     },
     {
       "path": "tests/unit/test_iter11_differential_censoring.py",
-      "sha256": "66e68ed19000bc2019947d9f2c4315e4821e080baf2578fe38e71c7738737e5d",
-      "bytes": 112195,
+      "sha256": "18139afe36f260e1410daf90c070fc09b37c3693a36f670155696837b4c1e6ed",
+      "bytes": 123866,
       "role": "test"
     },
     {
@@ -1165,6 +1382,12 @@
       "role": "test"
     },
     {
+      "path": "tests/unit/test_iter11_paper_numbers.py",
+      "sha256": "cd88e35fda0ad6dda8924152307d8d483a89730d389c26d06b5262c0e9987a6e",
+      "bytes": 46830,
+      "role": "test"
+    },
+    {
       "path": "tests/unit/test_iter11_phi4.py",
       "sha256": "3f9bf3fc5c392d4395b918e3b10ff5dc8bec33981f53c0cd7602d0cacc90620a",
       "bytes": 65528,
@@ -1184,8 +1407,8 @@
     },
     {
       "path": "tests/unit/test_iter11_transportability_decision.py",
-      "sha256": "cf6ded4ffa53915e5273b53c91b21dacd9af79b33960f434dfd12d7783fcfb45",
-      "bytes": 36409,
+      "sha256": "e64f3b0a4586caf96a4d2e38a6303c8c273af04c096beeaef77b5fc14fcf4e9f",
+      "bytes": 49922,
       "role": "test"
     },
     {
@@ -1245,13 +1468,612 @@
     },
     {
       "path": "outputs/iteration_11/closeout/iteration_11_transportability_decision.json",
-      "what_it_establishes": "the transportability call, derived from the two analyses above rather than written down beside them",
+      "what_it_establishes": "the transportability call, derived from the two analyses above rather than written down beside them, and the measurement of whether the rule that produced that call was pre-specified",
       "verified_by": "scripts/iter11_transportability_decision.py"
+    },
+    {
+      "path": "paper/numbers/iteration_11_paper_numbers.json",
+      "what_it_establishes": "every number the paper quotes, read out of the artifacts above rather than transcribed from them: twelve tables, two figure specs and nine claims with the lists their numerals count, each bound by sha256 to the filed artifacts it came from. It does not bind this manifest, because this manifest binds it and two documents carrying each other's hash have no fixed point; it cites the command that re-derives the closeout instead of a count of what the closeout bound",
+      "verified_by": "scripts/iter11_paper_numbers.py"
     }
   ],
+  "scientific_dependency_closure": {
+    "n_modules": 42,
+    "n_roots_walked": 88,
+    "modules": [
+      "src/causal_mllm/__init__.py",
+      "src/causal_mllm/construction/readiness.py",
+      "src/causal_mllm/data/io.py",
+      "src/causal_mllm/data/logging.py",
+      "src/causal_mllm/data/schemas.py",
+      "src/causal_mllm/data/validate_schema.py",
+      "src/causal_mllm/evaluation/adjudication.py",
+      "src/causal_mllm/evaluation/agreement.py",
+      "src/causal_mllm/evaluation/bootstrap.py",
+      "src/causal_mllm/evaluation/censoring.py",
+      "src/causal_mllm/evaluation/config.py",
+      "src/causal_mllm/evaluation/ensemble.py",
+      "src/causal_mllm/evaluation/errors.py",
+      "src/causal_mllm/evaluation/estimands.py",
+      "src/causal_mllm/evaluation/gate.py",
+      "src/causal_mllm/evaluation/human_template.py",
+      "src/causal_mllm/evaluation/hypotheses.py",
+      "src/causal_mllm/evaluation/judge.py",
+      "src/causal_mllm/evaluation/llm_judge.py",
+      "src/causal_mllm/evaluation/refusal_detector.py",
+      "src/causal_mllm/evaluation/runner.py",
+      "src/causal_mllm/evaluation/schema.py",
+      "src/causal_mllm/evaluation/sensitivity.py",
+      "src/causal_mllm/replay/__init__.py",
+      "src/causal_mllm/replay/adapters/__init__.py",
+      "src/causal_mllm/replay/adapters/base.py",
+      "src/causal_mllm/replay/adapters/ministral3.py",
+      "src/causal_mllm/replay/adapters/phi4_multimodal.py",
+      "src/causal_mllm/replay/adapters/qwen35.py",
+      "src/causal_mllm/replay/backend.py",
+      "src/causal_mllm/replay/checkpoint_size.py",
+      "src/causal_mllm/replay/config.py",
+      "src/causal_mllm/replay/confirmatory.py",
+      "src/causal_mllm/replay/environment.py",
+      "src/causal_mllm/replay/errors.py",
+      "src/causal_mllm/replay/registry.py",
+      "src/causal_mllm/replay/reproduction.py",
+      "src/causal_mllm/replay/runner.py",
+      "src/causal_mllm/replay/selection.py",
+      "src/causal_mllm/replay/truncation.py",
+      "src/causal_mllm/seeds.py",
+      "src/causal_mllm/validation/relations.py"
+    ],
+    "edges": {
+      "scripts/iter11_adjudicate_sensitivity_cell.py": [
+        "src/causal_mllm/evaluation/adjudication.py",
+        "src/causal_mllm/evaluation/censoring.py",
+        "src/causal_mllm/evaluation/llm_judge.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_blinding_audit.py": [
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/evaluation/human_template.py",
+        "src/causal_mllm/evaluation/llm_judge.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_closeout_evidence_manifest.py": [],
+      "scripts/iter11_common_panel.py": [],
+      "scripts/iter11_correct_exclusion_metadata.py": [
+        "src/causal_mllm/evaluation/censoring.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_cross_model_analysis.py": [
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/evaluation/estimands.py",
+        "src/causal_mllm/evaluation/hypotheses.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/reproduction.py"
+      ],
+      "scripts/iter11_differential_censoring_bound.py": [
+        "src/causal_mllm/evaluation/adjudication.py",
+        "src/causal_mllm/evaluation/censoring.py",
+        "src/causal_mllm/evaluation/estimands.py",
+        "src/causal_mllm/evaluation/hypotheses.py",
+        "src/causal_mllm/evaluation/schema.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/reproduction.py"
+      ],
+      "scripts/iter11_freeze_protocol.py": [
+        "src/causal_mllm/replay/config.py"
+      ],
+      "scripts/iter11_judge_vision_ablation.py": [
+        "src/causal_mllm/evaluation/adjudication.py",
+        "src/causal_mllm/evaluation/llm_judge.py"
+      ],
+      "scripts/iter11_model_preflight.py": [
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/replay/adapters/__init__.py",
+        "src/causal_mllm/replay/adapters/phi4_multimodal.py",
+        "src/causal_mllm/replay/checkpoint_size.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/replay/confirmatory.py",
+        "src/causal_mllm/replay/environment.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/runner.py",
+        "src/causal_mllm/seeds.py",
+        "src/causal_mllm/validation/relations.py"
+      ],
+      "scripts/iter11_paper_numbers.py": [
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_probe_judge_gateway.py": [
+        "src/causal_mllm/evaluation/llm_judge.py"
+      ],
+      "scripts/iter11_probe_judge_moderation.py": [
+        "src/causal_mllm/evaluation/llm_judge.py",
+        "src/causal_mllm/seeds.py",
+        "src/causal_mllm/validation/relations.py"
+      ],
+      "scripts/iter11_reference_restriction.py": [
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/evaluation/estimands.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/reproduction.py"
+      ],
+      "scripts/iter11_replay_checks.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/replay/confirmatory.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/selection.py",
+        "src/causal_mllm/replay/truncation.py"
+      ],
+      "scripts/iter11_run_eligibility.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/replay/adapters/__init__.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/replay/confirmatory.py",
+        "src/causal_mllm/replay/environment.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/runner.py",
+        "src/causal_mllm/replay/selection.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_transportability_decision.py": [
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_truncation_evidence.py": [
+        "src/causal_mllm/replay/truncation.py"
+      ],
+      "scripts/iter11_write_dependency_lock.py": [
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_write_media_manifest.py": [
+        "src/causal_mllm/seeds.py"
+      ],
+      "scripts/iter11_write_selection.py": [
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/selection.py"
+      ],
+      "src/causal_mllm/__init__.py": [],
+      "src/causal_mllm/construction/readiness.py": [
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/data/validate_schema.py"
+      ],
+      "src/causal_mllm/data/io.py": [],
+      "src/causal_mllm/data/logging.py": [],
+      "src/causal_mllm/data/schemas.py": [
+        "src/causal_mllm/seeds.py"
+      ],
+      "src/causal_mllm/data/validate_schema.py": [
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "src/causal_mllm/evaluation/adjudication.py": [
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/schema.py"
+      ],
+      "src/causal_mllm/evaluation/agreement.py": [
+        "src/causal_mllm/evaluation/errors.py"
+      ],
+      "src/causal_mllm/evaluation/bootstrap.py": [
+        "src/causal_mllm/evaluation/errors.py"
+      ],
+      "src/causal_mllm/evaluation/censoring.py": [],
+      "src/causal_mllm/evaluation/config.py": [],
+      "src/causal_mllm/evaluation/ensemble.py": [
+        "src/causal_mllm/evaluation/adjudication.py",
+        "src/causal_mllm/evaluation/agreement.py",
+        "src/causal_mllm/evaluation/config.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/estimands.py",
+        "src/causal_mllm/evaluation/human_template.py",
+        "src/causal_mllm/evaluation/judge.py",
+        "src/causal_mllm/evaluation/runner.py",
+        "src/causal_mllm/evaluation/sensitivity.py"
+      ],
+      "src/causal_mllm/evaluation/errors.py": [],
+      "src/causal_mllm/evaluation/estimands.py": [
+        "src/causal_mllm/evaluation/errors.py"
+      ],
+      "src/causal_mllm/evaluation/gate.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/replay/truncation.py"
+      ],
+      "src/causal_mllm/evaluation/human_template.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/schema.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "src/causal_mllm/evaluation/hypotheses.py": [
+        "src/causal_mllm/evaluation/errors.py"
+      ],
+      "src/causal_mllm/evaluation/judge.py": [
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/schema.py"
+      ],
+      "src/causal_mllm/evaluation/llm_judge.py": [
+        "src/causal_mllm/evaluation/adjudication.py",
+        "src/causal_mllm/evaluation/errors.py"
+      ],
+      "src/causal_mllm/evaluation/refusal_detector.py": [],
+      "src/causal_mllm/evaluation/runner.py": [
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/data/logging.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/evaluation/censoring.py",
+        "src/causal_mllm/evaluation/config.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/estimands.py",
+        "src/causal_mllm/evaluation/gate.py",
+        "src/causal_mllm/evaluation/judge.py",
+        "src/causal_mllm/evaluation/refusal_detector.py",
+        "src/causal_mllm/evaluation/schema.py",
+        "src/causal_mllm/evaluation/sensitivity.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "src/causal_mllm/evaluation/schema.py": [
+        "src/causal_mllm/seeds.py"
+      ],
+      "src/causal_mllm/evaluation/sensitivity.py": [
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/estimands.py"
+      ],
+      "src/causal_mllm/replay/__init__.py": [
+        "src/causal_mllm/replay/adapters/__init__.py",
+        "src/causal_mllm/replay/backend.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/replay/confirmatory.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/runner.py",
+        "src/causal_mllm/replay/selection.py",
+        "src/causal_mllm/replay/truncation.py"
+      ],
+      "src/causal_mllm/replay/adapters/__init__.py": [
+        "src/causal_mllm/replay/adapters/base.py",
+        "src/causal_mllm/replay/adapters/ministral3.py",
+        "src/causal_mllm/replay/adapters/phi4_multimodal.py",
+        "src/causal_mllm/replay/adapters/qwen35.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py"
+      ],
+      "src/causal_mllm/replay/adapters/base.py": [
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "src/causal_mllm/replay/adapters/ministral3.py": [
+        "src/causal_mllm/replay/adapters/base.py",
+        "src/causal_mllm/replay/checkpoint_size.py"
+      ],
+      "src/causal_mllm/replay/adapters/phi4_multimodal.py": [
+        "src/causal_mllm/replay/adapters/base.py",
+        "src/causal_mllm/replay/checkpoint_size.py",
+        "src/causal_mllm/replay/errors.py"
+      ],
+      "src/causal_mllm/replay/adapters/qwen35.py": [
+        "src/causal_mllm/replay/adapters/base.py"
+      ],
+      "src/causal_mllm/replay/backend.py": [
+        "src/causal_mllm/replay/config.py"
+      ],
+      "src/causal_mllm/replay/checkpoint_size.py": [
+        "src/causal_mllm/replay/errors.py"
+      ],
+      "src/causal_mllm/replay/config.py": [],
+      "src/causal_mllm/replay/confirmatory.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/selection.py",
+        "src/causal_mllm/seeds.py",
+        "src/causal_mllm/validation/relations.py"
+      ],
+      "src/causal_mllm/replay/environment.py": [
+        "src/causal_mllm/replay/registry.py"
+      ],
+      "src/causal_mllm/replay/errors.py": [],
+      "src/causal_mllm/replay/registry.py": [
+        "src/causal_mllm/replay/errors.py"
+      ],
+      "src/causal_mllm/replay/reproduction.py": [
+        "src/causal_mllm/replay/registry.py"
+      ],
+      "src/causal_mllm/replay/runner.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/data/logging.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/replay/adapters/__init__.py",
+        "src/causal_mllm/replay/backend.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/replay/confirmatory.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/selection.py",
+        "src/causal_mllm/replay/truncation.py",
+        "src/causal_mllm/seeds.py",
+        "src/causal_mllm/validation/relations.py"
+      ],
+      "src/causal_mllm/replay/selection.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/replay/errors.py"
+      ],
+      "src/causal_mllm/replay/truncation.py": [],
+      "src/causal_mllm/seeds.py": [],
+      "src/causal_mllm/validation/relations.py": [
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "tests/unit/test_environment_reconstructibility.py": [
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/reproduction.py"
+      ],
+      "tests/unit/test_iter11_adapters.py": [
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/adapters/base.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "tests/unit/test_iter11_checkpoint_size.py": [
+        "src/causal_mllm/replay/checkpoint_size.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py"
+      ],
+      "tests/unit/test_iter11_closeout_evidence_manifest.py": [],
+      "tests/unit/test_iter11_common_panel.py": [
+        "src/causal_mllm/evaluation/errors.py"
+      ],
+      "tests/unit/test_iter11_completion_gate.py": [],
+      "tests/unit/test_iter11_cross_model_analysis.py": [
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/evaluation/estimands.py",
+        "src/causal_mllm/replay/truncation.py"
+      ],
+      "tests/unit/test_iter11_differential_censoring.py": [
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/evaluation/censoring.py",
+        "src/causal_mllm/evaluation/hypotheses.py",
+        "src/causal_mllm/evaluation/llm_judge.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/reproduction.py"
+      ],
+      "tests/unit/test_iter11_evidence_integrity.py": [
+        "src/causal_mllm/__init__.py",
+        "src/causal_mllm/construction/readiness.py",
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/replay/confirmatory.py",
+        "src/causal_mllm/replay/errors.py",
+        "src/causal_mllm/replay/registry.py",
+        "src/causal_mllm/replay/runner.py",
+        "src/causal_mllm/replay/selection.py",
+        "src/causal_mllm/seeds.py",
+        "src/causal_mllm/validation/relations.py"
+      ],
+      "tests/unit/test_iter11_exclusion_end_to_end.py": [
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/evaluation/config.py",
+        "src/causal_mllm/evaluation/ensemble.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "tests/unit/test_iter11_exclusion_metadata.py": [
+        "src/causal_mllm/evaluation/censoring.py"
+      ],
+      "tests/unit/test_iter11_hypotheses.py": [
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/hypotheses.py"
+      ],
+      "tests/unit/test_iter11_judge_moderation.py": [
+        "src/causal_mllm/evaluation/agreement.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/llm_judge.py",
+        "src/causal_mllm/validation/relations.py"
+      ],
+      "tests/unit/test_iter11_judge_profiles.py": [
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/data/schemas.py",
+        "src/causal_mllm/evaluation/human_template.py",
+        "src/causal_mllm/replay/config.py",
+        "src/causal_mllm/seeds.py"
+      ],
+      "tests/unit/test_iter11_judge_vision.py": [
+        "src/causal_mllm/evaluation/ensemble.py"
+      ],
+      "tests/unit/test_iter11_ministral3.py": [
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/adapters/ministral3.py",
+        "src/causal_mllm/replay/registry.py"
+      ],
+      "tests/unit/test_iter11_panel_restriction.py": [
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/estimands.py",
+        "src/causal_mllm/evaluation/runner.py"
+      ],
+      "tests/unit/test_iter11_paper_numbers.py": [],
+      "tests/unit/test_iter11_phi4.py": [
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/adapters/base.py",
+        "src/causal_mllm/replay/adapters/phi4_multimodal.py",
+        "src/causal_mllm/replay/registry.py"
+      ],
+      "tests/unit/test_iter11_protocol.py": [],
+      "tests/unit/test_iter11_reference_restriction.py": [
+        "src/causal_mllm/evaluation/bootstrap.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/reproduction.py"
+      ],
+      "tests/unit/test_iter11_transportability_decision.py": [],
+      "tests/unit/test_llm_judge_fixes.py": [
+        "src/causal_mllm/evaluation/adjudication.py",
+        "src/causal_mllm/evaluation/agreement.py",
+        "src/causal_mllm/evaluation/errors.py",
+        "src/causal_mllm/evaluation/llm_judge.py"
+      ],
+      "tests/unit/test_replay.py": [
+        "src/causal_mllm/data/io.py",
+        "src/causal_mllm/replay/__init__.py",
+        "src/causal_mllm/replay/backend.py"
+      ],
+      "tests/unit/test_replay_evidence.py": [
+        "src/causal_mllm/data/io.py"
+      ]
+    },
+    "roots": [
+      "scripts/iter11_adjudicate_sensitivity_cell.py",
+      "scripts/iter11_blinding_audit.py",
+      "scripts/iter11_closeout_evidence_manifest.py",
+      "scripts/iter11_common_panel.py",
+      "scripts/iter11_correct_exclusion_metadata.py",
+      "scripts/iter11_cross_model_analysis.py",
+      "scripts/iter11_differential_censoring_bound.py",
+      "scripts/iter11_freeze_protocol.py",
+      "scripts/iter11_judge_vision_ablation.py",
+      "scripts/iter11_model_preflight.py",
+      "scripts/iter11_paper_numbers.py",
+      "scripts/iter11_probe_judge_gateway.py",
+      "scripts/iter11_probe_judge_moderation.py",
+      "scripts/iter11_reference_restriction.py",
+      "scripts/iter11_replay_checks.py",
+      "scripts/iter11_run_eligibility.py",
+      "scripts/iter11_transportability_decision.py",
+      "scripts/iter11_truncation_evidence.py",
+      "scripts/iter11_write_dependency_lock.py",
+      "scripts/iter11_write_media_manifest.py",
+      "scripts/iter11_write_selection.py",
+      "src/causal_mllm/__init__.py",
+      "src/causal_mllm/construction/readiness.py",
+      "src/causal_mllm/data/io.py",
+      "src/causal_mllm/data/logging.py",
+      "src/causal_mllm/data/schemas.py",
+      "src/causal_mllm/data/validate_schema.py",
+      "src/causal_mllm/evaluation/adjudication.py",
+      "src/causal_mllm/evaluation/agreement.py",
+      "src/causal_mllm/evaluation/bootstrap.py",
+      "src/causal_mllm/evaluation/censoring.py",
+      "src/causal_mllm/evaluation/config.py",
+      "src/causal_mllm/evaluation/ensemble.py",
+      "src/causal_mllm/evaluation/errors.py",
+      "src/causal_mllm/evaluation/estimands.py",
+      "src/causal_mllm/evaluation/gate.py",
+      "src/causal_mllm/evaluation/human_template.py",
+      "src/causal_mllm/evaluation/hypotheses.py",
+      "src/causal_mllm/evaluation/judge.py",
+      "src/causal_mllm/evaluation/llm_judge.py",
+      "src/causal_mllm/evaluation/refusal_detector.py",
+      "src/causal_mllm/evaluation/runner.py",
+      "src/causal_mllm/evaluation/schema.py",
+      "src/causal_mllm/evaluation/sensitivity.py",
+      "src/causal_mllm/replay/__init__.py",
+      "src/causal_mllm/replay/adapters/__init__.py",
+      "src/causal_mllm/replay/adapters/base.py",
+      "src/causal_mllm/replay/adapters/ministral3.py",
+      "src/causal_mllm/replay/adapters/phi4_multimodal.py",
+      "src/causal_mllm/replay/adapters/qwen35.py",
+      "src/causal_mllm/replay/backend.py",
+      "src/causal_mllm/replay/checkpoint_size.py",
+      "src/causal_mllm/replay/config.py",
+      "src/causal_mllm/replay/confirmatory.py",
+      "src/causal_mllm/replay/environment.py",
+      "src/causal_mllm/replay/errors.py",
+      "src/causal_mllm/replay/registry.py",
+      "src/causal_mllm/replay/reproduction.py",
+      "src/causal_mllm/replay/runner.py",
+      "src/causal_mllm/replay/selection.py",
+      "src/causal_mllm/replay/truncation.py",
+      "src/causal_mllm/seeds.py",
+      "src/causal_mllm/validation/relations.py",
+      "tests/unit/test_environment_reconstructibility.py",
+      "tests/unit/test_iter11_adapters.py",
+      "tests/unit/test_iter11_checkpoint_size.py",
+      "tests/unit/test_iter11_closeout_evidence_manifest.py",
+      "tests/unit/test_iter11_common_panel.py",
+      "tests/unit/test_iter11_completion_gate.py",
+      "tests/unit/test_iter11_cross_model_analysis.py",
+      "tests/unit/test_iter11_differential_censoring.py",
+      "tests/unit/test_iter11_evidence_integrity.py",
+      "tests/unit/test_iter11_exclusion_end_to_end.py",
+      "tests/unit/test_iter11_exclusion_metadata.py",
+      "tests/unit/test_iter11_hypotheses.py",
+      "tests/unit/test_iter11_judge_moderation.py",
+      "tests/unit/test_iter11_judge_profiles.py",
+      "tests/unit/test_iter11_judge_vision.py",
+      "tests/unit/test_iter11_ministral3.py",
+      "tests/unit/test_iter11_panel_restriction.py",
+      "tests/unit/test_iter11_paper_numbers.py",
+      "tests/unit/test_iter11_phi4.py",
+      "tests/unit/test_iter11_protocol.py",
+      "tests/unit/test_iter11_reference_restriction.py",
+      "tests/unit/test_iter11_transportability_decision.py",
+      "tests/unit/test_llm_judge_fixes.py",
+      "tests/unit/test_replay.py",
+      "tests/unit/test_replay_evidence.py"
+    ],
+    "modules_that_cannot_be_imported": {},
+    "what_an_unimportable_module_means": "a bound file imports a causal_mllm module at MODULE LEVEL that does not exist, so the package cannot be imported and nothing downstream of it can have produced the evidence this manifest binds. Empty is the only acceptable value",
+    "hand_listed_modules_the_closure_does_not_reach": [],
+    "what_that_field_checks": "the walker against a hand-written expectation. This file names 8 library modules as dependencies of the bound verifiers; if the walk does not reach one of them then either the walker is broken or that module is no longer imported by anything bound. Both are findings, and neither is a reason to bind less, so the field is filed and required to be empty rather than being resolved by dropping the module from the list",
+    "deferred_imports_of_modules_that_do_not_exist": {
+      "src/causal_mllm/replay/adapters/__init__.py": {
+        "build_adapter": [
+          "causal_mllm.replay.adapters.gemma3",
+          "causal_mllm.replay.adapters.gemma3.Gemma3Adapter"
+        ]
+      }
+    },
+    "relative_imports_the_walk_could_not_follow": {},
+    "n_relative_imports_the_walk_could_not_follow": 0,
+    "what_an_unfollowed_relative_import_would_mean": "an edge this closure did not follow, so the module on the other side of it is not bound. Zero is the value this repository produces, and it is filed rather than assumed so that adopting relative imports turns into a number in the manifest instead of a quietly smaller one",
+    "what_a_deferred_import_of_an_absent_module_is": "a branch that would raise ModuleNotFoundError if it were ever taken. It is filed rather than fatal because it does not stop the package importing and it may name a module this iteration never needed; it is not filed as harmless either, because a registry that advertises a kind whose module is absent will fail with an import error instead of the error it meant to raise. Anything imported AT MODULE LEVEL and absent is fatal, and is not listed here",
+    "how_it_is_computed": "every bound .py file is parsed with ast, its causal_mllm imports are resolved to files under src/, and the walk repeats until nothing new is reached. Imports inside function and lambda bodies are walked too and marked deferred. A name that resolves to no module is a symbol and is ignored; a name whose PARENT resolves to no module is a gap, recorded per import site",
+    "what_it_does_not_cover": "third-party packages, which no walk of this repository can pin. They are bound by outputs/iteration_11/preflight/dependency_lock_reconstruction.json and the freeze it authenticates, both of which are in the bound set, and the environment a verifier runs in is certified against that lock at verification time rather than assumed here",
+    "why_it_is_walked_and_not_listed": "a hand-maintained list of the modules that matter is a claim about the code that goes stale silently, and the failure it produces is a manifest that still verifies while an artifact's numbers are computed by a module nobody bound. Walking means the bound set follows the imports"
+  },
+  "deep_closeout": {
+    "command": "python scripts/iter11_closeout_evidence_manifest.py --deep",
+    "verifiers_it_executes": [
+      "scripts/iter11_adjudicate_sensitivity_cell.py",
+      "scripts/iter11_cross_model_analysis.py",
+      "scripts/iter11_differential_censoring_bound.py",
+      "scripts/iter11_paper_numbers.py",
+      "scripts/iter11_replay_checks.py",
+      "scripts/iter11_transportability_decision.py",
+      "scripts/iter11_write_dependency_lock.py",
+      "scripts/iter11_write_media_manifest.py"
+    ],
+    "n_verifiers": 8,
+    "how_exit_codes_aggregate": {
+      "0": "that verifier's evidence re-derives; counted as verified",
+      "3": "incomplete here rather than contradicted -- a section of the evidence this checkout does not have, such as the media in a fresh clone. Counted, named, and never folded into the success total",
+      "1": "a contradiction. Fails the deep closeout",
+      "2": "nothing filed for that verifier to check, or a bound file absent from disk. Fails the deep closeout"
+    },
+    "what_verify_alone_does_not_do": "--verify hashes the verifiers and reads their source to confirm each implements a --verify mode. It does not run one, so a manifest can verify exactly while a scientific verifier behind it fails. --deep is the command that executes them, and a closeout that has not been run deep has been hashed, not checked"
+  },
   "bound_by_discovery_not_by_a_list": {
     "trees": [
-      "outputs/iteration_11/"
+      "outputs/iteration_11/",
+      "paper/"
     ],
     "patterns": [
       "scripts/iter11_*.py",
@@ -1276,7 +2098,7 @@
   "what_this_manifest_does_not_bind": {
     "itself": {
       "path": "outputs/iteration_11/closeout/iteration_11_evidence_manifest.json",
-      "why": "a document cannot carry its own hash. Its integrity is the re-derivation: --verify rebuilds the whole thing from the files on disk and compares, so tampering with the manifest is tampering with a claim that the bound files then contradict"
+      "why": "a document cannot carry its own hash, so no sha256 of this file appears inside it. That is not the same as its bytes going unchecked: --verify rebuilds the whole document from the bound files and compares, AND resolves this file as a blob at HEAD and compares its hash there, so an edited manifest that was never committed is a finding rather than a document that quietly describes a different evidence set"
     },
     "the_media": {
       "n_files": 3034,
