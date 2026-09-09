@@ -2,16 +2,13 @@
   "question": "can the family the differential exclusion cost be given back to the arms whose own providers did not refuse it",
   "produced_by": "scripts/iter11_adjudicate_sensitivity_cell.py",
   "kind": "iteration_11_sensitivity_labels_99f_v1",
-  "code_commit": "b287a6b9562ff2bb48fb1bc22e92023dbd8aefe6",
+  "code_commit": "32f2046a683d429f526afe6671d85bb86391df18",
   "git_dirty": false,
   "code_dirty_paths": [],
   "untracked_code_paths": [],
-  "excluded_own_outputs": [
-    "outputs/iteration_11/analysis/differential_censoring/differential_censoring_bound.json",
-    "outputs/iteration_11/analysis/differential_censoring/labels_adjudicated.sensitivity_99f.json"
-  ],
+  "excluded_own_outputs": [],
   "excluded_cache_paths": [],
-  "generated_at": "2026-09-08T19:05:56+00:00",
+  "generated_at": "2026-09-09T02:22:03+00:00",
   "cell": "CMST_456921/text_only",
   "family": "CMST_456921",
   "variant": "text_only",
@@ -63,7 +60,7 @@
         "request_hash": null,
         "prompt_sha256": null,
         "image_hashes": null,
-        "config_source": null,
+        "config_identity": null,
         "why_not": "the frozen rule resolves this cell as 'not_derivable', so it sends no request"
       },
       "call_reused_from": null,
@@ -110,7 +107,7 @@
         "image_hashes": [],
         "rubric_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
         "rubric_version": "1.1",
-        "config_source": "the pipeline's own ADJUDICATOR_CONFIG, loaded by path so there is one definition of the frozen adjudicator",
+        "config_identity": "the frozen adjudicator identity pinned by this script -- model_id, provider, temperature and model_seed -- and cross-checked against the pipeline's own ADJUDICATOR_CONFIG wherever credentials exist, so there is one definition of the frozen adjudicator and not two that can drift. api_key and base_url enter no hash, so nothing about the checkout that computed this block is filed in it and nothing about that checkout can change it",
         "how": "LLMAdjudicator.adjudicate_item and MultimodalLLMJudge.judge run for real over the committed blinded item and the two committed primary judgments, with _call_api -- the only network call in the path -- replaced by a stub whose judgment is discarded. Nothing was sent; the hash is the one the real call would have carried"
       },
       "call_reused_from": {
@@ -203,7 +200,7 @@
         "image_hashes": [],
         "rubric_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
         "rubric_version": "1.1",
-        "config_source": "the pipeline's own ADJUDICATOR_CONFIG, loaded by path so there is one definition of the frozen adjudicator",
+        "config_identity": "the frozen adjudicator identity pinned by this script -- model_id, provider, temperature and model_seed -- and cross-checked against the pipeline's own ADJUDICATOR_CONFIG wherever credentials exist, so there is one definition of the frozen adjudicator and not two that can drift. api_key and base_url enter no hash, so nothing about the checkout that computed this block is filed in it and nothing about that checkout can change it",
         "how": "LLMAdjudicator.adjudicate_item and MultimodalLLMJudge.judge run for real over the committed blinded item and the two committed primary judgments, with _call_api -- the only network call in the path -- replaced by a stub whose judgment is discarded. Nothing was sent; the hash is the one the real call would have carried"
       },
       "call_reused_from": {
@@ -292,7 +289,7 @@
         "request_hash": null,
         "prompt_sha256": null,
         "image_hashes": null,
-        "config_source": null,
+        "config_identity": null,
         "why_not": "the frozen rule resolves this cell as 'derived_from_primary_agreement', so it sends no request"
       },
       "call_reused_from": null,
@@ -390,7 +387,36 @@
     "rubric_version": "1.1",
     "rubric_sha256": "ce6c20057b3b84d3c868908062c605383cfb42a9eac5243e529aacb2d0bfbd0c",
     "rubric_path": "src/causal_mllm/evaluation/annotation_rubric_v1_1.md",
-    "source": "the pipeline's own ADJUDICATOR_CONFIG, loaded by path so there is one definition of the frozen adjudicator"
+    "config_identity": "the frozen adjudicator identity pinned by this script -- model_id, provider, temperature and model_seed -- and cross-checked against the pipeline's own ADJUDICATOR_CONFIG wherever credentials exist, so there is one definition of the frozen adjudicator and not two that can drift. api_key and base_url enter no hash, so nothing about the checkout that computed this block is filed in it and nothing about that checkout can change it"
+  },
+  "fields_the_preserved_call_and_the_artifact_do_not_share": {
+    "where": "outputs/iteration_11/analysis/differential_censoring/call_receipts.sensitivity_99f.json",
+    "superseded": {
+      "config_source": {
+        "what_it_described": "where the adjudicator's identity was read from on the machine that wrote this, and therefore whether that machine held credentials. It is not a property of the request: api_key and base_url enter no hash, so two checkouts with different credential states compute the same request_hash. Its replacement states the pinned identity without naming the checkout",
+        "arms_whose_preserved_call_carries_it": [
+          "phi4_mm",
+          "qwen35_2b"
+        ],
+        "the_values_it_holds": [
+          "the pipeline's own ADJUDICATOR_CONFIG, loaded by path so there is one definition of the frozen adjudicator"
+        ]
+      }
+    },
+    "introduced_since_the_calls_were_preserved": {
+      "config_identity": {
+        "what_it_is": "the credential-independent statement of the frozen adjudicator's identity, which replaced config_source. The calls were preserved before it existed and the receipt is not rewritten, so the two blocks differ in this key and in nothing that binds the call",
+        "arms_whose_preserved_call_predates_it": [
+          "phi4_mm",
+          "qwen35_2b"
+        ]
+      }
+    },
+    "what_replaced_the_superseded_ones": {
+      "config_identity": "the frozen adjudicator identity pinned by this script -- model_id, provider, temperature and model_seed -- and cross-checked against the pipeline's own ADJUDICATOR_CONFIG wherever credentials exist, so there is one definition of the frozen adjudicator and not two that can drift. api_key and base_url enter no hash, so nothing about the checkout that computed this block is filed in it and nothing about that checkout can change it"
+    },
+    "why_they_are_not_compared": "they describe the checkout that computed the block, or postdate the call, and neither is a property of the request. Comparing them makes a re-file depend on whether this machine holds a key, and the request hash -- the thing that actually binds a preserved call to the question being asked now -- is identical in both states, which a test asserts rather than assumes. Every other key the two blocks share is compared, and a key only one side has is reported here rather than passed over",
+    "why_the_source_is_not_rewritten": "a receipt is a record of what happened. Rewriting it would change what every sha256 citing it means, and would delete the record that the field was ever filed -- a correction that erases the thing it corrects cannot be checked"
   },
   "what_this_does_not_do": "This does not change the confirmatory analysis, which stays on the 98-family common panel where every arm judged the same cells. It supplies the ensemble label the three unaffected arms could have had, so that the 99-family recomputation in iter11_differential_censoring_bound.py is a sensitivity over a label produced by the frozen rule rather than over a number invented for the occasion. ministral3_3b is not among them: no ensemble label for this cell exists in that arm, so it is bounded over the whole admissible score range instead"
 }

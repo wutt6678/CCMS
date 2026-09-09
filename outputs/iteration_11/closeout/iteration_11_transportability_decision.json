@@ -133,7 +133,7 @@
       "phi4_mm",
       "qwen35_2b"
     ],
-    "rule": "'generally transported' requires EVERY target tested to carry the reference sign; one reversal makes the effect model-specific. The rule is stated before the count is taken, because a rule chosen afterwards is a description of the table wearing a decision's clothes",
+    "rule": "'generally transported' requires EVERY target tested to carry the reference sign; one reversal makes the effect model-specific. Anything in between would be a claim about a proportion, and a proportion of four targets is not a rate. This rule is POST-SPECIFIED: the frozen protocol pre-specifies the four per-model sign-match statements, the estimand, the correction and the retention clause, and files no rule that turns four per-model verdicts into one label. See how_this_rule_was_specified, which measures that against the protocol document rather than asserting it",
     "every_reversal_is_a_result_and_not_a_null": true,
     "the_decision_survives_the_differential_exclusion": true,
     "what_surviving_the_exclusion_required": {
@@ -274,6 +274,82 @@
     },
     "why_that_is_not_a_contradiction": "the per-target mean is over the 98-family confirmatory panel and is a bootstrap mean; the bound's range is over 99 families -- the same panel with the one differentially missing cell restored -- and is a point mean at each end of the rubric. Different numerator, different denominator, and one of them resampled. Containment would be a coincidence, not a check, so it is reported where it fails rather than asserted where it holds. What IS a check, and what the decision rests on, is that both quantities carry the same sign in every target"
   },
+  "how_this_rule_was_specified": {
+    "the_rule": "'generally transported' requires EVERY target tested to carry the reference sign; one reversal makes the effect model-specific",
+    "specified_when": "post_specified_descriptive",
+    "what_that_means": "the rule is a deterministic function of the four per-model results and contains no threshold, no proportion and no discretion, so two readers of the same table get the same label. It was not written down before the table existed, so it carries none of the protection a pre-registered decision rule carries, and this document does not claim that it does",
+    "the_protocol_document": {
+      "path": "outputs/iteration_11/protocol/iteration_11_protocol.json",
+      "sha256": "8867143465d1dfbae7f8e87981c40d4a40d3f9ccc5a209d8e2993c0cd8ab34a1",
+      "name": "Cross-model scale and family transportability",
+      "status": "FROZEN — do not modify after seeing Iteration 11 outcomes",
+      "frozen_before_any_target_generation": true,
+      "frozen_at_code_commit": "5e29f253e927040daa5c25d26208afb61c92dcb4"
+    },
+    "what_the_protocol_pre_specifies": {
+      "sign_convention": "DeltaTV uses the exact Iteration 10 definition and sign; Iteration 10 Qwen3.5-9B DeltaTV is POSITIVE (CI [0.0495, 0.1800]).",
+      "per_target_statements": {
+        "H1": {
+          "target": "qwen35_2b",
+          "named_by_the_label": "2B",
+          "statement": "DeltaTV sign in Qwen3.5-2B matches the Iteration 10 9B sign."
+        },
+        "H2": {
+          "target": "qwen35_4b",
+          "named_by_the_label": "4B",
+          "statement": "DeltaTV sign in Qwen3.5-4B matches the Iteration 10 9B sign."
+        },
+        "H3": {
+          "target": "ministral3_3b",
+          "named_by_the_label": "3B",
+          "statement": "DeltaTV sign in Ministral-3-3B matches the Iteration 10 sign."
+        },
+        "H4": {
+          "target": "phi4_mm",
+          "named_by_the_label": "Phi-4-multimodal",
+          "statement": "DeltaTV sign in Phi-4-multimodal matches the Iteration 10 sign."
+        }
+      },
+      "n_per_target_statements": 4,
+      "statements_that_are_not_about_one_target": {
+        "H5": {
+          "statement": "Pooled cross-family DeltaTV sign matches the Iteration 10 sign.",
+          "targets_it_names": [],
+          "why_it_is_not_one_of_the_four": "it names no confirmatory target"
+        }
+      },
+      "how_the_split_was_derived": "a hypothesis counts as per-target when exactly one of the four confirmatory targets' marketed labels appears in it, read out of the protocol's own model_matrix. The pooled statement names none of them and is filed separately rather than folded in, because the rule below is a conjunction over single-model signs and a pooled sign is not one of them",
+      "multiplicity": {
+        "alpha": 0.05,
+        "family_wise_correction": "Holm-Bonferroni",
+        "n_confirmatory_model_tests": 4,
+        "note": "No correction pre-existed; Holm-Bonferroni is predeclared here for the four new-model confirmatory tests. No retroactive selection of only significant models/metrics.",
+        "primary_estimand_per_new_model": "Delta_TV sign (frozen estimator)",
+        "raw_ci_preserved": true
+      },
+      "retention": "All null, attenuated, heterogeneous, or sign-reversed results are retained and reported. No checkpoint is replaced because its scientific result is unfavorable."
+    },
+    "the_rule_is_the_conjunction_of_those_statements": {
+      "claim": "the classification this document files asks whether every one of the per-target statements the protocol froze came out, which is their conjunction and adds no threshold, proportion or discretion of its own",
+      "n_statements_conjoined": 4,
+      "n_confirmatory_tests_the_protocol_declares": 4,
+      "n_targets_this_document_measured": 4,
+      "the_three_counts_agree": true,
+      "targets_covered": [
+        "ministral3_3b",
+        "phi4_mm",
+        "qwen35_2b",
+        "qwen35_4b"
+      ],
+      "every_target_is_covered_exactly_once": true,
+      "what_the_conjunction_leaves_out": "the pooled statement, which the protocol also froze and which this document does not classify: pooling five signs into one is the estimate over a population that what_this_decision_does_not_say refuses to licence"
+    },
+    "what_the_protocol_does_not_pre_specify": "any rule that aggregates the per-model verdicts into one transportability label. Each hypothesis the protocol files is a statement about ONE model's sign, and the protocol's own name for the iteration is a topic, not a decision rule",
+    "the_rule_is_not_a_quotation_from_the_protocol": true,
+    "how_that_is_measured": "the rule string is searched for in the protocol document as filed, and --verify repeats the search. A hit would mean the protocol does pre-specify the classification and this block is wrong, so the claim is a measurement with a way to fail rather than a characterisation",
+    "why_the_conclusion_is_defensible_anyway": "the rule is the conjunction of the four per-target statements the protocol does pre-specify, each tested under the correction the protocol pre-declared, and the retention clause the protocol froze required the reversals to be reported whatever label was put on them. What post-specification costs is the ability to say the LABEL could not have been chosen to suit the table -- and with four verdicts, one matching and three refuted, any label that suited this table would have to say the same thing about the same three reversals",
+    "what_would_make_it_pre_specified": "the rule written into a protocol frozen before any target was replayed. This iteration's protocol was frozen at 5e29f253e927040daa5c25d26208afb61c92dcb4 and could have carried it; it does not, and a later iteration that wants a pre-registered transportability claim has to put the rule there"
+  },
   "what_this_decision_does_not_say": [
     "it does not say the 9B result is wrong: that sign is sealed, was measured on its own panel, and is the reference these four were compared against",
     "it does not say the effect is absent in the reversing targets: each has a Delta_TV that is significantly NEGATIVE, which is a finding in the opposite direction and is reported as one",
@@ -289,8 +365,12 @@
     },
     "differential_censoring_bound": {
       "path": "outputs/iteration_11/analysis/differential_censoring/differential_censoring_bound.json",
-      "sha256": "b66294e01eb4f97da5741e4365d8bcb14fad1aaa3095f46cffbe7c48cae09ee8"
+      "sha256": "e3f70b63d2d06cf9d00f6122ba33f73bd91d73c5c76271d30c13bd469c53dac5"
     },
-    "why_bound_by_hash": "the decision is a pure function of these two files. No clock, no commit and no tree state is in this document, so --verify rebuilds it and compares the whole thing: a filing that carried its own generation time could only ever be compared field by field, by a list somebody had to remember to keep short"
+    "frozen_protocol": {
+      "path": "outputs/iteration_11/protocol/iteration_11_protocol.json",
+      "sha256": "8867143465d1dfbae7f8e87981c40d4a40d3f9ccc5a209d8e2993c0cd8ab34a1"
+    },
+    "why_bound_by_hash": "the decision is a pure function of these three files. No clock, no commit and no tree state is in this document, so --verify rebuilds it and compares the whole thing: a filing that carried its own generation time could only ever be compared field by field, by a list somebody had to remember to keep short. The protocol is an input because whether this rule was pre-specified is a question only that document can answer"
   }
 }

@@ -30,7 +30,7 @@
       "judge_coverage.qwen35_4b": "outputs/iteration_11/judge/qwen35_4b/judge_coverage.json"
     },
     "sha256": {
-      "censoring_bound": "b66294e01eb4f97da5741e4365d8bcb14fad1aaa3095f46cffbe7c48cae09ee8",
+      "censoring_bound": "e3f70b63d2d06cf9d00f6122ba33f73bd91d73c5c76271d30c13bd469c53dac5",
       "cross_model_analysis": "524084e518b5f8fe03d8f7a6a8fcab3422438f71d7c5e912bd47ad9a6f5c3215",
       "dependency_lock": "91ed39136645514af847eae6d216cd252bd127a297f0364f400af3d75f153f61",
       "evidence_manifest": "23b3c96773f8a830a56bd7b4e7729720daeb46f2e194c0c43726ad503b86e2e6",
@@ -50,7 +50,7 @@
       "protocol": "8867143465d1dfbae7f8e87981c40d4a40d3f9ccc5a209d8e2993c0cd8ab34a1",
       "reference_restriction": "b40747954cb464cabb0f6a482fb7378d765a8bddb3edbb1626cfac9589a04f5d",
       "selection": "163b7c68a48e8466943063c2199e13123b2cfa59f14fe165cd6f5c61a4268d6e",
-      "transportability_decision": "38079538dae9062107dc3ed62f7d9516a50f970562bf3de7035d0afb36489f4c",
+      "transportability_decision": "2f14960c21caa551cf905497ca06edc81b29300322f403dd2cee9e64692bb552",
       "truncation_evidence": "98f0ce5e1b4b8efca8a187f56f28b65a3efa809e43f64c1c802ac25c1e6443d0",
       "vision_ablation": "4ab43c6e33de06672147ce9065dccd151efef82ab3683d7291d0575443db1425"
     },

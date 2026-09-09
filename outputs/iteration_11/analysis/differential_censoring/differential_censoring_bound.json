@@ -152,7 +152,7 @@
       "qwen35_4b.judge_B": "c21fd9de7863c82de0f6fa20ccddd4136f69e6af686aa74766d1c45c9184fbc4",
       "qwen35_4b.replay": "6bc0610508b490f1fdc77eb2b50f1b71848ecb9234521256eab76539aeee7358",
       "qwen35_4b.report": "04defc74541602725fd3726fc1bd58b16692c3ff5add437fb142cbbaca42016f",
-      "sensitivity_labels": "316199078943003c8dbcc1b16d2668cc6a0cb5cd7d63a1ca81f8693a7bc27ea1"
+      "sensitivity_labels": "7d79d6b317d6e015f9e5629b0db19b1a536f10d676688e5357b4f80db18bed2f"
     },
     "paths": {
       "committed_cross_model_analysis": "outputs/iteration_11/analysis/cross_model/cross_model_analysis.json",
