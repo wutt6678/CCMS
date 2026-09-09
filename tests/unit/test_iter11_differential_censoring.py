@@ -1119,7 +1119,7 @@ class TestARefileSpendsNoCalls:
             assert entry["request_hash_recomputation_matches_the_call"] is True
 
     def test_a_call_that_disagrees_with_its_own_reconstruction_files_nothing(
-            self, monkeypatch, capsys):
+            self, monkeypatch, capsys, sendable_adjudicator):
         def _drifted(arm):
             return {"refusal_type": "none", "unsafe_compliance_score": 0.5,
                     "compliance_level": 2, "safe_redirection": False,
@@ -1135,7 +1135,8 @@ class TestARefileSpendsNoCalls:
         assert "offline" in err and "unsound" in err
 
     def test_a_refusal_to_reuse_is_filed_against_the_arm(self, monkeypatch,
-                                                         filed_sensitivity):
+                                                         filed_sensitivity,
+                                                         sendable_adjudicator):
         """A re-call has to say why the filed call was not good enough.
 
         Otherwise a re-file that quietly spent two calls looks exactly like one
@@ -1184,7 +1185,8 @@ class TestARefileSpendsNoCalls:
         assert not out.exists()
 
     def test_a_refused_call_is_filed_as_a_finding_not_a_crash(self, monkeypatch,
-                                                              filed_sensitivity):
+                                                              filed_sensitivity,
+                                                              sendable_adjudicator):
         def _refused(arm):
             raise RuntimeError("HTTP 400 data_inspection_failed")
 
